@@ -4,10 +4,11 @@ import requests
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+import html
 import re
 
 HEADERS = {
-    "User-Agent": "jhaley1212@gmail.com"
+    "User-Agent": "ETF Dashboard (jhaley1212@gmail.com)"
 }
 
 CIK = "0001174610"
@@ -25,25 +26,43 @@ def extract_text(url):
 
 
 def extract_etf_name(text):
-    patterns = [
-        r"Series\s+S\d+\s+new\s+(.+?)\s+Class/Contract\s+C\d+",
-        r"Series\s+S\d+\s+(.+?)\s+Class/Contract\s+C\d+",
-        r"Name\s+Ticker Symbol\s+CIK\s+\d+\s+Series\s+S\d+\s+new\s+(.+?)\s+Class/Contract",
-    ]
+    series_match = re.search(
+        r'<td[^>]*class="seriesName"[^>]*>.*?</td>\s*'
+        r'<td[^>]*class="seriesCell"[^>]*>.*?</td>\s*'
+        r'<td[^>]*class="seriesCell"[^>]*>(.*?)</td>',
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if series_match:
+        name = clean_html_text(series_match.group(1))
+        if name:
+            return name
 
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
-        if match:
-            name = " ".join(match.group(1).split())
-            if name:
-                return name
+    contract_match = re.search(
+        r'<tr[^>]*class="contractRow"[^>]*>.*?'
+        r'<td[^>]*>(.*?)</td>\s*<td[^>]*>.*?</td>\s*</tr>',
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if contract_match:
+        name = clean_html_text(contract_match.group(1))
+        if name:
+            return name
 
-    fallback = re.search(r'([A-Z][A-Za-z0-9\s\-]{5,100}(ETF|Fund))', text)
+    fallback_text = clean_html_text(text)
+    fallback = re.search(r'([A-Z][A-Za-z0-9&\s\-]{5,100}(ETF|Fund))', fallback_text)
     return fallback.group(1).strip() if fallback else "N/A"
+
+
+def clean_html_text(value):
+    without_tags = re.sub(r"<[^>]+>", " ", value)
+    decoded = html.unescape(without_tags)
+    return " ".join(decoded.split())
 
 
 def fetch_filings():
     results = []
+    seen_links = set()
     cutoff_date = datetime.today() - timedelta(days=DAYS_BACK)
 
     for form in FORMS:
@@ -74,6 +93,10 @@ def fetch_filings():
                     break
 
                 text = extract_text(link)
+                if link in seen_links:
+                    continue
+
+                seen_links.add(link)
 
                 results.append({
                     "etf_name": extract_etf_name(text),
