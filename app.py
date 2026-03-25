@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import streamlit.components.v1 as components
 import requests
 import time
 import xml.etree.ElementTree as ET
@@ -26,23 +25,21 @@ def extract_text(url):
 
 
 def extract_etf_name(text):
-    match = re.search(r'([A-Z][A-Za-z0-9\s\-]{5,100}(ETF|Fund))', text)
-    return match.group(1).strip() if match else "N/A"
-
-
-def extract_strategy(text):
     patterns = [
-        r"investment objective.*?\.",
-        r"principal investment strategy.*?\.",
-        r"principal investment strategies.*?\."
+        r"Series\s+S\d+\s+new\s+(.+?)\s+Class/Contract\s+C\d+",
+        r"Series\s+S\d+\s+(.+?)\s+Class/Contract\s+C\d+",
+        r"Name\s+Ticker Symbol\s+CIK\s+\d+\s+Series\s+S\d+\s+new\s+(.+?)\s+Class/Contract",
     ]
 
-    for p in patterns:
-        match = re.search(p, text, re.IGNORECASE)
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
         if match:
-            return match.group(0).strip()
+            name = " ".join(match.group(1).split())
+            if name:
+                return name
 
-    return "N/A"
+    fallback = re.search(r'([A-Z][A-Za-z0-9\s\-]{5,100}(ETF|Fund))', text)
+    return fallback.group(1).strip() if fallback else "N/A"
 
 
 def fetch_filings():
@@ -80,7 +77,6 @@ def fetch_filings():
 
                 results.append({
                     "etf_name": extract_etf_name(text),
-                    "strategy": extract_strategy(text),
                     "form": form,
                     "date": date_str,
                     "link": link
@@ -98,39 +94,12 @@ def fetch_filings():
 st.set_page_config(page_title="ProShares ETF Filings", layout="wide")
 
 st.title("ProShares ETF Filings")
-st.write("S-1, N-1A, 485BPOS")
-
-refresh_minutes = st.sidebar.selectbox(
-    "Check for new filings every",
-    options=[1, 5, 10, 30],
-    index=1
-)
+st.write("Recent ProShares registration filings")
 
 
 @st.cache_data(ttl=60)
 def load_filings():
     return fetch_filings()
-
-
-def enable_auto_refresh(interval_minutes):
-    interval_ms = interval_minutes * 60 * 1000
-    components.html(
-        f"""
-        <script>
-            setTimeout(function() {{
-                window.parent.location.reload();
-            }}, {interval_ms});
-        </script>
-        """,
-        height=0,
-    )
-
-
-enable_auto_refresh(refresh_minutes)
-
-st.caption(
-    f"This page automatically refreshes every {refresh_minutes} minute(s) to look for new SEC filings."
-)
 
 try:
     with st.spinner("Checking the SEC website for the latest filings..."):
@@ -147,11 +116,13 @@ else:
     if not df.empty:
         df = df.sort_values(by="date", ascending=False)
         st.success(f"Loaded {len(df)} filing(s).")
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(
+            df[["etf_name", "form", "date", "link"]],
+            use_container_width=True,
+        )
 
         for _, row in df.iterrows():
             st.markdown(f"### {row['etf_name']}")
-            st.markdown(f"**Strategy:** {row['strategy']}")
             st.markdown(f"**Form:** {row['form']} | **Date:** {row['date']}")
             st.markdown(f"[View Filing]({row['link']})")
             st.markdown("---")
