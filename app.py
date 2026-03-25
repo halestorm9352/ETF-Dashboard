@@ -151,6 +151,21 @@ NEWS_QUERIES = [
     ("Eric Balchunas / Bloomberg", "Eric Balchunas Bloomberg ETF"),
     ("ETF Headlines", "ETF news Bloomberg ETF.com"),
 ]
+COMMON_MATCH_WORDS = {
+    "etf",
+    "fund",
+    "trust",
+    "daily",
+    "long",
+    "short",
+    "ultra",
+    "capital",
+    "shares",
+    "index",
+    "income",
+    "growth",
+    "target",
+}
 
 
 def get_response_text(url, max_chars, retries=3):
@@ -197,9 +212,14 @@ def fetch_news_items():
                 continue
 
             seen_links.add(link)
+            source = label
+            if " - " in title:
+                title, source = title.rsplit(" - ", 1)
+
             items.append(
                 {
                     "section": label,
+                    "source": source.strip(),
                     "title": title,
                     "link": link,
                     "pub_date": pub_date,
@@ -345,6 +365,52 @@ def clean_html_text(value):
     decoded = html.unescape(without_tags)
     decoded = re.sub(r"[\u2000-\u200f\u2028-\u202f\u205f\u2060\ufeff]", " ", decoded)
     return " ".join(decoded.split())
+
+
+def normalize_match_text(value):
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def extract_match_terms(value):
+    return {
+        word
+        for word in normalize_match_text(value).split()
+        if len(word) >= 4 and word not in COMMON_MATCH_WORDS
+    }
+
+
+def match_news_to_etfs(news_title, filings_df, limit=3):
+    news_text = normalize_match_text(news_title)
+    matches = []
+
+    for _, row in filings_df.iterrows():
+        etf_name = str(row.get("etf_name", "")).strip()
+        ticker = str(row.get("ticker", "")).strip().upper()
+        if not etf_name:
+            continue
+
+        score = 0
+        if ticker and ticker not in {"", "Not Listed"} and re.search(rf"\b{re.escape(ticker.lower())}\b", news_text):
+            score += 3
+
+        terms = extract_match_terms(etf_name)
+        overlap = sum(1 for term in terms if re.search(rf"\b{re.escape(term)}\b", news_text))
+        score += overlap
+
+        if score > 0:
+            matches.append((score, f"{ticker} | {etf_name}" if ticker and ticker != "Not Listed" else etf_name))
+
+    matches.sort(key=lambda item: (-item[0], item[1]))
+    unique = []
+    seen = set()
+    for _, label in matches:
+        if label not in seen:
+            seen.add(label)
+            unique.append(label)
+        if len(unique) >= limit:
+            break
+
+    return ", ".join(unique) if unique else "No direct match"
 
 
 def build_sec_url(path_or_url):
@@ -535,18 +601,10 @@ except Exception as exc:
     st.caption(f"Temporary data source issue: {type(exc).__name__}")
 else:
     df = pd.DataFrame(data)
-    left_col, right_col = st.columns([3.2, 1.3], gap="large")
+    left_col, right_col = st.columns([1, 1], gap="large")
 
     with right_col:
         st.subheader("ETF News")
-        news_items = load_news()
-        if news_items:
-            for item in news_items:
-                st.markdown(f"[{item['title']}]({item['link']})")
-                st.caption(f"{item['section']} | {item['pub_date']}")
-        else:
-            st.caption("News feed is temporarily unavailable.")
-
     with left_col:
         if not df.empty:
             for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
@@ -559,9 +617,11 @@ else:
             min_date = df["date"].min().date()
             max_date = df["date"].max().date()
 
-            filter_cols = st.columns(2)
-            start_date = filter_cols[0].date_input("Start date", value=min_date, min_value=min_date, max_value=max_date)
-            end_date = filter_cols[1].date_input("End date", value=max_date, min_value=min_date, max_value=max_date)
+            with st.form("date_filter_form"):
+                filter_cols = st.columns([1, 1, 0.6])
+                start_date = filter_cols[0].date_input("Start date", value=min_date, min_value=min_date, max_value=max_date)
+                end_date = filter_cols[1].date_input("End date", value=max_date, min_value=min_date, max_value=max_date)
+                search_clicked = filter_cols[2].form_submit_button("Search")
 
             if start_date > end_date:
                 st.warning("Start date must be on or before end date.")
@@ -585,6 +645,22 @@ else:
                 st.markdown(f"**Form:** {row['form']} | **Date:** {row['date']}")
                 st.markdown(f"[View Filing]({row['link']})")
                 st.markdown("---")
+
+            with right_col:
+                news_items = load_news()
+                if news_items:
+                    header_cols = st.columns([2.2, 1, 1.4])
+                    header_cols[0].markdown("**Headline**")
+                    header_cols[1].markdown("**Source**")
+                    header_cols[2].markdown("**Matching ETFs**")
+
+                    for item in news_items:
+                        row_cols = st.columns([2.2, 1, 1.4])
+                        row_cols[0].markdown(f"[{item['title']}]({item['link']})")
+                        row_cols[1].write(item.get("source", item["section"]))
+                        row_cols[2].write(match_news_to_etfs(item["title"], filtered_df))
+                else:
+                    st.caption("News feed is temporarily unavailable.")
         else:
             st.warning(
                 "No recent filings were loaded right now. "
