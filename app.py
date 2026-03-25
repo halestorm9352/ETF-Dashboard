@@ -138,6 +138,7 @@ CIKS = list(CIK_LOOKUP.keys())
 FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
+DATA_VERSION = "2026-03-25-row84-fix"
 
 
 def extract_text(url, max_chars=20000):
@@ -344,12 +345,12 @@ st.write("Recent registration filings across the selected ETF issuers")
 
 
 @st.cache_data(ttl=1800)
-def load_filings():
+def load_filings(_data_version):
     return fetch_filings()
 
 try:
     with st.spinner("Checking the SEC website for the latest filings..."):
-        data = load_filings()
+        data = load_filings(DATA_VERSION)
 except Exception as exc:
     st.error(
         "The app could not load fresh SEC filing data right now. "
