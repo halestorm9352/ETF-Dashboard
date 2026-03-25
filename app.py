@@ -143,7 +143,7 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-row31-row84-fix"
+DATA_VERSION = "2026-03-25-ticker-fallback-fix"
 
 
 def extract_text(url, max_chars=INDEX_PAGE_MAX_CHARS):
@@ -216,6 +216,26 @@ def extract_ticker(text):
                 return ticker_candidate
 
     cleaned_text = clean_html_text(text)
+
+    ticker_symbol_match = re.search(
+        r'Ticker Symbol:\s*([A-Z]{1,8})\b',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if ticker_symbol_match:
+        ticker = ticker_symbol_match.group(1).upper()
+        if ticker != "CIK":
+            return ticker
+
+    prospectus_table_match = re.search(
+        r'Fund\s+Ticker\s+Principal U\.S\. Listing Exchange.*?(?:ETF|Fund)\s+([A-Z]{1,8})\b',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if prospectus_table_match:
+        ticker = prospectus_table_match.group(1).upper()
+        if ticker != "CIK":
+            return ticker
 
     pipe_match = re.search(
         r'([A-Z]{2,6})\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
