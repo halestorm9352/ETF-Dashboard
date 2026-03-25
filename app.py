@@ -140,11 +140,11 @@ DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 
 
-def extract_text(url):
+def extract_text(url, max_chars=20000):
     try:
         r = requests.get(url, headers=HEADERS, timeout=20)
         r.raise_for_status()
-        return r.text[:20000]
+        return r.text[:max_chars]
     except requests.RequestException:
         return ""
 
@@ -249,8 +249,8 @@ def extract_supporting_document_urls(index_text):
 
 def fetch_supporting_document_text(index_text):
     html_url, xml_url = extract_supporting_document_urls(index_text)
-    html_text = extract_text(html_url) if html_url else ""
-    xml_text = extract_text(xml_url) if xml_url else ""
+    html_text = extract_text(html_url, max_chars=120000) if html_url else ""
+    xml_text = extract_text(xml_url, max_chars=120000) if xml_url else ""
     return html_text, xml_text
 
 
