@@ -143,7 +143,7 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-document-pass"
+DATA_VERSION = "2026-03-25-not-listed-and-listed-on"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 
 
@@ -232,6 +232,16 @@ def extract_ticker(text):
     )
     if ticker_symbol_match:
         ticker = ticker_symbol_match.group(1).upper()
+        if ticker not in INVALID_TICKERS:
+            return ticker
+
+    listed_on_match = re.search(
+        r'(?:ETF|Fund)\s+([A-Z]{2,8})\s+Listed on\b',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if listed_on_match:
+        ticker = listed_on_match.group(1).upper()
         if ticker not in INVALID_TICKERS:
             return ticker
 
@@ -456,6 +466,8 @@ def fetch_filings():
                         break
 
             resolved_filer_name = filing_filer_name or filer_name
+            if not ticker:
+                ticker = "Not Listed"
 
             results.append({
                 "ticker": ticker,
