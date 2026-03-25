@@ -150,6 +150,14 @@ def extract_text(url):
 
 
 def extract_etf_name(text):
+    pipe_match = re.search(
+        r'([A-Z]{2,6})\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
+        clean_html_text(text),
+        re.IGNORECASE,
+    )
+    if pipe_match:
+        return pipe_match.group(2).strip()
+
     series_match = re.search(
         r'<td[^>]*class="seriesName"[^>]*>.*?</td>\s*'
         r'<td[^>]*class="seriesCell"[^>]*>.*?</td>\s*'
@@ -173,15 +181,77 @@ def extract_etf_name(text):
         if name:
             return name
 
+    heading_match = re.search(
+        r'<oef:RiskReturnHeading[^>]*>(.*?)</oef:RiskReturnHeading>',
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if heading_match:
+        name = clean_html_text(heading_match.group(1))
+        if name:
+            return name
+
     fallback_text = clean_html_text(text)
     fallback = re.search(r'([A-Z][A-Za-z0-9&\s\-]{5,100}(ETF|Fund))', fallback_text)
     return fallback.group(1).strip() if fallback else "N/A"
+
+
+def extract_ticker(text):
+    cleaned_text = clean_html_text(text)
+
+    pipe_match = re.search(
+        r'([A-Z]{2,6})\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if pipe_match:
+        return pipe_match.group(1).upper()
+
+    ticker_cell_match = re.search(
+        r'Ticker Symbol\s+([A-Z]{1,8})',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if ticker_cell_match:
+        return ticker_cell_match.group(1).upper()
+
+    return ""
 
 
 def clean_html_text(value):
     without_tags = re.sub(r"<[^>]+>", " ", value)
     decoded = html.unescape(without_tags)
     return " ".join(decoded.split())
+
+
+def build_sec_url(path_or_url):
+    if path_or_url.startswith("http"):
+        return path_or_url
+    return f"https://www.sec.gov{path_or_url}"
+
+
+def extract_supporting_document_urls(index_text):
+    html_match = re.search(
+        r'href="/ix\?doc=(/Archives/edgar/data/[^"]+\.htm)"',
+        index_text,
+        re.IGNORECASE,
+    )
+    xml_match = re.search(
+        r'href="(/Archives/edgar/data/[^"]+_htm\.xml)"',
+        index_text,
+        re.IGNORECASE,
+    )
+
+    html_url = build_sec_url(html_match.group(1)) if html_match else ""
+    xml_url = build_sec_url(xml_match.group(1)) if xml_match else ""
+    return html_url, xml_url
+
+
+def fetch_supporting_document_text(index_text):
+    html_url, xml_url = extract_supporting_document_urls(index_text)
+    html_text = extract_text(html_url) if html_url else ""
+    xml_text = extract_text(xml_url) if xml_url else ""
+    return html_text, xml_text
 
 
 def fetch_recent_filings_for_cik(cik):
@@ -236,8 +306,25 @@ def fetch_filings():
             text = extract_text(filing_link)
             seen_links.add(filing_link)
 
+            ticker = extract_ticker(text)
+            etf_name = extract_etf_name(text)
+
+            if etf_name == "N/A" or not ticker:
+                supporting_html, supporting_xml = fetch_supporting_document_text(text)
+
+                if etf_name == "N/A" and supporting_html:
+                    etf_name = extract_etf_name(supporting_html)
+                if etf_name == "N/A" and supporting_xml:
+                    etf_name = extract_etf_name(supporting_xml)
+
+                if not ticker and supporting_html:
+                    ticker = extract_ticker(supporting_html)
+                if not ticker and supporting_xml:
+                    ticker = extract_ticker(supporting_xml)
+
             results.append({
-                "etf_name": extract_etf_name(text),
+                "ticker": ticker,
+                "etf_name": etf_name,
                 "filer": filer_name,
                 "form": form,
                 "date": date_str,
@@ -276,12 +363,14 @@ else:
         df = df.sort_values(by="date", ascending=False)
         st.success(f"Loaded {len(df)} filing(s).")
         st.dataframe(
-            df[["etf_name", "filer", "form", "date", "link"]],
+            df[["ticker", "etf_name", "filer", "form", "date", "link"]],
             use_container_width=True,
         )
 
         for _, row in df.iterrows():
             st.markdown(f"### {row['etf_name']}")
+            if row["ticker"]:
+                st.markdown(f"**Ticker:** {row['ticker']}")
             st.markdown(f"**Filer:** {row['filer']}")
             st.markdown(f"**Form:** {row['form']} | **Date:** {row['date']}")
             st.markdown(f"[View Filing]({row['link']})")
