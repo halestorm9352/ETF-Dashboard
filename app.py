@@ -398,7 +398,8 @@ def match_news_to_etfs(news_title, filings_df, limit=3):
         score += overlap
 
         if score > 0:
-            matches.append((score, f"{ticker} | {etf_name}" if ticker and ticker != "Not Listed" else etf_name))
+            label = ticker if ticker and ticker != "Not Listed" else etf_name
+            matches.append((score, label))
 
     matches.sort(key=lambda item: (-item[0], item[1]))
     unique = []
@@ -601,68 +602,64 @@ except Exception as exc:
     st.caption(f"Temporary data source issue: {type(exc).__name__}")
 else:
     df = pd.DataFrame(data)
-    left_col, right_col = st.columns([1, 1], gap="large")
+    if not df.empty:
+        for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
+            if column not in df.columns:
+                df[column] = ""
 
-    with right_col:
-        st.subheader("ETF News")
-    with left_col:
-        if not df.empty:
-            for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
-                if column not in df.columns:
-                    df[column] = ""
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        df = df.dropna(subset=["date"]).sort_values(by="date", ascending=False)
 
-            df["date"] = pd.to_datetime(df["date"], errors="coerce")
-            df = df.dropna(subset=["date"]).sort_values(by="date", ascending=False)
+        min_date = df["date"].min().date()
+        max_date = df["date"].max().date()
 
-            min_date = df["date"].min().date()
-            max_date = df["date"].max().date()
+        with st.form("date_filter_form"):
+            filter_cols = st.columns([1, 1, 0.6])
+            start_date = filter_cols[0].date_input("Start date", value=min_date, min_value=min_date, max_value=max_date)
+            end_date = filter_cols[1].date_input("End date", value=max_date, min_value=min_date, max_value=max_date)
+            filter_cols[2].form_submit_button("Search")
 
-            with st.form("date_filter_form"):
-                filter_cols = st.columns([1, 1, 0.6])
-                start_date = filter_cols[0].date_input("Start date", value=min_date, min_value=min_date, max_value=max_date)
-                end_date = filter_cols[1].date_input("End date", value=max_date, min_value=min_date, max_value=max_date)
-                search_clicked = filter_cols[2].form_submit_button("Search")
-
-            if start_date > end_date:
-                st.warning("Start date must be on or before end date.")
-                filtered_df = df.iloc[0:0].copy()
-            else:
-                filtered_df = df[(df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date)].copy()
-
-            filtered_df["date"] = filtered_df["date"].dt.strftime("%Y-%m-%d")
-
-            st.success(f"Loaded {len(filtered_df)} filing(s) in the selected date range.")
-            st.dataframe(
-                filtered_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
-                use_container_width=True,
-            )
-
-            for _, row in filtered_df.iterrows():
-                st.markdown(f"### {row['etf_name']}")
-                if row["ticker"]:
-                    st.markdown(f"**Ticker:** {row['ticker']}")
-                st.markdown(f"**Filer:** {row['filer']}")
-                st.markdown(f"**Form:** {row['form']} | **Date:** {row['date']}")
-                st.markdown(f"[View Filing]({row['link']})")
-                st.markdown("---")
-
-            with right_col:
-                news_items = load_news()
-                if news_items:
-                    header_cols = st.columns([2.2, 1, 1.4])
-                    header_cols[0].markdown("**Headline**")
-                    header_cols[1].markdown("**Source**")
-                    header_cols[2].markdown("**Matching ETFs**")
-
-                    for item in news_items:
-                        row_cols = st.columns([2.2, 1, 1.4])
-                        row_cols[0].markdown(f"[{item['title']}]({item['link']})")
-                        row_cols[1].write(item.get("source", item["section"]))
-                        row_cols[2].write(match_news_to_etfs(item["title"], filtered_df))
-                else:
-                    st.caption("News feed is temporarily unavailable.")
+        if start_date > end_date:
+            st.warning("Start date must be on or before end date.")
+            filtered_df = df.iloc[0:0].copy()
         else:
-            st.warning(
-                "No recent filings were loaded right now. "
-                "The SEC may be rate-limiting some requests, so please try again shortly."
-            )
+            filtered_df = df[(df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date)].copy()
+
+        filtered_df["date"] = filtered_df["date"].dt.strftime("%Y-%m-%d")
+
+        st.subheader("ETF News")
+        news_items = load_news()
+        if news_items:
+            header_cols = st.columns([2.4, 1, 1])
+            header_cols[0].markdown("**Headline**")
+            header_cols[1].markdown("**Source**")
+            header_cols[2].markdown("**Matching ETFs**")
+
+            for item in news_items:
+                row_cols = st.columns([2.4, 1, 1])
+                row_cols[0].markdown(f"[{item['title']}]({item['link']})")
+                row_cols[1].write(item.get("source", item["section"]))
+                row_cols[2].write(match_news_to_etfs(item["title"], filtered_df))
+        else:
+            st.caption("News feed is temporarily unavailable.")
+
+        st.subheader("ETF Filings")
+        st.success(f"Loaded {len(filtered_df)} filing(s) in the selected date range.")
+        st.dataframe(
+            filtered_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
+            use_container_width=True,
+        )
+
+        for _, row in filtered_df.iterrows():
+            st.markdown(f"### {row['etf_name']}")
+            if row["ticker"]:
+                st.markdown(f"**Ticker:** {row['ticker']}")
+            st.markdown(f"**Filer:** {row['filer']}")
+            st.markdown(f"**Form:** {row['form']} | **Date:** {row['date']}")
+            st.markdown(f"[View Filing]({row['link']})")
+            st.markdown("---")
+    else:
+        st.warning(
+            "No recent filings were loaded right now. "
+            "The SEC may be rate-limiting some requests, so please try again shortly."
+        )
