@@ -207,13 +207,16 @@ def fetch_news_items():
             title = (entry.findtext("title") or "").strip()
             link = (entry.findtext("link") or "").strip()
             pub_date = (entry.findtext("pubDate") or "").strip()
+            source_text = (entry.findtext("source") or "").strip()
 
             if not title or not link or link in seen_links:
                 continue
 
             seen_links.add(link)
             source = label
-            if " - " in title:
+            if source_text:
+                source = source_text
+            elif " - " in title:
                 title, source = title.rsplit(" - ", 1)
 
             items.append(
@@ -578,9 +581,6 @@ def fetch_filings():
 
 st.set_page_config(page_title="ETF Dash", layout="wide")
 
-st.title("ETF Filings")
-st.write("Recent registration filings across the selected ETF issuers")
-
 
 @st.cache_data(ttl=1800)
 def load_filings(_data_version):
@@ -612,15 +612,19 @@ else:
 
         min_date = df["date"].min().date()
         max_date = df["date"].max().date()
+        if "start_date" not in st.session_state:
+            st.session_state.start_date = min_date
+        if "end_date" not in st.session_state:
+            st.session_state.end_date = max_date
 
-        with st.form("date_filter_form"):
-            filter_cols = st.columns([1, 1, 0.6])
-            start_date = filter_cols[0].date_input("Start date", value=min_date, min_value=min_date, max_value=max_date)
-            end_date = filter_cols[1].date_input("End date", value=max_date, min_value=min_date, max_value=max_date)
-            filter_cols[2].form_submit_button("Search")
+        start_date = st.session_state.start_date
+        end_date = st.session_state.end_date
+        if start_date < min_date or start_date > max_date:
+            start_date = min_date
+        if end_date < min_date or end_date > max_date:
+            end_date = max_date
 
         if start_date > end_date:
-            st.warning("Start date must be on or before end date.")
             filtered_df = df.iloc[0:0].copy()
         else:
             filtered_df = df[(df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date)].copy()
@@ -644,6 +648,14 @@ else:
             st.caption("News feed is temporarily unavailable.")
 
         st.subheader("ETF Filings")
+        with st.form("date_filter_form"):
+            filter_cols = st.columns([1, 1, 0.6])
+            filter_cols[0].date_input("Start date", value=start_date, min_value=min_date, max_value=max_date, key="start_date")
+            filter_cols[1].date_input("End date", value=end_date, min_value=min_date, max_value=max_date, key="end_date")
+            filter_cols[2].form_submit_button("Search")
+
+        if st.session_state.start_date > st.session_state.end_date:
+            st.warning("Start date must be on or before end date.")
         st.success(f"Loaded {len(filtered_df)} filing(s) in the selected date range.")
         st.dataframe(
             filtered_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
