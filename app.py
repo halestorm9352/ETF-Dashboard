@@ -672,15 +672,6 @@ else:
             filtered_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
             use_container_width=True,
         )
-
-        for _, row in filtered_df.iterrows():
-            st.markdown(f"### {row['etf_name']}")
-            if row["ticker"]:
-                st.markdown(f"**Ticker:** {row['ticker']}")
-            st.markdown(f"**Filer:** {row['filer']}")
-            st.markdown(f"**Form:** {row['form']} | **Date:** {row['date']}")
-            st.markdown(f"[View Filing]({row['link']})")
-            st.markdown("---")
     else:
         st.warning(
             "No recent filings were loaded right now. "
