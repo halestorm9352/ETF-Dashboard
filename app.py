@@ -143,7 +143,7 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-prioritize-primary-docs"
+DATA_VERSION = "2026-03-25-normalize-sec-spaces"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 
 
@@ -238,16 +238,6 @@ def extract_ticker(text):
 
     cleaned_text = clean_html_text(text)
 
-    listed_on_match = re.search(
-        r'(?:ETF|Fund)\s+([A-Z]{2,8})\s+Listed on\b',
-        cleaned_text,
-        re.IGNORECASE,
-    )
-    if listed_on_match:
-        ticker = listed_on_match.group(1).upper()
-        if ticker not in INVALID_TICKERS:
-            return ticker
-
     prospectus_table_match = re.search(
         r'Fund\s+Ticker\s+Principal U\.S\. Listing Exchange.*?(?:ETF|Fund)\s+([A-Z]{1,8})\b',
         cleaned_text,
@@ -304,6 +294,7 @@ def extract_filer_name(text):
 def clean_html_text(value):
     without_tags = re.sub(r"<[^>]+>", " ", value)
     decoded = html.unescape(without_tags)
+    decoded = re.sub(r"[\u2000-\u200f\u2028-\u202f\u205f\u2060\ufeff]", " ", decoded)
     return " ".join(decoded.split())
 
 
