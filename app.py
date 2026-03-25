@@ -188,6 +188,18 @@ def build_google_news_rss_url(query):
     return f"https://news.google.com/rss/search?q={quote_plus(query)}&hl=en-US&gl=US&ceid=US:en"
 
 
+def split_news_title_and_source(title, fallback_source):
+    title = title.strip()
+
+    dash_split = re.split(r"\s+[—–-]\s+", title)
+    if len(dash_split) >= 2:
+        possible_source = dash_split[-1].strip()
+        if 2 <= len(possible_source) <= 60:
+            return " - ".join(dash_split[:-1]).strip(), possible_source
+
+    return title, fallback_source
+
+
 def fetch_news_items():
     items = []
     seen_links = set()
@@ -216,8 +228,7 @@ def fetch_news_items():
             source = label
             if source_text:
                 source = source_text
-            elif " - " in title:
-                title, source = title.rsplit(" - ", 1)
+            title, source = split_news_title_and_source(title, source)
 
             items.append(
                 {
