@@ -311,7 +311,7 @@ def extract_supporting_document_urls(index_text):
 
 def fetch_supporting_document_text(index_text):
     html_url, xml_url = extract_supporting_document_urls(index_text)
-    html_text = extract_text(html_url, max_chars=120000) if html_url else ""
+    html_text = extract_text(html_url, max_chars=180000) if html_url else ""
     xml_text = extract_text(xml_url, max_chars=120000) if xml_url else ""
     return html_text, xml_text
 
