@@ -143,7 +143,7 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-safe-ticker-snippet"
+DATA_VERSION = "2026-03-25-ticker-fallback-reset"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 
 
@@ -225,7 +225,7 @@ def extract_ticker(text):
 
     raw_label_match = re.search(r'Ticker Symbol', text, re.IGNORECASE)
     if raw_label_match:
-        ticker_snippet = clean_html_text(text[raw_label_match.start(): raw_label_match.start() + 250])
+        ticker_snippet = clean_html_text(text[raw_label_match.start(): raw_label_match.start() + 2000])
         ticker_label_match = re.search(
             r'Ticker Symbol\s*:?\s*([A-Z]{2,8})\b',
             ticker_snippet,
@@ -237,16 +237,6 @@ def extract_ticker(text):
                 return ticker
 
     cleaned_text = clean_html_text(text)
-
-    ticker_symbol_match = re.search(
-        r'Ticker Symbol\s*:?\s*([A-Z]{1,8})\b',
-        cleaned_text,
-        re.IGNORECASE,
-    )
-    if ticker_symbol_match:
-        ticker = ticker_symbol_match.group(1).upper()
-        if ticker not in INVALID_TICKERS:
-            return ticker
 
     listed_on_match = re.search(
         r'(?:ETF|Fund)\s+([A-Z]{2,8})\s+Listed on\b',
