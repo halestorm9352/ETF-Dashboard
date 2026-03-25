@@ -360,6 +360,10 @@ else:
     df = pd.DataFrame(data)
 
     if not df.empty:
+        for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
+            if column not in df.columns:
+                df[column] = ""
+
         df = df.sort_values(by="date", ascending=False)
         st.success(f"Loaded {len(df)} filing(s).")
         st.dataframe(
