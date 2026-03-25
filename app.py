@@ -143,7 +143,7 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-retry-fix"
+DATA_VERSION = "2026-03-25-document-pass"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 
 
@@ -301,35 +301,27 @@ def build_sec_url(path_or_url):
 
 
 def extract_supporting_document_urls(index_text):
-    ix_html_match = re.search(
-        r'href="/ix\?doc=(/Archives/edgar/data/[^"]+\.htm)"',
-        index_text,
-        re.IGNORECASE,
-    )
-    direct_html_matches = re.findall(
-        r'href="(/Archives/edgar/data/[^"]+\.htm)"',
-        index_text,
-        re.IGNORECASE,
-    )
-    xml_match = re.search(
+    urls = []
+
+    patterns = [
+        r'href="/ix\?doc=(/Archives/edgar/data/[^"]+\.(?:htm|html))"',
+        r'href="(/Archives/edgar/data/[^"]+\.(?:htm|html))"',
         r'href="(/Archives/edgar/data/[^"]+_htm\.xml)"',
-        index_text,
-        re.IGNORECASE,
-    )
+        r'href="(/Archives/edgar/data/[^"]+\.txt)"',
+    ]
 
-    html_path = ""
-    if ix_html_match:
-        html_path = ix_html_match.group(1)
-    else:
-        for candidate in direct_html_matches:
-            filename = candidate.rsplit("/", 1)[-1].lower()
-            if filename != "index.htm":
-                html_path = candidate
-                break
+    seen = set()
+    for pattern in patterns:
+        for match in re.findall(pattern, index_text, re.IGNORECASE):
+            filename = match.rsplit("/", 1)[-1].lower()
+            if filename in {"index.htm", "index.html"}:
+                continue
+            url = build_sec_url(match)
+            if url not in seen:
+                seen.add(url)
+                urls.append(url)
 
-    html_url = build_sec_url(html_path) if html_path else ""
-    xml_url = build_sec_url(xml_match.group(1)) if xml_match else ""
-    return html_url, xml_url
+    return urls
 
 
 def extract_ticker_from_filenames(index_text, etf_name=""):
@@ -363,11 +355,18 @@ def extract_ticker_from_filenames(index_text, etf_name=""):
     return ""
 
 
-def fetch_supporting_document_text(index_text):
-    html_url, xml_url = extract_supporting_document_urls(index_text)
-    html_text = extract_text(html_url, max_chars=180000) if html_url else ""
-    xml_text = extract_text(xml_url, max_chars=120000) if xml_url else ""
-    return html_text, xml_text
+def fetch_supporting_document_texts(index_text, max_documents=5):
+    documents = []
+    for url in extract_supporting_document_urls(index_text)[:max_documents]:
+        max_chars = 250000
+        if url.lower().endswith("_htm.xml"):
+            max_chars = 120000
+
+        text = extract_text(url, max_chars=max_chars)
+        if text:
+            documents.append(text)
+
+    return documents
 
 
 def fetch_recent_filings_for_cik(cik):
@@ -439,25 +438,22 @@ def fetch_filings():
             ticker = extract_ticker(text)
             etf_name = extract_etf_name(text)
 
+            if not ticker:
+                ticker = extract_ticker_from_filenames(text, etf_name)
+
             if etf_name == "N/A" or not ticker or not filing_filer_name:
-                supporting_html, supporting_xml = fetch_supporting_document_text(text)
+                for supporting_text in fetch_supporting_document_texts(text):
+                    if etf_name == "N/A":
+                        etf_name = extract_etf_name(supporting_text)
 
-                if etf_name == "N/A" and supporting_html:
-                    etf_name = extract_etf_name(supporting_html)
-                if etf_name == "N/A" and supporting_xml:
-                    etf_name = extract_etf_name(supporting_xml)
+                    if not ticker:
+                        ticker = extract_ticker(supporting_text)
 
-                if not ticker and supporting_html:
-                    ticker = extract_ticker(supporting_html)
-                if not ticker and supporting_xml:
-                    ticker = extract_ticker(supporting_xml)
-                if not ticker:
-                    ticker = extract_ticker_from_filenames(text, etf_name)
+                    if not filing_filer_name:
+                        filing_filer_name = extract_filer_name(supporting_text)
 
-                if not filing_filer_name and supporting_html:
-                    filing_filer_name = extract_filer_name(supporting_html)
-                if not filing_filer_name and supporting_xml:
-                    filing_filer_name = extract_filer_name(supporting_xml)
+                    if etf_name != "N/A" and ticker and filing_filer_name:
+                        break
 
             resolved_filer_name = filing_filer_name or filer_name
 
@@ -476,7 +472,7 @@ def fetch_filings():
 
     return results
 
-st.set_page_config(page_title="ProShares ETF Filings", layout="wide")
+st.set_page_config(page_title="ETF Dash", layout="wide")
 
 st.title("ETF Filings")
 st.write("Recent registration filings across the selected ETF issuers")
