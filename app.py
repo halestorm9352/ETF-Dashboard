@@ -142,10 +142,11 @@ CIKS = list(CIK_LOOKUP.keys())
 FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
-DATA_VERSION = "2026-03-25-filer-fix"
+INDEX_PAGE_MAX_CHARS = 60000
+DATA_VERSION = "2026-03-25-index-parser-fix"
 
 
-def extract_text(url, max_chars=20000):
+def extract_text(url, max_chars=INDEX_PAGE_MAX_CHARS):
     try:
         r = requests.get(url, headers=HEADERS, timeout=20)
         r.raise_for_status()
@@ -202,13 +203,17 @@ def extract_etf_name(text):
 
 
 def extract_ticker(text):
-    raw_table_match = re.search(
-        r'<td>\s*([A-Z]{1,8})\s*</td>\s*</tr>',
+    contract_row_match = re.search(
+        r'<tr[^>]*class="contractRow"[^>]*>.*?'
+        r'<td[^>]*class="classContract"[^>]*>.*?</td>\s*'
+        r'<td[^>]*>.*?</td>\s*'
+        r'<td[^>]*>.*?</td>\s*'
+        r'<td[^>]*>\s*([A-Z]{1,8})\s*</td>',
         text,
-        re.IGNORECASE,
+        re.IGNORECASE | re.DOTALL,
     )
-    if raw_table_match:
-        ticker = raw_table_match.group(1).upper()
+    if contract_row_match:
+        ticker = contract_row_match.group(1).upper()
         if ticker != "CIK":
             return ticker
 
@@ -349,7 +354,7 @@ def fetch_filings():
             if filing_link in seen_links:
                 continue
 
-            text = extract_text(filing_link)
+            text = extract_text(filing_link, max_chars=INDEX_PAGE_MAX_CHARS)
             seen_links.add(filing_link)
 
             filing_filer_name = extract_filer_name(text)
