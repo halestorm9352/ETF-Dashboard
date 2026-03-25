@@ -5,6 +5,8 @@ import time
 from datetime import datetime, timedelta
 import html
 import re
+import xml.etree.ElementTree as ET
+from urllib.parse import quote_plus
 
 HEADERS = {
     "User-Agent": "ETF Dashboard (jhaley1212@gmail.com)"
@@ -143,8 +145,12 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-normalize-sec-spaces"
+DATA_VERSION = "2026-03-25-date-filter-and-news"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
+NEWS_QUERIES = [
+    ("Eric Balchunas / Bloomberg", "Eric Balchunas Bloomberg ETF"),
+    ("ETF Headlines", "ETF news Bloomberg ETF.com"),
+]
 
 
 def get_response_text(url, max_chars, retries=3):
@@ -161,6 +167,49 @@ def get_response_text(url, max_chars, retries=3):
 
 def extract_text(url, max_chars=INDEX_PAGE_MAX_CHARS):
     return get_response_text(url, max_chars)
+
+
+def build_google_news_rss_url(query):
+    return f"https://news.google.com/rss/search?q={quote_plus(query)}&hl=en-US&gl=US&ceid=US:en"
+
+
+def fetch_news_items():
+    items = []
+    seen_links = set()
+
+    for label, query in NEWS_QUERIES:
+        feed_url = build_google_news_rss_url(query)
+        feed_text = get_response_text(feed_url, max_chars=120000, retries=2)
+        if not feed_text:
+            continue
+
+        try:
+            root = ET.fromstring(feed_text)
+        except ET.ParseError:
+            continue
+
+        for entry in root.findall(".//item"):
+            title = (entry.findtext("title") or "").strip()
+            link = (entry.findtext("link") or "").strip()
+            pub_date = (entry.findtext("pubDate") or "").strip()
+
+            if not title or not link or link in seen_links:
+                continue
+
+            seen_links.add(link)
+            items.append(
+                {
+                    "section": label,
+                    "title": title,
+                    "link": link,
+                    "pub_date": pub_date,
+                }
+            )
+
+            if len(items) >= 10:
+                return items
+
+    return items
 
 
 def extract_etf_name(text):
@@ -470,6 +519,11 @@ st.write("Recent registration filings across the selected ETF issuers")
 def load_filings(_data_version):
     return fetch_filings()
 
+
+@st.cache_data(ttl=1800)
+def load_news():
+    return fetch_news_items()
+
 try:
     with st.spinner("Checking the SEC website for the latest filings..."):
         data = load_filings(DATA_VERSION)
@@ -481,29 +535,58 @@ except Exception as exc:
     st.caption(f"Temporary data source issue: {type(exc).__name__}")
 else:
     df = pd.DataFrame(data)
+    left_col, right_col = st.columns([3.2, 1.3], gap="large")
 
-    if not df.empty:
-        for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
-            if column not in df.columns:
-                df[column] = ""
+    with right_col:
+        st.subheader("ETF News")
+        news_items = load_news()
+        if news_items:
+            for item in news_items:
+                st.markdown(f"[{item['title']}]({item['link']})")
+                st.caption(f"{item['section']} | {item['pub_date']}")
+        else:
+            st.caption("News feed is temporarily unavailable.")
 
-        df = df.sort_values(by="date", ascending=False)
-        st.success(f"Loaded {len(df)} filing(s).")
-        st.dataframe(
-            df[["ticker", "etf_name", "filer", "form", "date", "link"]],
-            use_container_width=True,
-        )
+    with left_col:
+        if not df.empty:
+            for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
+                if column not in df.columns:
+                    df[column] = ""
 
-        for _, row in df.iterrows():
-            st.markdown(f"### {row['etf_name']}")
-            if row["ticker"]:
-                st.markdown(f"**Ticker:** {row['ticker']}")
-            st.markdown(f"**Filer:** {row['filer']}")
-            st.markdown(f"**Form:** {row['form']} | **Date:** {row['date']}")
-            st.markdown(f"[View Filing]({row['link']})")
-            st.markdown("---")
-    else:
-        st.warning(
-            "No recent filings were loaded right now. "
-            "The SEC may be rate-limiting some requests, so please try again shortly."
-        )
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+            df = df.dropna(subset=["date"]).sort_values(by="date", ascending=False)
+
+            min_date = df["date"].min().date()
+            max_date = df["date"].max().date()
+
+            filter_cols = st.columns(2)
+            start_date = filter_cols[0].date_input("Start date", value=min_date, min_value=min_date, max_value=max_date)
+            end_date = filter_cols[1].date_input("End date", value=max_date, min_value=min_date, max_value=max_date)
+
+            if start_date > end_date:
+                st.warning("Start date must be on or before end date.")
+                filtered_df = df.iloc[0:0].copy()
+            else:
+                filtered_df = df[(df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date)].copy()
+
+            filtered_df["date"] = filtered_df["date"].dt.strftime("%Y-%m-%d")
+
+            st.success(f"Loaded {len(filtered_df)} filing(s) in the selected date range.")
+            st.dataframe(
+                filtered_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
+                use_container_width=True,
+            )
+
+            for _, row in filtered_df.iterrows():
+                st.markdown(f"### {row['etf_name']}")
+                if row["ticker"]:
+                    st.markdown(f"**Ticker:** {row['ticker']}")
+                st.markdown(f"**Filer:** {row['filer']}")
+                st.markdown(f"**Form:** {row['form']} | **Date:** {row['date']}")
+                st.markdown(f"[View Filing]({row['link']})")
+                st.markdown("---")
+        else:
+            st.warning(
+                "No recent filings were loaded right now. "
+                "The SEC may be rate-limiting some requests, so please try again shortly."
+            )
