@@ -133,12 +133,16 @@ CIK_ENTRIES = [
     ("0001877260", "BondBloxx ETF Trust"),
 ]
 
-CIK_LOOKUP = dict(CIK_ENTRIES)
+CIK_LOOKUP = {}
+for cik, name in CIK_ENTRIES:
+    if cik not in CIK_LOOKUP:
+        CIK_LOOKUP[cik] = name
+
 CIKS = list(CIK_LOOKUP.keys())
 FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
-DATA_VERSION = "2026-03-25-row84-fix"
+DATA_VERSION = "2026-03-25-filer-fix"
 
 
 def extract_text(url, max_chars=20000):
@@ -206,7 +210,9 @@ def extract_ticker(text):
         re.IGNORECASE,
     )
     if pipe_match:
-        return pipe_match.group(1).upper()
+        ticker = pipe_match.group(1).upper()
+        if ticker != "CIK":
+            return ticker
 
     ticker_cell_match = re.search(
         r'Ticker Symbol\s+([A-Z]{1,8})',
@@ -214,7 +220,9 @@ def extract_ticker(text):
         re.IGNORECASE,
     )
     if ticker_cell_match:
-        return ticker_cell_match.group(1).upper()
+        ticker = ticker_cell_match.group(1).upper()
+        if ticker != "CIK":
+            return ticker
 
     return ""
 
@@ -261,9 +269,15 @@ def fetch_recent_filings_for_cik(cik):
         response = requests.get(url, headers=HEADERS, timeout=20)
         response.raise_for_status()
         data = response.json()
-        return data.get("filings", {}).get("recent", {})
+        return {
+            "filer_name": data.get("name", CIK_LOOKUP.get(cik, cik)),
+            "recent": data.get("filings", {}).get("recent", {}),
+        }
     except requests.RequestException:
-        return {}
+        return {
+            "filer_name": CIK_LOOKUP.get(cik, cik),
+            "recent": {},
+        }
 
 
 def fetch_filings():
@@ -272,8 +286,9 @@ def fetch_filings():
     cutoff_date = datetime.today() - timedelta(days=DAYS_BACK)
 
     for cik in CIKS:
-        filer_name = CIK_LOOKUP.get(cik, cik)
-        recent = fetch_recent_filings_for_cik(cik)
+        cik_data = fetch_recent_filings_for_cik(cik)
+        filer_name = str(cik_data.get("filer_name", CIK_LOOKUP.get(cik, cik))).upper()
+        recent = cik_data.get("recent", {})
         if not recent:
             time.sleep(REQUEST_DELAY_SECONDS)
             continue
