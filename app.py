@@ -137,6 +137,7 @@ CIK_LOOKUP = dict(CIK_ENTRIES)
 CIKS = list(CIK_LOOKUP.keys())
 FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
+REQUEST_DELAY_SECONDS = 0.35
 
 
 def extract_text(url):
@@ -185,10 +186,13 @@ def clean_html_text(value):
 
 def fetch_recent_filings_for_cik(cik):
     url = f"https://data.sec.gov/submissions/CIK{cik}.json"
-    response = requests.get(url, headers=HEADERS, timeout=20)
-    response.raise_for_status()
-    data = response.json()
-    return data.get("filings", {}).get("recent", {})
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=20)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("filings", {}).get("recent", {})
+    except requests.RequestException:
+        return {}
 
 
 def fetch_filings():
@@ -199,6 +203,10 @@ def fetch_filings():
     for cik in CIKS:
         filer_name = CIK_LOOKUP.get(cik, cik)
         recent = fetch_recent_filings_for_cik(cik)
+        if not recent:
+            time.sleep(REQUEST_DELAY_SECONDS)
+            continue
+
         forms = recent.get("form", [])
         filing_dates = recent.get("filingDate", [])
         accession_numbers = recent.get("accessionNumber", [])
@@ -236,7 +244,9 @@ def fetch_filings():
                 "link": filing_link
             })
 
-            time.sleep(0.2)
+            time.sleep(REQUEST_DELAY_SECONDS)
+
+        time.sleep(REQUEST_DELAY_SECONDS)
 
     return results
 
@@ -246,7 +256,7 @@ st.title("ETF Filings")
 st.write("Recent registration filings across the selected ETF issuers")
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=1800)
 def load_filings():
     return fetch_filings()
 
@@ -277,4 +287,7 @@ else:
             st.markdown(f"[View Filing]({row['link']})")
             st.markdown("---")
     else:
-        st.info("No recent filings were found in the current search window.")
+        st.warning(
+            "No recent filings were loaded right now. "
+            "The SEC may be rate-limiting some requests, so please try again shortly."
+        )
