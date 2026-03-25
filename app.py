@@ -143,7 +143,7 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-not-listed-and-listed-on"
+DATA_VERSION = "2026-03-25-ticker-label-fix"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 
 
@@ -223,10 +223,20 @@ def extract_ticker(text):
             if re.fullmatch(r"[A-Z]{1,8}", ticker_candidate) and ticker_candidate not in INVALID_TICKERS:
                 return ticker_candidate
 
+    html_ticker_label_match = re.search(
+        r'Ticker Symbol(?:</[^>]+>|<[^>]+>|\s|&nbsp;|&#160;|:)*([A-Z]{2,8})\b',
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if html_ticker_label_match:
+        ticker = html_ticker_label_match.group(1).upper()
+        if ticker not in INVALID_TICKERS:
+            return ticker
+
     cleaned_text = clean_html_text(text)
 
     ticker_symbol_match = re.search(
-        r'Ticker Symbol:\s*([A-Z]{1,8})\b',
+        r'Ticker Symbol\s*:?\s*([A-Z]{1,8})\b',
         cleaned_text,
         re.IGNORECASE,
     )
