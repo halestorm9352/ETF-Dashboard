@@ -143,7 +143,8 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-ticker-fallback-fix"
+DATA_VERSION = "2026-03-25-direct-html-and-filename-fix"
+INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 
 
 def extract_text(url, max_chars=INDEX_PAGE_MAX_CHARS):
@@ -212,7 +213,7 @@ def extract_ticker(text):
         td_matches = re.findall(r'<td[^>]*>(.*?)</td>', contract_row_match.group(1), re.IGNORECASE | re.DOTALL)
         if td_matches:
             ticker_candidate = clean_html_text(td_matches[-1]).upper()
-            if re.fullmatch(r"[A-Z]{1,8}", ticker_candidate) and ticker_candidate != "CIK":
+            if re.fullmatch(r"[A-Z]{1,8}", ticker_candidate) and ticker_candidate not in INVALID_TICKERS:
                 return ticker_candidate
 
     cleaned_text = clean_html_text(text)
@@ -224,7 +225,7 @@ def extract_ticker(text):
     )
     if ticker_symbol_match:
         ticker = ticker_symbol_match.group(1).upper()
-        if ticker != "CIK":
+        if ticker not in INVALID_TICKERS:
             return ticker
 
     prospectus_table_match = re.search(
@@ -234,7 +235,7 @@ def extract_ticker(text):
     )
     if prospectus_table_match:
         ticker = prospectus_table_match.group(1).upper()
-        if ticker != "CIK":
+        if ticker not in INVALID_TICKERS:
             return ticker
 
     pipe_match = re.search(
@@ -244,7 +245,7 @@ def extract_ticker(text):
     )
     if pipe_match:
         ticker = pipe_match.group(1).upper()
-        if ticker != "CIK":
+        if ticker not in INVALID_TICKERS:
             return ticker
 
     ticker_cell_match = re.search(
@@ -254,7 +255,7 @@ def extract_ticker(text):
     )
     if ticker_cell_match:
         ticker = ticker_cell_match.group(1).upper()
-        if ticker != "CIK":
+        if ticker not in INVALID_TICKERS:
             return ticker
 
     return ""
@@ -293,8 +294,18 @@ def build_sec_url(path_or_url):
 
 
 def extract_supporting_document_urls(index_text):
-    html_match = re.search(
+    ix_html_match = re.search(
         r'href="/ix\?doc=(/Archives/edgar/data/[^"]+\.htm)"',
+        index_text,
+        re.IGNORECASE,
+    )
+    direct_primary_html_match = re.search(
+        r'<td scope="row">1</td>.*?href="(/Archives/edgar/data/[^"]+\.htm)"',
+        index_text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    html_match = re.search(
+        r'href="(/Archives/edgar/data/[^"]+\.htm)"',
         index_text,
         re.IGNORECASE,
     )
@@ -304,9 +315,30 @@ def extract_supporting_document_urls(index_text):
         re.IGNORECASE,
     )
 
-    html_url = build_sec_url(html_match.group(1)) if html_match else ""
+    html_path = ""
+    if ix_html_match:
+        html_path = ix_html_match.group(1)
+    elif direct_primary_html_match:
+        html_path = direct_primary_html_match.group(1)
+    elif html_match:
+        html_path = html_match.group(1)
+
+    html_url = build_sec_url(html_path) if html_path else ""
     xml_url = build_sec_url(xml_match.group(1)) if xml_match else ""
     return html_url, xml_url
+
+
+def extract_ticker_from_filenames(index_text):
+    filename_matches = re.findall(
+        r'/Archives/edgar/data/[^"/]+/[^"/]+/([a-z]{3,5})[a-z0-9\-]*\.htm',
+        index_text,
+        re.IGNORECASE,
+    )
+    for match in filename_matches:
+        ticker = match.upper()
+        if ticker not in INVALID_TICKERS and ticker != "TUTTL" and ticker != "CK":
+            return ticker
+    return ""
 
 
 def fetch_supporting_document_text(index_text):
@@ -394,6 +426,8 @@ def fetch_filings():
                     ticker = extract_ticker(supporting_html)
                 if not ticker and supporting_xml:
                     ticker = extract_ticker(supporting_xml)
+                if not ticker:
+                    ticker = extract_ticker_from_filenames(text)
 
                 if not filing_filer_name and supporting_html:
                     filing_filer_name = extract_filer_name(supporting_html)
