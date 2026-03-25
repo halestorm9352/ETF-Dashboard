@@ -143,7 +143,7 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-index-parser-fix"
+DATA_VERSION = "2026-03-25-row31-row84-fix"
 
 
 def extract_text(url, max_chars=INDEX_PAGE_MAX_CHARS):
@@ -204,18 +204,16 @@ def extract_etf_name(text):
 
 def extract_ticker(text):
     contract_row_match = re.search(
-        r'<tr[^>]*class="contractRow"[^>]*>.*?'
-        r'<td[^>]*class="classContract"[^>]*>.*?</td>\s*'
-        r'<td[^>]*>.*?</td>\s*'
-        r'<td[^>]*>.*?</td>\s*'
-        r'<td[^>]*>\s*([A-Z]{1,8})\s*</td>',
+        r'<tr[^>]*class="contractRow"[^>]*>(.*?)</tr>',
         text,
         re.IGNORECASE | re.DOTALL,
     )
     if contract_row_match:
-        ticker = contract_row_match.group(1).upper()
-        if ticker != "CIK":
-            return ticker
+        td_matches = re.findall(r'<td[^>]*>(.*?)</td>', contract_row_match.group(1), re.IGNORECASE | re.DOTALL)
+        if td_matches:
+            ticker_candidate = clean_html_text(td_matches[-1]).upper()
+            if re.fullmatch(r"[A-Z]{1,8}", ticker_candidate) and ticker_candidate != "CIK":
+                return ticker_candidate
 
     cleaned_text = clean_html_text(text)
 
