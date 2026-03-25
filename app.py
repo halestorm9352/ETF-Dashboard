@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import requests
 import time
-import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 import html
 import re
@@ -184,6 +183,14 @@ def clean_html_text(value):
     return " ".join(decoded.split())
 
 
+def fetch_recent_filings_for_cik(cik):
+    url = f"https://data.sec.gov/submissions/CIK{cik}.json"
+    response = requests.get(url, headers=HEADERS, timeout=20)
+    response.raise_for_status()
+    data = response.json()
+    return data.get("filings", {}).get("recent", {})
+
+
 def fetch_filings():
     results = []
     seen_links = set()
@@ -191,61 +198,52 @@ def fetch_filings():
 
     for cik in CIKS:
         filer_name = CIK_LOOKUP.get(cik, cik)
+        recent = fetch_recent_filings_for_cik(cik)
+        forms = recent.get("form", [])
+        filing_dates = recent.get("filingDate", [])
+        accession_numbers = recent.get("accessionNumber", [])
 
-        for form in FORMS:
-            start = 0
+        for index, form in enumerate(forms):
+            if form not in FORMS:
+                continue
 
-            while True:
-                url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}&type={form}&owner=exclude&count=100&start={start}&output=atom"
+            if index >= len(filing_dates) or index >= len(accession_numbers):
+                continue
 
-                r = requests.get(url, headers=HEADERS, timeout=20)
-                r.raise_for_status()
-                root = ET.fromstring(r.content)
+            date_str = filing_dates[index]
+            date = datetime.strptime(date_str, "%Y-%m-%d")
+            if date < cutoff_date:
+                continue
 
-                entries = root.findall("{http://www.w3.org/2005/Atom}entry")
+            accession_number = accession_numbers[index]
+            accession_clean = accession_number.replace("-", "")
+            filing_link = (
+                f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/"
+                f"{accession_clean}/{accession_number}-index.htm"
+            )
 
-                if not entries:
-                    break
+            if filing_link in seen_links:
+                continue
 
-                stop_loop = False
+            text = extract_text(filing_link)
+            seen_links.add(filing_link)
 
-                for entry in entries:
-                    link = entry.find("{http://www.w3.org/2005/Atom}link").attrib["href"]
-                    date_str = entry.find("{http://www.w3.org/2005/Atom}updated").text[:10]
+            results.append({
+                "etf_name": extract_etf_name(text),
+                "filer": filer_name,
+                "form": form,
+                "date": date_str,
+                "link": filing_link
+            })
 
-                    date = datetime.strptime(date_str, "%Y-%m-%d")
-
-                    if date < cutoff_date:
-                        stop_loop = True
-                        break
-
-                    text = extract_text(link)
-                    if link in seen_links:
-                        continue
-
-                    seen_links.add(link)
-
-                    results.append({
-                        "etf_name": extract_etf_name(text),
-                        "filer": filer_name,
-                        "form": form,
-                        "date": date_str,
-                        "link": link
-                    })
-
-                    time.sleep(0.2)
-
-                if stop_loop:
-                    break
-
-                start += 100
+            time.sleep(0.2)
 
     return results
 
 st.set_page_config(page_title="ProShares ETF Filings", layout="wide")
 
-st.title("ProShares ETF Filings")
-st.write("Recent ProShares registration filings")
+st.title("ETF Filings")
+st.write("Recent registration filings across the selected ETF issuers")
 
 
 @st.cache_data(ttl=60)
@@ -257,10 +255,10 @@ try:
         data = load_filings()
 except Exception as exc:
     st.error(
-        "The app could not reach the SEC website right now. "
-        "Please wait a moment and the page will try again automatically."
+        "The app could not load fresh SEC filing data right now. "
+        "Please try again in a minute."
     )
-    st.exception(exc)
+    st.caption(f"Temporary data source issue: {type(exc).__name__}")
 else:
     df = pd.DataFrame(data)
 
