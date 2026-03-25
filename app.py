@@ -591,6 +591,20 @@ def fetch_filings():
     return results
 
 st.set_page_config(page_title="ETF Dash", layout="wide")
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=PT+Sans+Narrow:wght@400;700&display=swap');
+
+    html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stMarkdownContainer"],
+    [data-testid="stDataFrame"], [data-testid="stForm"], [data-testid="stDateInputField"] input,
+    button, table, thead, tbody, tr, th, td, input {
+        font-family: 'PT Sans Narrow', sans-serif !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 @st.cache_data(ttl=1800)
