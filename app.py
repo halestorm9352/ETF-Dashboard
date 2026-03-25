@@ -143,17 +143,24 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-primary-doc-selection-fix"
+DATA_VERSION = "2026-03-25-retry-fix"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 
 
+def get_response_text(url, max_chars, retries=3):
+    for attempt in range(retries):
+        try:
+            response = requests.get(url, headers=HEADERS, timeout=20)
+            response.raise_for_status()
+            return response.text[:max_chars]
+        except requests.RequestException:
+            if attempt == retries - 1:
+                return ""
+            time.sleep(1.0 + attempt)
+
+
 def extract_text(url, max_chars=INDEX_PAGE_MAX_CHARS):
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=20)
-        r.raise_for_status()
-        return r.text[:max_chars]
-    except requests.RequestException:
-        return ""
+    return get_response_text(url, max_chars)
 
 
 def extract_etf_name(text):
@@ -365,19 +372,22 @@ def fetch_supporting_document_text(index_text):
 
 def fetch_recent_filings_for_cik(cik):
     url = f"https://data.sec.gov/submissions/CIK{cik}.json"
-    try:
-        response = requests.get(url, headers=HEADERS, timeout=20)
-        response.raise_for_status()
-        data = response.json()
-        return {
-            "filer_name": data.get("name", CIK_LOOKUP.get(cik, cik)),
-            "recent": data.get("filings", {}).get("recent", {}),
-        }
-    except requests.RequestException:
-        return {
-            "filer_name": CIK_LOOKUP.get(cik, cik),
-            "recent": {},
-        }
+    for attempt in range(3):
+        try:
+            response = requests.get(url, headers=HEADERS, timeout=20)
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "filer_name": data.get("name", CIK_LOOKUP.get(cik, cik)),
+                "recent": data.get("filings", {}).get("recent", {}),
+            }
+        except requests.RequestException:
+            if attempt == 2:
+                return {
+                    "filer_name": CIK_LOOKUP.get(cik, cik),
+                    "recent": {},
+                }
+            time.sleep(1.0 + attempt)
 
 
 def fetch_filings():
