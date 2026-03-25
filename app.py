@@ -202,6 +202,16 @@ def extract_etf_name(text):
 
 
 def extract_ticker(text):
+    raw_table_match = re.search(
+        r'<td>\s*([A-Z]{1,8})\s*</td>\s*</tr>',
+        text,
+        re.IGNORECASE,
+    )
+    if raw_table_match:
+        ticker = raw_table_match.group(1).upper()
+        if ticker != "CIK":
+            return ticker
+
     cleaned_text = clean_html_text(text)
 
     pipe_match = re.search(
@@ -223,6 +233,26 @@ def extract_ticker(text):
         ticker = ticker_cell_match.group(1).upper()
         if ticker != "CIK":
             return ticker
+
+    return ""
+
+
+def extract_filer_name(text):
+    company_match = re.search(
+        r'<span class="companyName">(.*?)\s*\(Filer\)',
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if company_match:
+        return clean_html_text(company_match.group(1)).upper()
+
+    exact_name_match = re.search(
+        r'([A-Za-z0-9&,\.\-\s]+)\s*\(Exact Name of Registrant as Specified in Charter\)',
+        clean_html_text(text),
+        re.IGNORECASE,
+    )
+    if exact_name_match:
+        return " ".join(exact_name_match.group(1).split()).upper()
 
     return ""
 
@@ -322,10 +352,14 @@ def fetch_filings():
             text = extract_text(filing_link)
             seen_links.add(filing_link)
 
+            filing_filer_name = extract_filer_name(text)
+            if filing_filer_name:
+                filer_name = filing_filer_name
+
             ticker = extract_ticker(text)
             etf_name = extract_etf_name(text)
 
-            if etf_name == "N/A" or not ticker:
+            if etf_name == "N/A" or not ticker or not filing_filer_name:
                 supporting_html, supporting_xml = fetch_supporting_document_text(text)
 
                 if etf_name == "N/A" and supporting_html:
@@ -338,10 +372,17 @@ def fetch_filings():
                 if not ticker and supporting_xml:
                     ticker = extract_ticker(supporting_xml)
 
+                if not filing_filer_name and supporting_html:
+                    filing_filer_name = extract_filer_name(supporting_html)
+                if not filing_filer_name and supporting_xml:
+                    filing_filer_name = extract_filer_name(supporting_xml)
+
+            resolved_filer_name = filing_filer_name or filer_name
+
             results.append({
                 "ticker": ticker,
                 "etf_name": etf_name,
-                "filer": filer_name,
+                "filer": resolved_filer_name,
                 "form": form,
                 "date": date_str,
                 "link": filing_link
