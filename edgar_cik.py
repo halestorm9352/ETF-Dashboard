@@ -15,9 +15,10 @@ DAYS_BACK = 60
 
 def extract_text(url):
     try:
-        r = requests.get(url, headers=HEADERS)
+        r = requests.get(url, headers=HEADERS, timeout=20)
+        r.raise_for_status()
         return r.text[:20000]
-    except:
+    except requests.RequestException:
         return ""
 
 
@@ -51,7 +52,8 @@ def fetch_filings():
         while True:
             url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={CIK}&type={form}&owner=exclude&count=100&start={start}&output=atom"
 
-            r = requests.get(url, headers=HEADERS)
+            r = requests.get(url, headers=HEADERS, timeout=20)
+            r.raise_for_status()
             root = ET.fromstring(r.content)
 
             entries = root.findall("{http://www.w3.org/2005/Atom}entry")
