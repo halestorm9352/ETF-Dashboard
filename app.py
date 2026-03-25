@@ -143,7 +143,7 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-ticker-fallback-reset"
+DATA_VERSION = "2026-03-25-prioritize-primary-docs"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 
 
@@ -314,64 +314,49 @@ def build_sec_url(path_or_url):
 
 
 def extract_supporting_document_urls(index_text):
-    urls = []
+    prioritized_paths = []
 
-    patterns = [
+    ix_primary_matches = re.findall(
         r'href="/ix\?doc=(/Archives/edgar/data/[^"]+\.(?:htm|html))"',
-        r'href="(/Archives/edgar/data/[^"]+\.(?:htm|html))"',
-        r'href="(/Archives/edgar/data/[^"]+_htm\.xml)"',
-        r'href="(/Archives/edgar/data/[^"]+\.txt)"',
-    ]
-
-    seen = set()
-    for pattern in patterns:
-        for match in re.findall(pattern, index_text, re.IGNORECASE):
-            filename = match.rsplit("/", 1)[-1].lower()
-            if filename in {"index.htm", "index.html"}:
-                continue
-            url = build_sec_url(match)
-            if url not in seen:
-                seen.add(url)
-                urls.append(url)
-
-    return urls
-
-
-def extract_ticker_from_filenames(index_text, etf_name=""):
-    significant_words = [
-        re.sub(r"[^a-z]", "", word.lower())
-        for word in etf_name.split()
-        if len(re.sub(r"[^a-z]", "", word.lower())) >= 4 and word.lower() not in {"etf", "fund", "trust"}
-    ]
-
-    filenames = re.findall(
-        r'/Archives/edgar/data/[^"/]+/[^"/]+/([^/"?]+\.htm)',
         index_text,
         re.IGNORECASE,
     )
-    for filename in filenames:
-        stem = filename[:-4].lower()
-        if stem in {"index"} or stem.startswith("ck") or stem.startswith("ex"):
-            continue
+    direct_primary_matches = re.findall(
+        r'<tr[^>]*>\s*<td[^>]*>\s*1\s*</td>.*?href="(/Archives/edgar/data/[^"]+\.(?:htm|html))"',
+        index_text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    xml_matches = re.findall(
+        r'href="(/Archives/edgar/data/[^"]+_htm\.xml)"',
+        index_text,
+        re.IGNORECASE,
+    )
+    txt_matches = re.findall(
+        r'href="(/Archives/edgar/data/[^"]+\.txt)"',
+        index_text,
+        re.IGNORECASE,
+    )
+    direct_html_matches = re.findall(
+        r'href="(/Archives/edgar/data/[^"]+\.(?:htm|html))"',
+        index_text,
+        re.IGNORECASE,
+    )
 
-        for ticker_length in [4, 5, 3]:
-            if len(stem) <= ticker_length:
+    for group in [ix_primary_matches, direct_primary_matches, xml_matches, txt_matches, direct_html_matches]:
+        for path in group:
+            filename = path.rsplit("/", 1)[-1].lower()
+            if filename in {"index.htm", "index.html"}:
                 continue
+            if path not in prioritized_paths:
+                prioritized_paths.append(path)
 
-            ticker = stem[:ticker_length].upper()
-            remainder = stem[ticker_length:]
-            if ticker in INVALID_TICKERS:
-                continue
-
-            if significant_words and any(word in remainder for word in significant_words):
-                return ticker
-    return ""
+    return [build_sec_url(path) for path in prioritized_paths]
 
 
-def fetch_supporting_document_texts(index_text, max_documents=5):
+def fetch_supporting_document_texts(index_text, max_documents=4):
     documents = []
     for url in extract_supporting_document_urls(index_text)[:max_documents]:
-        max_chars = 250000
+        max_chars = 300000
         if url.lower().endswith("_htm.xml"):
             max_chars = 120000
 
@@ -450,9 +435,6 @@ def fetch_filings():
 
             ticker = extract_ticker(text)
             etf_name = extract_etf_name(text)
-
-            if not ticker:
-                ticker = extract_ticker_from_filenames(text, etf_name)
 
             if etf_name == "N/A" or not ticker or not filing_filer_name:
                 for supporting_text in fetch_supporting_document_texts(text):
