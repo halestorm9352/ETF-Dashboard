@@ -165,10 +165,18 @@ COMMON_MATCH_WORDS = {
 }
 
 
+@st.cache_resource
+def get_http_session():
+    session = requests.Session()
+    session.headers.update(HEADERS)
+    return session
+
+
 def get_response_text(url, max_chars, retries=3):
+    session = get_http_session()
     for attempt in range(retries):
         try:
-            response = requests.get(url, headers=HEADERS, timeout=20)
+            response = session.get(url, timeout=20)
             response.raise_for_status()
             return response.text[:max_chars]
         except requests.RequestException:
@@ -481,9 +489,10 @@ def fetch_supporting_document_texts(index_text, max_documents=4):
 
 def fetch_recent_filings_for_cik(cik):
     url = f"https://data.sec.gov/submissions/CIK{cik}.json"
+    session = get_http_session()
     for attempt in range(3):
         try:
-            response = requests.get(url, headers=HEADERS, timeout=20)
+            response = session.get(url, timeout=20)
             response.raise_for_status()
             data = response.json()
             return {
@@ -516,6 +525,7 @@ def fetch_filings(start_date=None, end_date=None):
         forms = recent.get("form", [])
         filing_dates = recent.get("filingDate", [])
         accession_numbers = recent.get("accessionNumber", [])
+        primary_documents = recent.get("primaryDocument", [])
 
         for index, form in enumerate(forms):
             if form not in FORMS:
@@ -535,22 +545,44 @@ def fetch_filings(start_date=None, end_date=None):
                 f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/"
                 f"{accession_clean}/{accession_number}-index.htm"
             )
+            primary_document = primary_documents[index] if index < len(primary_documents) else ""
+            primary_document_url = ""
+            if primary_document:
+                primary_document_url = (
+                    f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/"
+                    f"{accession_clean}/{primary_document}"
+                )
 
             if filing_link in seen_links:
                 continue
 
-            text = extract_text(filing_link, max_chars=INDEX_PAGE_MAX_CHARS)
             seen_links.add(filing_link)
+            index_text = ""
+            filing_filer_name = filer_name
+            ticker = ""
+            etf_name = "N/A"
 
-            filing_filer_name = extract_filer_name(text)
-            if filing_filer_name:
-                filer_name = filing_filer_name
+            if primary_document_url:
+                primary_text = extract_text(primary_document_url, max_chars=300000)
+                if primary_text:
+                    ticker = extract_ticker(primary_text)
+                    etf_name = extract_etf_name(primary_text)
+                    parsed_filer_name = extract_filer_name(primary_text)
+                    if parsed_filer_name:
+                        filing_filer_name = parsed_filer_name
 
-            ticker = extract_ticker(text)
-            etf_name = extract_etf_name(text)
+            if etf_name == "N/A" or not ticker:
+                index_text = extract_text(filing_link, max_chars=INDEX_PAGE_MAX_CHARS)
+                parsed_filer_name = extract_filer_name(index_text)
+                if parsed_filer_name:
+                    filing_filer_name = parsed_filer_name
+                if not ticker:
+                    ticker = extract_ticker(index_text)
+                if etf_name == "N/A":
+                    etf_name = extract_etf_name(index_text)
 
-            if etf_name == "N/A" or not ticker or not filing_filer_name:
-                for supporting_text in fetch_supporting_document_texts(text):
+            if index_text and (etf_name == "N/A" or not ticker or not filing_filer_name):
+                for supporting_text in fetch_supporting_document_texts(index_text):
                     if etf_name == "N/A":
                         etf_name = extract_etf_name(supporting_text)
 
