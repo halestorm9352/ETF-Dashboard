@@ -609,7 +609,8 @@ def load_news():
     return fetch_news_items()
 
 default_end = datetime.today().date()
-default_start = default_end - timedelta(days=14)
+year_start = datetime(default_end.year, 1, 1).date()
+default_start = max(year_start, default_end - timedelta(days=14))
 if "search_start_date" not in st.session_state:
     st.session_state.search_start_date = default_start
 if "search_end_date" not in st.session_state:
@@ -620,11 +621,15 @@ if "search_requested" not in st.session_state:
 st.subheader("ETF Filings")
 with st.form("date_filter_form"):
     filter_cols = st.columns([1, 1, 0.6])
-    filter_cols[0].date_input("Start date", key="search_start_date")
-    filter_cols[1].date_input("End date", key="search_end_date")
+    filter_cols[0].date_input("Start date", min_value=year_start, max_value=default_end, key="search_start_date")
+    filter_cols[1].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
     search_submitted = filter_cols[2].form_submit_button("Search")
 
 if search_submitted:
+    if st.session_state.search_start_date < year_start:
+        st.session_state.search_start_date = year_start
+    if st.session_state.search_end_date < year_start:
+        st.session_state.search_end_date = year_start
     st.session_state.search_requested = True
 
 if not st.session_state.search_requested:
