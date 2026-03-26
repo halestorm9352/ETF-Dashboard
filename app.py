@@ -145,12 +145,9 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-25-date-filter-and-news"
+DATA_VERSION = "2026-03-26-manual-search-and-generic-news"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
-NEWS_QUERIES = [
-    ("Eric Balchunas / Bloomberg", "Eric Balchunas Bloomberg ETF"),
-    ("ETF Headlines", "ETF news Bloomberg ETF.com"),
-]
+NEWS_QUERY = "ETF news"
 COMMON_MATCH_WORDS = {
     "etf",
     "fund",
@@ -204,44 +201,37 @@ def fetch_news_items():
     items = []
     seen_links = set()
 
-    for label, query in NEWS_QUERIES:
-        feed_url = build_google_news_rss_url(query)
-        feed_text = get_response_text(feed_url, max_chars=120000, retries=2)
-        if not feed_text:
+    feed_url = build_google_news_rss_url(NEWS_QUERY)
+    feed_text = get_response_text(feed_url, max_chars=120000, retries=2)
+    if not feed_text:
+        return items
+
+    try:
+        root = ET.fromstring(feed_text)
+    except ET.ParseError:
+        return items
+
+    for entry in root.findall(".//item"):
+        title = (entry.findtext("title") or "").strip()
+        link = (entry.findtext("link") or "").strip()
+        pub_date = (entry.findtext("pubDate") or "").strip()
+        source_text = (entry.findtext("source") or "").strip()
+
+        if not title or not link or link in seen_links:
             continue
 
-        try:
-            root = ET.fromstring(feed_text)
-        except ET.ParseError:
-            continue
+        seen_links.add(link)
+        source = source_text or "News"
+        title, source = split_news_title_and_source(title, source)
 
-        for entry in root.findall(".//item"):
-            title = (entry.findtext("title") or "").strip()
-            link = (entry.findtext("link") or "").strip()
-            pub_date = (entry.findtext("pubDate") or "").strip()
-            source_text = (entry.findtext("source") or "").strip()
-
-            if not title or not link or link in seen_links:
-                continue
-
-            seen_links.add(link)
-            source = label
-            if source_text:
-                source = source_text
-            title, source = split_news_title_and_source(title, source)
-
-            items.append(
-                {
-                    "section": label,
-                    "source": source.strip(),
-                    "title": title,
-                    "link": link,
-                    "pub_date": pub_date,
-                }
-            )
-
-            if len(items) >= 10:
-                return items
+        items.append(
+            {
+                "source": source.strip(),
+                "title": title,
+                "link": link,
+                "pub_date": pub_date,
+            }
+        )
 
     return items
 
@@ -409,7 +399,8 @@ def match_news_to_etfs(news_title, filings_df, limit=3):
 
         terms = extract_match_terms(etf_name)
         overlap = sum(1 for term in terms if re.search(rf"\b{re.escape(term)}\b", news_text))
-        score += overlap
+        if overlap >= 2:
+            score += overlap
 
         if score > 0:
             label = ticker if ticker and ticker != "Not Listed" else etf_name
@@ -425,7 +416,7 @@ def match_news_to_etfs(news_title, filings_df, limit=3):
         if len(unique) >= limit:
             break
 
-    return ", ".join(unique) if unique else "No direct match"
+    return ", ".join(unique) if unique else ""
 
 
 def build_sec_url(path_or_url):
@@ -508,10 +499,11 @@ def fetch_recent_filings_for_cik(cik):
             time.sleep(1.0 + attempt)
 
 
-def fetch_filings():
+def fetch_filings(start_date=None, end_date=None):
     results = []
     seen_links = set()
-    cutoff_date = datetime.today() - timedelta(days=DAYS_BACK)
+    start_bound = datetime.combine(start_date, datetime.min.time()) if start_date else datetime.today() - timedelta(days=DAYS_BACK)
+    end_bound = datetime.combine(end_date, datetime.max.time()) if end_date else datetime.today()
 
     for cik in CIKS:
         cik_data = fetch_recent_filings_for_cik(cik)
@@ -534,7 +526,7 @@ def fetch_filings():
 
             date_str = filing_dates[index]
             date = datetime.strptime(date_str, "%Y-%m-%d")
-            if date < cutoff_date:
+            if date < start_bound or date > end_bound:
                 continue
 
             accession_number = accession_numbers[index]
@@ -608,86 +600,91 @@ st.markdown(
 
 
 @st.cache_data(ttl=1800)
-def load_filings(_data_version):
-    return fetch_filings()
+def load_filings(_data_version, start_date, end_date):
+    return fetch_filings(start_date, end_date)
 
 
 @st.cache_data(ttl=1800)
 def load_news():
     return fetch_news_items()
 
-try:
-    with st.spinner("Checking the SEC website for the latest filings..."):
-        data = load_filings(DATA_VERSION)
-except Exception as exc:
-    st.error(
-        "The app could not load fresh SEC filing data right now. "
-        "Please try again in a minute."
-    )
-    st.caption(f"Temporary data source issue: {type(exc).__name__}")
+default_end = datetime.today().date()
+default_start = default_end - timedelta(days=14)
+if "search_start_date" not in st.session_state:
+    st.session_state.search_start_date = default_start
+if "search_end_date" not in st.session_state:
+    st.session_state.search_end_date = default_end
+if "search_requested" not in st.session_state:
+    st.session_state.search_requested = False
+
+st.subheader("ETF Filings")
+with st.form("date_filter_form"):
+    filter_cols = st.columns([1, 1, 0.6])
+    filter_cols[0].date_input("Start date", key="search_start_date")
+    filter_cols[1].date_input("End date", key="search_end_date")
+    search_submitted = filter_cols[2].form_submit_button("Search")
+
+if search_submitted:
+    st.session_state.search_requested = True
+
+if not st.session_state.search_requested:
+    st.info("Choose a date range and click Search to run the SEC scrape.")
+elif st.session_state.search_start_date > st.session_state.search_end_date:
+    st.warning("Start date must be on or before end date.")
 else:
-    df = pd.DataFrame(data)
-    if not df.empty:
-        for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
-            if column not in df.columns:
-                df[column] = ""
-
-        df["date"] = pd.to_datetime(df["date"], errors="coerce")
-        df = df.dropna(subset=["date"]).sort_values(by="date", ascending=False)
-
-        min_date = df["date"].min().date()
-        max_date = df["date"].max().date()
-        if "start_date" not in st.session_state:
-            st.session_state.start_date = min_date
-        if "end_date" not in st.session_state:
-            st.session_state.end_date = max_date
-
-        start_date = st.session_state.start_date
-        end_date = st.session_state.end_date
-        if start_date < min_date or start_date > max_date:
-            start_date = min_date
-        if end_date < min_date or end_date > max_date:
-            end_date = max_date
-
-        if start_date > end_date:
-            filtered_df = df.iloc[0:0].copy()
-        else:
-            filtered_df = df[(df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date)].copy()
-
-        filtered_df["date"] = filtered_df["date"].dt.strftime("%Y-%m-%d")
-
-        st.subheader("ETF News")
-        news_items = load_news()
-        if news_items:
-            header_cols = st.columns([2.4, 1, 1])
-            header_cols[0].markdown("**Headline**")
-            header_cols[1].markdown("**Source**")
-            header_cols[2].markdown("**Matching ETFs**")
-
-            for item in news_items:
-                row_cols = st.columns([2.4, 1, 1])
-                row_cols[0].markdown(f"[{item['title']}]({item['link']})")
-                row_cols[1].write(item.get("source", item["section"]))
-                row_cols[2].write(match_news_to_etfs(item["title"], filtered_df))
-        else:
-            st.caption("News feed is temporarily unavailable.")
-
-        st.subheader("ETF Filings")
-        with st.form("date_filter_form"):
-            filter_cols = st.columns([1, 1, 0.6])
-            filter_cols[0].date_input("Start date", value=start_date, min_value=min_date, max_value=max_date, key="start_date")
-            filter_cols[1].date_input("End date", value=end_date, min_value=min_date, max_value=max_date, key="end_date")
-            filter_cols[2].form_submit_button("Search")
-
-        if st.session_state.start_date > st.session_state.end_date:
-            st.warning("Start date must be on or before end date.")
-        st.success(f"Loaded {len(filtered_df)} filing(s) in the selected date range.")
-        st.dataframe(
-            filtered_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
-            use_container_width=True,
+    try:
+        with st.spinner("Searching SEC filings for the selected date range..."):
+            data = load_filings(DATA_VERSION, st.session_state.search_start_date, st.session_state.search_end_date)
+    except Exception as exc:
+        st.error(
+            "The app could not load fresh SEC filing data right now. "
+            "Please try again in a minute."
         )
+        st.caption(f"Temporary data source issue: {type(exc).__name__}")
     else:
-        st.warning(
-            "No recent filings were loaded right now. "
-            "The SEC may be rate-limiting some requests, so please try again shortly."
-        )
+        df = pd.DataFrame(data)
+        if not df.empty:
+            for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
+                if column not in df.columns:
+                    df[column] = ""
+
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+            df = df.dropna(subset=["date"]).sort_values(by="date", ascending=False)
+            filtered_df = df[
+                (df["date"].dt.date >= st.session_state.search_start_date)
+                & (df["date"].dt.date <= st.session_state.search_end_date)
+            ].copy()
+            filtered_df = filtered_df.sort_values(by="date", ascending=False)
+            display_df = filtered_df.copy()
+            display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
+
+            st.success(f"Loaded {len(display_df)} filing(s) in the selected date range.")
+            st.dataframe(
+                display_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            st.subheader("ETF News")
+            news_items = load_news()
+            matched_news = []
+            for item in news_items:
+                matching_tickers = match_news_to_etfs(item["title"], filtered_df)
+                if matching_tickers:
+                    matched_news.append({**item, "matching_tickers": matching_tickers})
+
+            if matched_news:
+                header_cols = st.columns([2.4, 1, 1])
+                header_cols[0].markdown("**Headline**")
+                header_cols[1].markdown("**Source**")
+                header_cols[2].markdown("**Matching ETFs**")
+
+                for item in matched_news:
+                    row_cols = st.columns([2.4, 1, 1])
+                    row_cols[0].markdown(f"[{item['title']}]({item['link']})")
+                    row_cols[1].write(item["source"])
+                    row_cols[2].write(item["matching_tickers"])
+            else:
+                st.caption("No current news headlines directly matched the ETF filings in this search.")
+        else:
+            st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
