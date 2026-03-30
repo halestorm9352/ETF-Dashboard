@@ -1,4 +1,6 @@
+import csv
 from datetime import datetime
+from io import StringIO
 import shutil
 import subprocess
 from urllib.parse import urljoin
@@ -117,6 +119,33 @@ def fetch_etfcom_news(limit=50):
 
 
 def fetch_etfcom_launches(limit=50):
+    csv_text = _fetch_text(f"{ETFCOM_BASE_URL}/launches/data/download?nopaging=1&page&_format=csv")
+    if csv_text:
+        items = []
+        reader = csv.DictReader(StringIO(csv_text))
+        for row in reader:
+            date_text = _clean_text(row.get("Inception Date", ""))
+            ticker = _clean_text(row.get("Ticker", ""))
+            fund_name = _clean_text(row.get("Fund Name", ""))
+            published_at = _parse_date(date_text, "%m/%d/%Y")
+
+            if not date_text or not ticker or not fund_name or not published_at:
+                continue
+
+            items.append(
+                {
+                    "date": published_at.strftime("%Y-%m-%d"),
+                    "ticker": ticker,
+                    "fund_name": fund_name,
+                    "link": urljoin(ETFCOM_BASE_URL, f"/{ticker}"),
+                    "published_at": published_at,
+                }
+            )
+
+        items.sort(key=lambda item: item["published_at"], reverse=True)
+        if items:
+            return items[:limit]
+
     html = _fetch_text(f"{ETFCOM_BASE_URL}/tools/etf-launches?nopaging=1&page=1")
     if not html:
         return []

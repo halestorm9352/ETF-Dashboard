@@ -1039,20 +1039,23 @@ with st.container():
     with news_col:
         st.markdown('<div class="etf-section-title">ETF News</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="etf-section-copy">Recent ETF.com headlines.</div>',
+            '<div class="etf-section-copy">Recent ETF.com headlines, with a fallback to trusted financial sources if needed.</div>',
             unsafe_allow_html=True,
         )
         news_items = load_etfcom_news()
+        if not news_items:
+            news_items = load_news(NEWS_QUERIES)
+
         if news_items:
             news_container = st.container(height=700)
             for item in news_items[:50]:
-                news_date = item.get("date", "")
+                news_date = item.get("date", "") or format_news_date(item.get("pub_date", ""))
                 news_container.markdown(
                     f"""
                     <div class="etf-news-item">
-                        <div class="etf-news-source">{item.get("category", "ETF.com")}</div>
+                        <div class="etf-news-source">{item.get("category", item.get("source", "ETF.com"))}</div>
                         <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a>
-                        <div class="etf-news-meta">{item.get("author", "ETF.com")} | {news_date}</div>
+                        <div class="etf-news-meta">{item.get("author", item.get("source", "ETF.com"))} | {news_date}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
