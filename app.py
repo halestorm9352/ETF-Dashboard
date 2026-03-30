@@ -1042,6 +1042,75 @@ with st.container():
             filter_cols[1].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
             search_submitted = filter_cols[2].form_submit_button("Search")
 
+        if search_submitted:
+            if st.session_state.search_start_date < year_start:
+                st.session_state.search_start_date = year_start
+            if st.session_state.search_end_date < year_start:
+                st.session_state.search_end_date = year_start
+            st.session_state.search_requested = True
+
+        if not st.session_state.search_requested:
+            st.info("Choose a date range and click Search to run the SEC scrape.")
+        elif st.session_state.search_start_date > st.session_state.search_end_date:
+            st.warning("Start date must be on or before end date.")
+        else:
+            try:
+                with st.spinner("Searching SEC filings for the selected date range..."):
+                    data = load_filings(DATA_VERSION, st.session_state.search_start_date, st.session_state.search_end_date)
+            except Exception as exc:
+                st.error(
+                    "The app could not load fresh SEC filing data right now. "
+                    "Please try again in a minute."
+                )
+                st.caption(f"Temporary data source issue: {type(exc).__name__}")
+            else:
+                df = pd.DataFrame(data)
+                if not df.empty:
+                    for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
+                        if column not in df.columns:
+                            df[column] = ""
+
+                    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+                    df = df.dropna(subset=["date"]).sort_values(by="date", ascending=False)
+                    filtered_df = df[
+                        (df["date"].dt.date >= st.session_state.search_start_date)
+                        & (df["date"].dt.date <= st.session_state.search_end_date)
+                    ].copy()
+                    filtered_df = filtered_df.sort_values(by="date", ascending=False)
+                    filtered_df["ticker"] = filtered_df["ticker"].apply(sanitize_ticker)
+                    display_df = filtered_df.copy()
+                    display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
+                    filings_count = len(display_df)
+                    listed_tickers = int((filtered_df["ticker"] != "Not Listed").sum())
+                    distinct_filers = int(filtered_df["filer"].nunique())
+                    latest_date = display_df.iloc[0]["date"] if not display_df.empty else "N/A"
+                    stat_cols = st.columns(4)
+                    stat_cols[0].markdown(
+                        f'<div class="etf-card"><div class="etf-card-label">Filings Loaded</div><div class="etf-card-value">{filings_count}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                    stat_cols[1].markdown(
+                        f'<div class="etf-card"><div class="etf-card-label">Tickers Listed</div><div class="etf-card-value">{listed_tickers}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                    stat_cols[2].markdown(
+                        f'<div class="etf-card"><div class="etf-card-label">Distinct Filers</div><div class="etf-card-value">{distinct_filers}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                    stat_cols[3].markdown(
+                        f'<div class="etf-card"><div class="etf-card-label">Latest Filing</div><div class="etf-card-value">{latest_date}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    st.success(f"Loaded {filings_count} filing(s) in the selected date range.")
+                    st.dataframe(
+                        display_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
+
     with news_col:
         st.markdown('<div class="etf-section-title">News</div>', unsafe_allow_html=True)
         st.markdown(
@@ -1084,84 +1153,3 @@ with st.container():
                 )
         else:
             st.caption("ETF headlines will appear here once the feed refreshes.")
-
-if search_submitted:
-    if st.session_state.search_start_date < year_start:
-        st.session_state.search_start_date = year_start
-    if st.session_state.search_end_date < year_start:
-        st.session_state.search_end_date = year_start
-    st.session_state.search_requested = True
-
-if not st.session_state.search_requested:
-    st.info("Choose a date range and click Search to run the SEC scrape.")
-elif st.session_state.search_start_date > st.session_state.search_end_date:
-    st.warning("Start date must be on or before end date.")
-else:
-    try:
-        with st.spinner("Searching SEC filings for the selected date range..."):
-            data = load_filings(DATA_VERSION, st.session_state.search_start_date, st.session_state.search_end_date)
-    except Exception as exc:
-        st.error(
-            "The app could not load fresh SEC filing data right now. "
-            "Please try again in a minute."
-        )
-        st.caption(f"Temporary data source issue: {type(exc).__name__}")
-    else:
-        df = pd.DataFrame(data)
-        if not df.empty:
-            for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
-                if column not in df.columns:
-                    df[column] = ""
-
-            df["date"] = pd.to_datetime(df["date"], errors="coerce")
-            df = df.dropna(subset=["date"]).sort_values(by="date", ascending=False)
-            filtered_df = df[
-                (df["date"].dt.date >= st.session_state.search_start_date)
-                & (df["date"].dt.date <= st.session_state.search_end_date)
-            ].copy()
-            filtered_df = filtered_df.sort_values(by="date", ascending=False)
-            filtered_df["ticker"] = filtered_df["ticker"].apply(sanitize_ticker)
-            display_df = filtered_df.copy()
-            display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
-            filings_count = len(display_df)
-            listed_tickers = int((filtered_df["ticker"] != "Not Listed").sum())
-            distinct_filers = int(filtered_df["filer"].nunique())
-            latest_date = display_df.iloc[0]["date"] if not display_df.empty else "N/A"
-            stat_cols = st.columns(4)
-            stat_cols[0].markdown(
-                f'<div class="etf-card"><div class="etf-card-label">Filings Loaded</div><div class="etf-card-value">{filings_count}</div></div>',
-                unsafe_allow_html=True,
-            )
-            stat_cols[1].markdown(
-                f'<div class="etf-card"><div class="etf-card-label">Tickers Listed</div><div class="etf-card-value">{listed_tickers}</div></div>',
-                unsafe_allow_html=True,
-            )
-            stat_cols[2].markdown(
-                f'<div class="etf-card"><div class="etf-card-label">Distinct Filers</div><div class="etf-card-value">{distinct_filers}</div></div>',
-                unsafe_allow_html=True,
-            )
-            stat_cols[3].markdown(
-                f'<div class="etf-card"><div class="etf-card-label">Latest Filing</div><div class="etf-card-value">{latest_date}</div></div>',
-                unsafe_allow_html=True,
-            )
-
-            featured = display_df.iloc[0].to_dict()
-            st.markdown(
-                f"""
-                <div class="etf-card">
-                    <div class="etf-card-label">Featured Filing</div>
-                    <div class="etf-feature-title">{featured.get("etf_name", "ETF Filing")}</div>
-                    <div class="etf-feature-meta">{featured.get("form", "")} | {featured.get("date", "")} | {featured.get("filer", "")}</div>
-                    <div style="margin-top:0.65rem;"><a href="{featured.get('link', '#')}" target="_blank">Open SEC Filing</a></div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.success(f"Loaded {filings_count} filing(s) in the selected date range.")
-            st.dataframe(
-                display_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
-                use_container_width=True,
-                hide_index=True,
-            )
-        else:
-            st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
