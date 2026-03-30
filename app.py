@@ -148,6 +148,22 @@ INDEX_PAGE_MAX_CHARS = 60000
 DATA_VERSION = "2026-03-30-ticker-sanitize-and-filing-briefs"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 NEWS_QUERIES = ('"recent ETF filings"', "ETF filings", "new ETF launches")
+TRUSTED_NEWS_SOURCES = {
+    "reuters": "Reuters",
+    "bloomberg": "Bloomberg",
+    "marketwatch": "MarketWatch",
+    "pensions & investments": "Pensions & Investments",
+    "pensions and investments": "Pensions & Investments",
+    "cnbc": "CNBC",
+    "msnbc": "MSNBC",
+    "yahoo finance": "Yahoo Finance",
+    "morningstar": "Morningstar",
+    "wall street journal": "WSJ",
+    "wsj": "WSJ",
+    "dow jones": "Dow Jones",
+    "the motley fool": "The Motley Fool",
+    "motley fool": "The Motley Fool",
+}
 COMMON_MATCH_WORDS = {
     "etf",
     "fund",
@@ -215,6 +231,24 @@ def clean_news_headline_and_source(title, fallback_source):
     return title, fallback_source
 
 
+def parse_news_datetime(pub_date):
+    pub_date = str(pub_date or "").strip()
+    for fmt in ("%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y %H:%M:%S %z"):
+        try:
+            return datetime.strptime(pub_date, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def normalize_news_source(source, link=""):
+    source_text = f"{source} {link}".lower()
+    for needle, label in TRUSTED_NEWS_SOURCES.items():
+        if needle in source_text:
+            return label
+    return ""
+
+
 def fetch_news_items(queries=None):
     items = []
     seen_links = set()
@@ -239,9 +273,14 @@ def fetch_news_items(queries=None):
             if not title or not link or link in seen_links:
                 continue
 
+            normalized_source = normalize_news_source(source_text, link)
+            if not normalized_source:
+                continue
+
             seen_links.add(link)
-            source = source_text or "News"
+            source = normalized_source
             title, source = clean_news_headline_and_source(title, source)
+            published_at = parse_news_datetime(pub_date)
 
             items.append(
                 {
@@ -249,9 +288,16 @@ def fetch_news_items(queries=None):
                     "title": title,
                     "link": link,
                     "pub_date": pub_date,
+                    "published_at": published_at,
                 }
             )
 
+    items.sort(
+        key=lambda item: (
+            item.get("published_at") is None,
+            -(item["published_at"].timestamp()) if item.get("published_at") else 0,
+        )
+    )
     return items
 
 
@@ -964,7 +1010,7 @@ with st.container():
         news_items = load_news(NEWS_QUERIES)
         if news_items:
             news_container = st.container(height=700)
-            for item in news_items[:40]:
+            for item in news_items[:50]:
                 news_date = format_news_date(item.get("pub_date", ""))
                 news_container.markdown(
                     f"""
