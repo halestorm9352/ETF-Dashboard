@@ -963,7 +963,7 @@ with st.container():
         )
         news_items = load_news(NEWS_QUERIES)
         if news_items:
-            news_container = st.container(height=1450)
+            news_container = st.container(height=700)
             for item in news_items[:40]:
                 news_date = format_news_date(item.get("pub_date", ""))
                 news_container.markdown(
@@ -980,7 +980,7 @@ with st.container():
             fallback_items = build_news_fallback_from_filings(
                 pd.DataFrame(load_filings(DATA_VERSION, st.session_state.search_start_date, st.session_state.search_end_date))
             )
-            news_container = st.container(height=1450)
+            news_container = st.container(height=700)
             for item in fallback_items:
                 news_container.markdown(
                     f"""
