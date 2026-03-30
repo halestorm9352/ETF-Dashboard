@@ -147,7 +147,7 @@ REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
 DATA_VERSION = "2026-03-30-ticker-sanitize-and-filing-briefs"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
-NEWS_QUERY = "recent ETF filings"
+NEWS_QUERIES = ('"recent ETF filings"', "ETF filings", "new ETF launches")
 COMMON_MATCH_WORDS = {
     "etf",
     "fund",
@@ -215,41 +215,45 @@ def clean_news_headline_and_source(title, fallback_source):
     return title, fallback_source
 
 
-def fetch_news_items(query=NEWS_QUERY):
+def fetch_news_items(queries=None):
     items = []
     seen_links = set()
 
-    feed_url = build_google_news_rss_url(query)
-    feed_text = get_response_text(feed_url, max_chars=120000, retries=2)
-    if not feed_text:
-        return items
-
-    try:
-        root = ET.fromstring(feed_text)
-    except ET.ParseError:
-        return items
-
-    for entry in root.findall(".//item"):
-        title = (entry.findtext("title") or "").strip()
-        link = (entry.findtext("link") or "").strip()
-        pub_date = (entry.findtext("pubDate") or "").strip()
-        source_text = (entry.findtext("source") or "").strip()
-
-        if not title or not link or link in seen_links:
+    for query in (queries or NEWS_QUERIES):
+        feed_url = build_google_news_rss_url(query)
+        feed_text = get_response_text(feed_url, max_chars=120000, retries=2)
+        if not feed_text:
             continue
 
-        seen_links.add(link)
-        source = source_text or "News"
-        title, source = clean_news_headline_and_source(title, source)
+        try:
+            root = ET.fromstring(feed_text)
+        except ET.ParseError:
+            continue
 
-        items.append(
-            {
-                "source": source.strip(),
-                "title": title,
-                "link": link,
-                "pub_date": pub_date,
-            }
-        )
+        for entry in root.findall(".//item"):
+            title = (entry.findtext("title") or "").strip()
+            link = (entry.findtext("link") or "").strip()
+            pub_date = (entry.findtext("pubDate") or "").strip()
+            source_text = (entry.findtext("source") or "").strip()
+
+            if not title or not link or link in seen_links:
+                continue
+
+            seen_links.add(link)
+            source = source_text or "News"
+            title, source = clean_news_headline_and_source(title, source)
+
+            items.append(
+                {
+                    "source": source.strip(),
+                    "title": title,
+                    "link": link,
+                    "pub_date": pub_date,
+                }
+            )
+
+        if items:
+            break
 
     return items
 
@@ -747,41 +751,29 @@ st.markdown(
         max-width: 1400px;
     }
 
-    .etf-masthead {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        margin-bottom: 1rem;
-    }
-
     .etf-brand {
-        font-size: 2rem;
+        font-size: 2.05rem;
         font-weight: 700;
         letter-spacing: 0.01em;
+        margin-bottom: 0.15rem;
     }
 
-    .etf-brand span {
-        color: var(--etf-accent);
-    }
-
-    .etf-nav {
-        display: flex;
-        gap: 0.75rem;
+    .etf-tagline {
         color: var(--etf-muted);
         font-size: 0.95rem;
+        margin-bottom: 1rem;
     }
 
     .etf-hero {
         border: 1px solid var(--etf-border);
         background: linear-gradient(135deg, rgba(240,185,11,0.12), rgba(18,23,34,0.95));
         border-radius: 18px;
-        padding: 1.1rem 1.2rem;
+        padding: 0.95rem 1.1rem;
         margin-bottom: 1rem;
     }
 
     .etf-hero-title {
-        font-size: 1.45rem;
+        font-size: 1.25rem;
         font-weight: 700;
         margin-bottom: 0.25rem;
     }
@@ -835,7 +827,7 @@ st.markdown(
     }
 
     .etf-news-item {
-        padding: 0.8rem 0;
+        padding: 0.95rem 0;
         border-bottom: 1px solid var(--etf-border);
     }
 
@@ -855,6 +847,25 @@ st.markdown(
         color: var(--etf-muted);
         font-size: 0.9rem;
     }
+
+    .etf-news-title {
+        display: block;
+        font-size: 1.02rem;
+        font-weight: 700;
+        line-height: 1.35;
+        margin: 0.3rem 0 0.2rem;
+        text-decoration: none;
+    }
+
+    .etf-news-title:hover {
+        text-decoration: underline;
+    }
+
+    .etf-news-kicker {
+        color: var(--etf-muted);
+        font-size: 0.88rem;
+        margin-top: 0.15rem;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -871,6 +882,25 @@ def load_news(_query):
     return fetch_news_items(_query)
 
 
+def build_news_fallback_from_filings(filings_df, limit=6):
+    fallback_items = []
+    if filings_df.empty:
+        return fallback_items
+
+    for _, row in filings_df.sort_values(by="date", ascending=False).head(limit).iterrows():
+        fallback_items.append(
+            {
+                "source": "ETF Dash",
+                "title": str(row.get("etf_name", "")).strip() or "ETF Filing",
+                "link": str(row.get("link", "")).strip(),
+                "pub_date": str(row.get("date", "")),
+                "summary": f"{row.get('form', '')} filed by {row.get('filer', '')}",
+            }
+        )
+
+    return fallback_items
+
+
 default_end = datetime.today().date()
 year_start = datetime(default_end.year, 1, 1).date()
 default_start = max(year_start, default_end - timedelta(days=14))
@@ -883,17 +913,11 @@ if "search_requested" not in st.session_state:
 
 st.markdown(
     """
-    <div class="etf-masthead">
-        <div class="etf-brand"><span>ETF</span> Dash</div>
-        <div class="etf-nav">
-            <div>Filings</div>
-            <div>News</div>
-            <div>Data Sources</div>
-        </div>
-    </div>
+    <div class="etf-brand">ETF Dash</div>
+    <div class="etf-tagline">Tracking new ETF launches, registration filings, and the surrounding market conversation.</div>
     <div class="etf-hero">
-        <div class="etf-hero-title">ETF filings first, with the rest of the dashboard building around them.</div>
-        <div class="etf-hero-copy">This first draft keeps SEC filings front and center, adds a lighter media-style shell, and starts a broader ETF news rail without overcomplicating the parser.</div>
+        <div class="etf-hero-title">ETF filings stay front and center.</div>
+        <div class="etf-hero-copy">This version keeps the workflow simple: search filings by date, surface the newest filing first, and show a cleaner ETF news rail alongside it.</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -918,10 +942,10 @@ with st.container():
     with right_col:
         st.markdown('<div class="etf-section-title">ETF News</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="etf-section-copy">Recent Google News results for the broader "recent ETF filings" theme.</div>',
+            '<div class="etf-section-copy">Recent Google headlines around ETF filings and launches.</div>',
             unsafe_allow_html=True,
         )
-        news_items = load_news(NEWS_QUERY)
+        news_items = load_news(NEWS_QUERIES)
         if news_items:
             for item in news_items[:8]:
                 news_date = format_news_date(item.get("pub_date", ""))
@@ -929,14 +953,29 @@ with st.container():
                     f"""
                     <div class="etf-news-item">
                         <div class="etf-news-source">{item.get("source", "News")}</div>
-                        <div><a href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a></div>
+                        <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a>
                         <div class="etf-news-meta">{news_date}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
+        elif st.session_state.search_requested:
+            fallback_items = build_news_fallback_from_filings(
+                pd.DataFrame(load_filings(DATA_VERSION, st.session_state.search_start_date, st.session_state.search_end_date))
+            )
+            for item in fallback_items:
+                st.markdown(
+                    f"""
+                    <div class="etf-news-item">
+                        <div class="etf-news-source">{item.get("source", "ETF Dash")}</div>
+                        <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a>
+                        <div class="etf-news-kicker">{item.get("summary", "")}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
         else:
-            st.caption("No Google News headlines were available right now.")
+            st.caption("News headlines will appear here once Google returns results or after you run a filing search.")
 
 if search_submitted:
     if st.session_state.search_start_date < year_start:
