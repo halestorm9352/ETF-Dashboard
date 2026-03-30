@@ -148,7 +148,7 @@ DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
 DATA_VERSION = "2026-03-30-ticker-sanitize-and-filing-briefs"
-ETFCOM_DATA_VERSION = "2026-03-30-deeper-side-rails"
+ETFCOM_DATA_VERSION = "2026-03-30-31-day-side-rails"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 NEWS_QUERIES = (
     "ETF launches Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",
@@ -958,12 +958,12 @@ def load_news(_query):
 
 @st.cache_data(ttl=3600)
 def load_etfcom_news(_version):
-    return fetch_etfcom_news(limit=200)
+    return fetch_etfcom_news(limit=350)
 
 
 @st.cache_data(ttl=3600)
 def load_etfcom_launches(_version):
-    return fetch_etfcom_launches(limit=250)
+    return fetch_etfcom_launches(limit=400)
 
 
 def build_news_fallback_from_filings(filings_df, limit=6):
@@ -1016,7 +1016,7 @@ with st.container():
         launches_items = load_etfcom_launches(ETFCOM_DATA_VERSION)
         if launches_items:
             launches_container = st.container(height=760)
-            for item in launches_items[:250]:
+            for item in launches_items[:400]:
                 launches_container.markdown(
                     f"""
                     <div class="etf-news-item">
@@ -1054,7 +1054,7 @@ with st.container():
 
         if news_items:
             news_container = st.container(height=760)
-            for item in news_items[:200]:
+            for item in news_items[:350]:
                 news_date = item.get("date", "") or format_news_date(item.get("pub_date", ""))
                 news_container.markdown(
                     f"""

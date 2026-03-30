@@ -1,5 +1,5 @@
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 from html import unescape
 from io import StringIO
 from pathlib import Path
@@ -12,7 +12,8 @@ import requests
 from bs4 import BeautifulSoup
 
 ETFCOM_BASE_URL = "https://www.etf.com"
-ETFCOM_NEWS_MAX_PAGES = 8
+ETFCOM_NEWS_DAYS_BACK = 31
+ETFCOM_NEWS_MAX_PAGES = 24
 BASE_DIR = Path(__file__).resolve().parent
 SEED_LAUNCHES_PATH = BASE_DIR / "etfcom_launches_seed.csv"
 SEED_NEWS_PATH = BASE_DIR / "etfcom_news_seed.csv"
@@ -243,6 +244,10 @@ def _append_news_item(items, seen_links, title, category, author, date_text, hre
     )
 
 
+def _get_recent_cutoff(days_back):
+    return datetime.utcnow() - timedelta(days=days_back)
+
+
 def _extract_news_items_from_soup(soup, items, seen_links):
     selectors = [
         ("div.image-card", ".image-card__title a", ".image-card__category", ".image-card__author"),
@@ -267,11 +272,13 @@ def _extract_news_items_from_soup(soup, items, seen_links):
 
 
 def fetch_etfcom_news(limit=50):
+    cutoff = _get_recent_cutoff(ETFCOM_NEWS_DAYS_BACK)
     markdown_text = _fetch_text(f"{ETFCOM_BASE_URL}/node/55188.md")
     markdown_items = _parse_markdown_news(markdown_text, limit=limit)
     if markdown_items:
-        if len(markdown_items) >= limit:
-            return markdown_items[:limit]
+        recent_markdown_items = [item for item in markdown_items if item["published_at"] >= cutoff]
+        if len(recent_markdown_items) >= limit:
+            return recent_markdown_items[:limit]
 
     items = []
     seen_links = set()
@@ -294,11 +301,18 @@ def fetch_etfcom_news(limit=50):
 
         if len(items) >= limit:
             break
+        if items and min(item["published_at"] for item in items) <= cutoff and page_index >= 2:
+            break
         if len(items) == before_count and page_index >= 2:
             break
 
     items.sort(key=lambda item: item["published_at"], reverse=True)
-    return items[:limit] if items else _load_seed_news(limit=limit)
+    recent_items = [item for item in items if item["published_at"] >= cutoff]
+    if recent_items:
+        return recent_items[:limit]
+    if items:
+        return items[:limit]
+    return _load_seed_news(limit=limit)
 
 
 def fetch_etfcom_launches(limit=50):
