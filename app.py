@@ -145,9 +145,8 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-26-manual-search-and-generic-news"
+DATA_VERSION = "2026-03-30-ticker-sanitize-and-filing-briefs"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
-NEWS_QUERY = "ETF news"
 COMMON_MATCH_WORDS = {
     "etf",
     "fund",
@@ -245,6 +244,14 @@ def fetch_news_items():
 
 
 def extract_etf_name(text):
+    bracketed_pipe_match = re.search(
+        r'\[\s*[A-Z]{1,8}\s*\]\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
+        clean_html_text(text),
+        re.IGNORECASE,
+    )
+    if bracketed_pipe_match:
+        return bracketed_pipe_match.group(1).strip()
+
     pipe_match = re.search(
         r'([A-Z]{2,6})\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
         clean_html_text(text),
@@ -292,6 +299,16 @@ def extract_etf_name(text):
 
 
 def extract_ticker(text):
+    bracketed_pipe_match = re.search(
+        r'\[\s*([A-Z]{1,8})\s*\]\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
+        clean_html_text(text),
+        re.IGNORECASE,
+    )
+    if bracketed_pipe_match:
+        ticker = bracketed_pipe_match.group(1).upper()
+        if ticker not in INVALID_TICKERS:
+            return ticker
+
     contract_row_match = re.search(
         r'<tr[^>]*class="contractRow"[^>]*>(.*?)</tr>',
         text,
@@ -350,6 +367,13 @@ def extract_ticker(text):
             return ticker
 
     return ""
+
+
+def sanitize_ticker(value):
+    ticker = str(value or "").strip().upper()
+    if re.fullmatch(r"[A-Z]{1,8}", ticker) and ticker not in INVALID_TICKERS:
+        return ticker
+    return "Not Listed"
 
 
 def extract_filer_name(text):
@@ -448,6 +472,34 @@ def match_news_to_etfs(news_title, filings_df, limit=3):
             break
 
     return ", ".join(unique) if unique else ""
+
+
+def build_filing_blurbs(filings_df, limit=12):
+    if filings_df.empty:
+        return []
+
+    blurbs = []
+    recent_rows = filings_df.sort_values(by="date", ascending=False).head(limit)
+    for _, row in recent_rows.iterrows():
+        etf_name = str(row.get("etf_name", "")).strip() or "ETF Filing"
+        filer = str(row.get("filer", "")).strip()
+        form = str(row.get("form", "")).strip()
+        link = str(row.get("link", "")).strip()
+        ticker = sanitize_ticker(row.get("ticker", ""))
+        date_value = row.get("date")
+        date_label = date_value.strftime("%Y-%m-%d") if hasattr(date_value, "strftime") else str(date_value)
+
+        blurbs.append(
+            {
+                "headline": etf_name,
+                "source": "Recent ETF Filings",
+                "matching_tickers": ticker,
+                "link": link,
+                "blurb": f"{form} filed on {date_label} by {filer}.",
+            }
+        )
+
+    return blurbs
 
 
 def build_sec_url(path_or_url):
@@ -617,7 +669,7 @@ def fetch_filings(start_date=None, end_date=None):
                         row_ticker = primary_ticker
                     rows_to_append.append(
                         {
-                            "ticker": row_ticker or "Not Listed",
+                            "ticker": sanitize_ticker(row_ticker),
                             "etf_name": row_name,
                             "filer": resolved_filer_name,
                             "form": form,
@@ -630,7 +682,7 @@ def fetch_filings(start_date=None, end_date=None):
                 fallback_ticker = primary_ticker or extract_ticker(index_text) or "Not Listed"
                 rows_to_append.append(
                     {
-                        "ticker": fallback_ticker,
+                        "ticker": sanitize_ticker(fallback_ticker),
                         "etf_name": fallback_name,
                         "filer": resolved_filer_name,
                         "form": form,
@@ -671,10 +723,6 @@ st.markdown(
 def load_filings(_data_version, start_date, end_date):
     return fetch_filings(start_date, end_date)
 
-
-@st.cache_data(ttl=1800)
-def load_news():
-    return fetch_news_items()
 
 default_end = datetime.today().date()
 year_start = datetime(default_end.year, 1, 1).date()
@@ -728,6 +776,7 @@ else:
                 & (df["date"].dt.date <= st.session_state.search_end_date)
             ].copy()
             filtered_df = filtered_df.sort_values(by="date", ascending=False)
+            filtered_df["ticker"] = filtered_df["ticker"].apply(sanitize_ticker)
             display_df = filtered_df.copy()
             display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
 
@@ -739,25 +788,20 @@ else:
             )
 
             st.subheader("ETF News")
-            news_items = load_news()
-            matched_news = []
-            for item in news_items:
-                matching_tickers = match_news_to_etfs(item["title"], filtered_df)
-                if matching_tickers:
-                    matched_news.append({**item, "matching_tickers": matching_tickers})
+            filing_blurbs = build_filing_blurbs(filtered_df)
 
-            if matched_news:
+            if filing_blurbs:
                 header_cols = st.columns([2.4, 1, 1])
                 header_cols[0].markdown("**Headline**")
                 header_cols[1].markdown("**Source**")
                 header_cols[2].markdown("**Matching ETFs**")
 
-                for item in matched_news:
+                for item in filing_blurbs:
                     row_cols = st.columns([2.4, 1, 1])
-                    row_cols[0].markdown(f"[{item['title']}]({item['link']})")
+                    row_cols[0].markdown(f"[{item['headline']}]({item['link']})  \n{item['blurb']}")
                     row_cols[1].write(item["source"])
                     row_cols[2].write(item["matching_tickers"])
             else:
-                st.caption("No current news headlines directly matched the ETF filings in this search.")
+                st.caption("No recent ETF filing blurbs were available for this search.")
         else:
             st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
