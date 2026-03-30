@@ -372,6 +372,29 @@ def extract_filer_name(text):
     return ""
 
 
+def extract_series_entries(text):
+    entries = []
+    contract_rows = re.findall(
+        r'<tr[^>]*class="contractRow"[^>]*>.*?<td[^>]*>.*?</td>\s*<td[^>]*>.*?</td>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>\s*</tr>',
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    for name_html, ticker_html in contract_rows:
+        name = clean_html_text(name_html)
+        ticker = clean_html_text(ticker_html).upper()
+        if not name:
+            continue
+        if ticker and not re.fullmatch(r"[A-Z]{1,8}", ticker):
+            ticker = ""
+        entries.append(
+            {
+                "etf_name": name,
+                "ticker": ticker if ticker not in INVALID_TICKERS else "",
+            }
+        )
+    return entries
+
+
 def clean_html_text(value):
     without_tags = re.sub(r"<[^>]+>", " ", value)
     decoded = html.unescape(without_tags)
@@ -557,56 +580,69 @@ def fetch_filings(start_date=None, end_date=None):
                 continue
 
             seen_links.add(filing_link)
-            index_text = ""
-            filing_filer_name = filer_name
-            ticker = ""
-            etf_name = "N/A"
+            index_text = extract_text(filing_link, max_chars=INDEX_PAGE_MAX_CHARS)
+            filing_filer_name = extract_filer_name(index_text) or filer_name
+            series_entries = extract_series_entries(index_text)
+            primary_ticker = ""
+            primary_etf_name = "N/A"
 
             if primary_document_url:
                 primary_text = extract_text(primary_document_url, max_chars=300000)
                 if primary_text:
-                    ticker = extract_ticker(primary_text)
-                    etf_name = extract_etf_name(primary_text)
+                    primary_ticker = extract_ticker(primary_text)
+                    primary_etf_name = extract_etf_name(primary_text)
                     parsed_filer_name = extract_filer_name(primary_text)
                     if parsed_filer_name:
                         filing_filer_name = parsed_filer_name
 
-            if etf_name == "N/A" or not ticker:
-                index_text = extract_text(filing_link, max_chars=INDEX_PAGE_MAX_CHARS)
-                parsed_filer_name = extract_filer_name(index_text)
-                if parsed_filer_name:
-                    filing_filer_name = parsed_filer_name
-                if not ticker:
-                    ticker = extract_ticker(index_text)
-                if etf_name == "N/A":
-                    etf_name = extract_etf_name(index_text)
-
-            if index_text and (etf_name == "N/A" or not ticker or not filing_filer_name):
+            if index_text and ((not series_entries) or any(not entry["ticker"] for entry in series_entries)):
                 for supporting_text in fetch_supporting_document_texts(index_text):
-                    if etf_name == "N/A":
-                        etf_name = extract_etf_name(supporting_text)
-
-                    if not ticker:
-                        ticker = extract_ticker(supporting_text)
-
+                    if not primary_ticker:
+                        primary_ticker = extract_ticker(supporting_text)
+                    if primary_etf_name == "N/A":
+                        primary_etf_name = extract_etf_name(supporting_text)
                     if not filing_filer_name:
                         filing_filer_name = extract_filer_name(supporting_text)
-
-                    if etf_name != "N/A" and ticker and filing_filer_name:
+                    if primary_ticker and primary_etf_name != "N/A" and filing_filer_name:
                         break
 
             resolved_filer_name = filing_filer_name or filer_name
-            if not ticker:
-                ticker = "Not Listed"
+            rows_to_append = []
 
-            results.append({
-                "ticker": ticker,
-                "etf_name": etf_name,
-                "filer": resolved_filer_name,
-                "form": form,
-                "date": date_str,
-                "link": filing_link
-            })
+            if series_entries:
+                for entry in series_entries:
+                    row_name = entry["etf_name"] or primary_etf_name
+                    row_ticker = entry["ticker"]
+                    if len(series_entries) == 1 and not row_ticker:
+                        row_ticker = primary_ticker
+                    rows_to_append.append(
+                        {
+                            "ticker": row_ticker or "Not Listed",
+                            "etf_name": row_name,
+                            "filer": resolved_filer_name,
+                            "form": form,
+                            "date": date_str,
+                            "link": filing_link,
+                        }
+                    )
+            else:
+                fallback_name = primary_etf_name if primary_etf_name != "N/A" else extract_etf_name(index_text)
+                fallback_ticker = primary_ticker or extract_ticker(index_text) or "Not Listed"
+                rows_to_append.append(
+                    {
+                        "ticker": fallback_ticker,
+                        "etf_name": fallback_name,
+                        "filer": resolved_filer_name,
+                        "form": form,
+                        "date": date_str,
+                        "link": filing_link,
+                    }
+                )
+
+            for row in rows_to_append:
+                if "ETF" not in str(row["etf_name"]).upper():
+                    continue
+                results.append(row)
 
             time.sleep(REQUEST_DELAY_SECONDS)
 
