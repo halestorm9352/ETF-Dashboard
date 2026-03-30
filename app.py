@@ -147,6 +147,7 @@ REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
 DATA_VERSION = "2026-03-30-ticker-sanitize-and-filing-briefs"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
+NEWS_QUERY = "recent ETF filings"
 COMMON_MATCH_WORDS = {
     "etf",
     "fund",
@@ -204,11 +205,21 @@ def split_news_title_and_source(title, fallback_source):
     return title, fallback_source
 
 
-def fetch_news_items():
+def clean_news_headline_and_source(title, fallback_source):
+    title = (title or "").strip()
+    dash_split = re.split(r"\s+[—–-]\s+", title)
+    if len(dash_split) >= 2:
+        possible_source = dash_split[-1].strip()
+        if 2 <= len(possible_source) <= 60:
+            return " - ".join(dash_split[:-1]).strip(), possible_source
+    return title, fallback_source
+
+
+def fetch_news_items(query=NEWS_QUERY):
     items = []
     seen_links = set()
 
-    feed_url = build_google_news_rss_url(NEWS_QUERY)
+    feed_url = build_google_news_rss_url(query)
     feed_text = get_response_text(feed_url, max_chars=120000, retries=2)
     if not feed_text:
         return items
@@ -229,7 +240,7 @@ def fetch_news_items():
 
         seen_links.add(link)
         source = source_text or "News"
-        title, source = split_news_title_and_source(title, source)
+        title, source = clean_news_headline_and_source(title, source)
 
         items.append(
             {
@@ -502,6 +513,16 @@ def build_filing_blurbs(filings_df, limit=12):
     return blurbs
 
 
+def format_news_date(pub_date):
+    pub_date = str(pub_date or "").strip()
+    for fmt in ("%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y %H:%M:%S %z"):
+        try:
+            return datetime.strptime(pub_date, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return pub_date
+
+
 def build_sec_url(path_or_url):
     if path_or_url.startswith("http"):
         return path_or_url
@@ -708,10 +729,131 @@ st.markdown(
     <style>
     @import url('https://fonts.googleapis.com/css2?family=PT+Sans+Narrow:wght@400;700&display=swap');
 
+    :root {
+        --etf-accent: #f0b90b;
+        --etf-card: #121722;
+        --etf-border: rgba(255, 255, 255, 0.08);
+        --etf-muted: #aeb7c7;
+    }
+
     html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stMarkdownContainer"],
     [data-testid="stDataFrame"], [data-testid="stForm"], [data-testid="stDateInputField"] input,
     button, table, thead, tbody, tr, th, td, input {
         font-family: 'PT Sans Narrow', sans-serif !important;
+    }
+
+    .block-container {
+        padding-top: 1.5rem;
+        max-width: 1400px;
+    }
+
+    .etf-masthead {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .etf-brand {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
+
+    .etf-brand span {
+        color: var(--etf-accent);
+    }
+
+    .etf-nav {
+        display: flex;
+        gap: 0.75rem;
+        color: var(--etf-muted);
+        font-size: 0.95rem;
+    }
+
+    .etf-hero {
+        border: 1px solid var(--etf-border);
+        background: linear-gradient(135deg, rgba(240,185,11,0.12), rgba(18,23,34,0.95));
+        border-radius: 18px;
+        padding: 1.1rem 1.2rem;
+        margin-bottom: 1rem;
+    }
+
+    .etf-hero-title {
+        font-size: 1.45rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+
+    .etf-hero-copy {
+        color: var(--etf-muted);
+        font-size: 1rem;
+    }
+
+    .etf-card {
+        border: 1px solid var(--etf-border);
+        background: var(--etf-card);
+        border-radius: 18px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+    }
+
+    .etf-card-label {
+        color: var(--etf-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.72rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .etf-card-value {
+        font-size: 1.65rem;
+        font-weight: 700;
+    }
+
+    .etf-section-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+
+    .etf-section-copy {
+        color: var(--etf-muted);
+        margin-bottom: 0.8rem;
+    }
+
+    .etf-feature-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+    }
+
+    .etf-feature-meta {
+        color: var(--etf-muted);
+        font-size: 0.95rem;
+    }
+
+    .etf-news-item {
+        padding: 0.8rem 0;
+        border-bottom: 1px solid var(--etf-border);
+    }
+
+    .etf-news-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .etf-news-source {
+        color: var(--etf-accent);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .etf-news-meta {
+        color: var(--etf-muted);
+        font-size: 0.9rem;
     }
     </style>
     """,
@@ -724,6 +866,11 @@ def load_filings(_data_version, start_date, end_date):
     return fetch_filings(start_date, end_date)
 
 
+@st.cache_data(ttl=1800)
+def load_news(_query):
+    return fetch_news_items(_query)
+
+
 default_end = datetime.today().date()
 year_start = datetime(default_end.year, 1, 1).date()
 default_start = max(year_start, default_end - timedelta(days=14))
@@ -734,12 +881,62 @@ if "search_end_date" not in st.session_state:
 if "search_requested" not in st.session_state:
     st.session_state.search_requested = False
 
-st.subheader("ETF Filings")
-with st.form("date_filter_form"):
-    filter_cols = st.columns([1, 1, 0.6])
-    filter_cols[0].date_input("Start date", min_value=year_start, max_value=default_end, key="search_start_date")
-    filter_cols[1].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
-    search_submitted = filter_cols[2].form_submit_button("Search")
+st.markdown(
+    """
+    <div class="etf-masthead">
+        <div class="etf-brand"><span>ETF</span> Dash</div>
+        <div class="etf-nav">
+            <div>Filings</div>
+            <div>News</div>
+            <div>Data Sources</div>
+        </div>
+    </div>
+    <div class="etf-hero">
+        <div class="etf-hero-title">ETF filings first, with the rest of the dashboard building around them.</div>
+        <div class="etf-hero-copy">This first draft keeps SEC filings front and center, adds a lighter media-style shell, and starts a broader ETF news rail without overcomplicating the parser.</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+search_submitted = False
+with st.container():
+    left_col, right_col = st.columns([2.25, 1], gap="large")
+
+    with left_col:
+        st.markdown('<div class="etf-section-title">ETF Filings</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="etf-section-copy">Search SEC filings by date range, with the newest filings displayed first.</div>',
+            unsafe_allow_html=True,
+        )
+        with st.form("date_filter_form"):
+            filter_cols = st.columns([1, 1, 0.45])
+            filter_cols[0].date_input("Start date", min_value=year_start, max_value=default_end, key="search_start_date")
+            filter_cols[1].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
+            search_submitted = filter_cols[2].form_submit_button("Search")
+
+    with right_col:
+        st.markdown('<div class="etf-section-title">ETF News</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="etf-section-copy">Recent Google News results for the broader "recent ETF filings" theme.</div>',
+            unsafe_allow_html=True,
+        )
+        news_items = load_news(NEWS_QUERY)
+        if news_items:
+            for item in news_items[:8]:
+                news_date = format_news_date(item.get("pub_date", ""))
+                st.markdown(
+                    f"""
+                    <div class="etf-news-item">
+                        <div class="etf-news-source">{item.get("source", "News")}</div>
+                        <div><a href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a></div>
+                        <div class="etf-news-meta">{news_date}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.caption("No Google News headlines were available right now.")
 
 if search_submitted:
     if st.session_state.search_start_date < year_start:
@@ -779,29 +976,45 @@ else:
             filtered_df["ticker"] = filtered_df["ticker"].apply(sanitize_ticker)
             display_df = filtered_df.copy()
             display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
+            filings_count = len(display_df)
+            listed_tickers = int((filtered_df["ticker"] != "Not Listed").sum())
+            distinct_filers = int(filtered_df["filer"].nunique())
+            latest_date = display_df.iloc[0]["date"] if not display_df.empty else "N/A"
+            stat_cols = st.columns(4)
+            stat_cols[0].markdown(
+                f'<div class="etf-card"><div class="etf-card-label">Filings Loaded</div><div class="etf-card-value">{filings_count}</div></div>',
+                unsafe_allow_html=True,
+            )
+            stat_cols[1].markdown(
+                f'<div class="etf-card"><div class="etf-card-label">Tickers Listed</div><div class="etf-card-value">{listed_tickers}</div></div>',
+                unsafe_allow_html=True,
+            )
+            stat_cols[2].markdown(
+                f'<div class="etf-card"><div class="etf-card-label">Distinct Filers</div><div class="etf-card-value">{distinct_filers}</div></div>',
+                unsafe_allow_html=True,
+            )
+            stat_cols[3].markdown(
+                f'<div class="etf-card"><div class="etf-card-label">Latest Filing</div><div class="etf-card-value">{latest_date}</div></div>',
+                unsafe_allow_html=True,
+            )
 
-            st.success(f"Loaded {len(display_df)} filing(s) in the selected date range.")
+            featured = display_df.iloc[0].to_dict()
+            st.markdown(
+                f"""
+                <div class="etf-card">
+                    <div class="etf-card-label">Featured Filing</div>
+                    <div class="etf-feature-title">{featured.get("etf_name", "ETF Filing")}</div>
+                    <div class="etf-feature-meta">{featured.get("form", "")} | {featured.get("date", "")} | {featured.get("filer", "")}</div>
+                    <div style="margin-top:0.65rem;"><a href="{featured.get('link', '#')}" target="_blank">Open SEC Filing</a></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.success(f"Loaded {filings_count} filing(s) in the selected date range.")
             st.dataframe(
                 display_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
                 use_container_width=True,
                 hide_index=True,
             )
-
-            st.subheader("ETF News")
-            filing_blurbs = build_filing_blurbs(filtered_df)
-
-            if filing_blurbs:
-                header_cols = st.columns([2.4, 1, 1])
-                header_cols[0].markdown("**Headline**")
-                header_cols[1].markdown("**Source**")
-                header_cols[2].markdown("**Matching ETFs**")
-
-                for item in filing_blurbs:
-                    row_cols = st.columns([2.4, 1, 1])
-                    row_cols[0].markdown(f"[{item['headline']}]({item['link']})  \n{item['blurb']}")
-                    row_cols[1].write(item["source"])
-                    row_cols[2].write(item["matching_tickers"])
-            else:
-                st.caption("No recent ETF filing blurbs were available for this search.")
         else:
             st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
