@@ -252,9 +252,6 @@ def fetch_news_items(queries=None):
                 }
             )
 
-        if items:
-            break
-
     return items
 
 
@@ -734,16 +731,23 @@ st.markdown(
     @import url('https://fonts.googleapis.com/css2?family=PT+Sans+Narrow:wght@400;700&display=swap');
 
     :root {
-        --etf-accent: #f0b90b;
-        --etf-card: #121722;
-        --etf-border: rgba(255, 255, 255, 0.08);
-        --etf-muted: #aeb7c7;
+        --etf-accent: #138a36;
+        --etf-card: #ffffff;
+        --etf-border: #dfe5dc;
+        --etf-muted: #667085;
+        --etf-text: #172026;
+        --etf-soft: #f7faf7;
     }
 
     html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stMarkdownContainer"],
     [data-testid="stDataFrame"], [data-testid="stForm"], [data-testid="stDateInputField"] input,
     button, table, thead, tbody, tr, th, td, input {
         font-family: 'PT Sans Narrow', sans-serif !important;
+        color: var(--etf-text);
+    }
+
+    html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stAppViewContainer"] > .main {
+        background: #ffffff !important;
     }
 
     .block-container {
@@ -756,31 +760,13 @@ st.markdown(
         font-weight: 700;
         letter-spacing: 0.01em;
         margin-bottom: 0.15rem;
+        color: var(--etf-accent);
     }
 
     .etf-tagline {
         color: var(--etf-muted);
         font-size: 0.95rem;
         margin-bottom: 1rem;
-    }
-
-    .etf-hero {
-        border: 1px solid var(--etf-border);
-        background: linear-gradient(135deg, rgba(240,185,11,0.12), rgba(18,23,34,0.95));
-        border-radius: 18px;
-        padding: 0.95rem 1.1rem;
-        margin-bottom: 1rem;
-    }
-
-    .etf-hero-title {
-        font-size: 1.25rem;
-        font-weight: 700;
-        margin-bottom: 0.25rem;
-    }
-
-    .etf-hero-copy {
-        color: var(--etf-muted);
-        font-size: 1rem;
     }
 
     .etf-card {
@@ -808,6 +794,7 @@ st.markdown(
         font-size: 1.35rem;
         font-weight: 700;
         margin-bottom: 0.25rem;
+        color: var(--etf-text);
     }
 
     .etf-section-copy {
@@ -866,6 +853,48 @@ st.markdown(
         font-size: 0.88rem;
         margin-top: 0.15rem;
     }
+
+    .etf-news-rail {
+        max-height: 1450px;
+        overflow-y: auto;
+        padding-right: 0.5rem;
+    }
+
+    .etf-news-rail::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .etf-news-rail::-webkit-scrollbar-thumb {
+        background: #c8d3c4;
+        border-radius: 999px;
+    }
+
+    a, a:visited {
+        color: #1357c5;
+    }
+
+    [data-testid="stDateInputField"] input, div[data-baseweb="input"] input {
+        background: #ffffff !important;
+        color: var(--etf-text) !important;
+    }
+
+    div[data-baseweb="base-input"] {
+        background: #ffffff !important;
+        border: 1px solid var(--etf-border) !important;
+    }
+
+    div[data-testid="stForm"] {
+        border: 1px solid var(--etf-border);
+        border-radius: 16px;
+        padding: 0.8rem 0.9rem 0.2rem;
+        background: var(--etf-card);
+    }
+
+    div[data-testid="stDataFrame"] {
+        border: 1px solid var(--etf-border);
+        border-radius: 16px;
+        overflow: hidden;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -915,10 +944,6 @@ st.markdown(
     """
     <div class="etf-brand">ETF Dash</div>
     <div class="etf-tagline">Tracking new ETF launches, registration filings, and the surrounding market conversation.</div>
-    <div class="etf-hero">
-        <div class="etf-hero-title">ETF filings stay front and center.</div>
-        <div class="etf-hero-copy">This version keeps the workflow simple: search filings by date, surface the newest filing first, and show a cleaner ETF news rail alongside it.</div>
-    </div>
     """,
     unsafe_allow_html=True,
 )
@@ -947,33 +972,37 @@ with st.container():
         )
         news_items = load_news(NEWS_QUERIES)
         if news_items:
-            for item in news_items[:8]:
+            news_html = ['<div class="etf-news-rail">']
+            for item in news_items[:40]:
                 news_date = format_news_date(item.get("pub_date", ""))
-                st.markdown(
+                news_html.append(
                     f"""
                     <div class="etf-news-item">
                         <div class="etf-news-source">{item.get("source", "News")}</div>
                         <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a>
                         <div class="etf-news-meta">{news_date}</div>
                     </div>
-                    """,
-                    unsafe_allow_html=True,
+                    """
                 )
+            news_html.append("</div>")
+            st.markdown("".join(news_html), unsafe_allow_html=True)
         elif st.session_state.search_requested:
             fallback_items = build_news_fallback_from_filings(
                 pd.DataFrame(load_filings(DATA_VERSION, st.session_state.search_start_date, st.session_state.search_end_date))
             )
+            news_html = ['<div class="etf-news-rail">']
             for item in fallback_items:
-                st.markdown(
+                news_html.append(
                     f"""
                     <div class="etf-news-item">
                         <div class="etf-news-source">{item.get("source", "ETF Dash")}</div>
                         <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a>
                         <div class="etf-news-kicker">{item.get("summary", "")}</div>
                     </div>
-                    """,
-                    unsafe_allow_html=True,
+                    """
                 )
+            news_html.append("</div>")
+            st.markdown("".join(news_html), unsafe_allow_html=True)
         else:
             st.caption("News headlines will appear here once Google returns results or after you run a filing search.")
 
