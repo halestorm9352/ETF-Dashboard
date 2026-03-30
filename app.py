@@ -732,11 +732,11 @@ st.markdown(
 
     :root {
         --etf-accent: #138a36;
-        --etf-card: #ffffff;
-        --etf-border: #dfe5dc;
-        --etf-muted: #667085;
-        --etf-text: #172026;
-        --etf-soft: #f7faf7;
+        --etf-card: #121722;
+        --etf-border: rgba(255, 255, 255, 0.08);
+        --etf-muted: #aeb7c7;
+        --etf-text: #f3f6fb;
+        --etf-soft: #0f131b;
     }
 
     html, body, [class*="css"], [data-testid="stAppViewContainer"], [data-testid="stMarkdownContainer"],
@@ -747,11 +747,11 @@ st.markdown(
     }
 
     html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stAppViewContainer"] > .main {
-        background: #ffffff !important;
+        background: #0f131b !important;
     }
 
     .block-container {
-        padding-top: 1.5rem;
+        padding-top: 3.1rem;
         max-width: 1400px;
     }
 
@@ -860,26 +860,17 @@ st.markdown(
         padding-right: 0.5rem;
     }
 
-    .etf-news-rail::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    .etf-news-rail::-webkit-scrollbar-thumb {
-        background: #c8d3c4;
-        border-radius: 999px;
-    }
-
     a, a:visited {
         color: #1357c5;
     }
 
     [data-testid="stDateInputField"] input, div[data-baseweb="input"] input {
-        background: #ffffff !important;
+        background: #1d2330 !important;
         color: var(--etf-text) !important;
     }
 
     div[data-baseweb="base-input"] {
-        background: #ffffff !important;
+        background: #1d2330 !important;
         border: 1px solid var(--etf-border) !important;
     }
 
@@ -972,37 +963,35 @@ with st.container():
         )
         news_items = load_news(NEWS_QUERIES)
         if news_items:
-            news_html = ['<div class="etf-news-rail">']
+            news_container = st.container(height=1450)
             for item in news_items[:40]:
                 news_date = format_news_date(item.get("pub_date", ""))
-                news_html.append(
+                news_container.markdown(
                     f"""
                     <div class="etf-news-item">
                         <div class="etf-news-source">{item.get("source", "News")}</div>
                         <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a>
                         <div class="etf-news-meta">{news_date}</div>
                     </div>
-                    """
+                    """,
+                    unsafe_allow_html=True,
                 )
-            news_html.append("</div>")
-            st.markdown("".join(news_html), unsafe_allow_html=True)
         elif st.session_state.search_requested:
             fallback_items = build_news_fallback_from_filings(
                 pd.DataFrame(load_filings(DATA_VERSION, st.session_state.search_start_date, st.session_state.search_end_date))
             )
-            news_html = ['<div class="etf-news-rail">']
+            news_container = st.container(height=1450)
             for item in fallback_items:
-                news_html.append(
+                news_container.markdown(
                     f"""
                     <div class="etf-news-item">
                         <div class="etf-news-source">{item.get("source", "ETF Dash")}</div>
                         <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a>
                         <div class="etf-news-kicker">{item.get("summary", "")}</div>
                     </div>
-                    """
+                    """,
+                    unsafe_allow_html=True,
                 )
-            news_html.append("</div>")
-            st.markdown("".join(news_html), unsafe_allow_html=True)
         else:
             st.caption("News headlines will appear here once Google returns results or after you run a filing search.")
 
