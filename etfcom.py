@@ -12,9 +12,11 @@ import requests
 from bs4 import BeautifulSoup
 
 ETFCOM_BASE_URL = "https://www.etf.com"
+ETFCOM_NEWS_MAX_PAGES = 8
 BASE_DIR = Path(__file__).resolve().parent
 SEED_LAUNCHES_PATH = BASE_DIR / "etfcom_launches_seed.csv"
 SEED_NEWS_PATH = BASE_DIR / "etfcom_news_seed.csv"
+_SESSION = None
 ETFCOM_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -48,9 +50,16 @@ def _load_seed_rows(path):
         return []
 
 
+def _get_session():
+    global _SESSION
+    if _SESSION is None:
+        _SESSION = requests.Session()
+        _SESSION.headers.update(ETFCOM_HEADERS)
+    return _SESSION
+
+
 def _fetch_text(url):
-    session = requests.Session()
-    session.headers.update(ETFCOM_HEADERS)
+    session = _get_session()
 
     try:
         response = session.get(url, timeout=20)
@@ -205,55 +214,88 @@ def _parse_markdown_news(markdown_text, limit=50):
     return items[:limit]
 
 
+def _append_news_item(items, seen_links, title, category, author, date_text, href):
+    title = _clean_text(unescape(title))
+    category = _clean_text(unescape(category))
+    author = _clean_text(unescape(author))
+    href = _clean_text(href)
+    published_at = _parse_date(_clean_text(date_text), "%b %d, %Y")
+    link = urljoin(ETFCOM_BASE_URL, href)
+
+    if not title or not href or not published_at or link in seen_links:
+        return
+    if "/media-center/" in href:
+        return
+    if not _is_relevant_etfcom_news(title, category, author):
+        return
+
+    seen_links.add(link)
+    items.append(
+        {
+            "category": category or "ETF.com",
+            "title": title,
+            "author": author or "ETF.com",
+            "date": published_at.strftime("%Y-%m-%d"),
+            "published_at": published_at,
+            "link": link,
+            "source": "ETF.com",
+        }
+    )
+
+
+def _extract_news_items_from_soup(soup, items, seen_links):
+    selectors = [
+        ("div.image-card", ".image-card__title a", ".image-card__category", ".image-card__author"),
+        ("div.text-card", ".text-card__title a", ".text-card__topic", ".text-card__author"),
+    ]
+
+    for card_selector, title_selector, category_selector, author_selector in selectors:
+        for card in soup.select(card_selector):
+            title_link = card.select_one(title_selector)
+            category_el = card.select_one(category_selector)
+            author_el = card.select_one(author_selector)
+
+            if not title_link or not author_el:
+                continue
+
+            href = title_link.get("href", "").strip()
+            title = title_link.get_text(" ", strip=True)
+            category = category_el.get_text(" ", strip=True) if category_el else ""
+            author_text = author_el.get_text(" ", strip=True)
+            author, date_text = _split_author_and_date(author_text)
+            _append_news_item(items, seen_links, title, category, author, date_text, href)
+
+
 def fetch_etfcom_news(limit=50):
-    markdown_text = _fetch_text(f"{ETFCOM_BASE_URL}/node/55189.md")
+    markdown_text = _fetch_text(f"{ETFCOM_BASE_URL}/node/55188.md")
     markdown_items = _parse_markdown_news(markdown_text, limit=limit)
     if markdown_items:
-        return markdown_items
+        if len(markdown_items) >= limit:
+            return markdown_items[:limit]
 
-    html = _fetch_text(f"{ETFCOM_BASE_URL}/latest-news")
-    if not html:
-        return _load_seed_news(limit=limit)
-
-    soup = BeautifulSoup(html, "html.parser")
     items = []
     seen_links = set()
 
-    for card in soup.select("div.image-card"):
-        title_link = card.select_one(".image-card__title a")
-        category_el = card.select_one(".image-card__category")
-        author_el = card.select_one(".image-card__author")
+    for item in markdown_items:
+        link = item.get("link", "")
+        if link and link not in seen_links:
+            seen_links.add(link)
+            items.append(item)
 
-        if not title_link:
+    for page_index in range(ETFCOM_NEWS_MAX_PAGES):
+        page_url = f"{ETFCOM_BASE_URL}/news?page={page_index}" if page_index else f"{ETFCOM_BASE_URL}/news"
+        html = _fetch_text(page_url)
+        if not html:
             continue
 
-        href = title_link.get("href", "").strip()
-        title = _clean_text(title_link.get_text(" ", strip=True))
-        category = _clean_text(category_el.get_text(" ", strip=True)) if category_el else ""
-        author_text = _clean_text(author_el.get_text(" ", strip=True)) if author_el else ""
-        author, date_text = _split_author_and_date(author_text)
-        published_at = _parse_date(date_text, "%b %d, %Y")
-        link = urljoin(ETFCOM_BASE_URL, href)
+        soup = BeautifulSoup(html, "html.parser")
+        before_count = len(items)
+        _extract_news_items_from_soup(soup, items, seen_links)
 
-        if not title or not href or link in seen_links or not published_at:
-            continue
-        if "/media-center/" in href:
-            continue
-        if not _is_relevant_etfcom_news(title, category, author):
-            continue
-
-        seen_links.add(link)
-        items.append(
-            {
-                "category": category or "ETF.com",
-                "title": title,
-                "author": author,
-                "date": published_at.strftime("%Y-%m-%d"),
-                "published_at": published_at,
-                "link": link,
-                "source": "ETF.com",
-            }
-        )
+        if len(items) >= limit:
+            break
+        if len(items) == before_count and page_index >= 2:
+            break
 
     items.sort(key=lambda item: item["published_at"], reverse=True)
     return items[:limit] if items else _load_seed_news(limit=limit)

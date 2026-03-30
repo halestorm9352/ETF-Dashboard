@@ -148,7 +148,7 @@ DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
 DATA_VERSION = "2026-03-30-ticker-sanitize-and-filing-briefs"
-ETFCOM_DATA_VERSION = "2026-03-30-etfcom-side-rail-fallbacks"
+ETFCOM_DATA_VERSION = "2026-03-30-deeper-side-rails"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 NEWS_QUERIES = (
     "ETF launches Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",
@@ -958,12 +958,12 @@ def load_news(_query):
 
 @st.cache_data(ttl=3600)
 def load_etfcom_news(_version):
-    return fetch_etfcom_news(limit=50)
+    return fetch_etfcom_news(limit=200)
 
 
 @st.cache_data(ttl=3600)
 def load_etfcom_launches(_version):
-    return fetch_etfcom_launches(limit=50)
+    return fetch_etfcom_launches(limit=250)
 
 
 def build_news_fallback_from_filings(filings_df, limit=6):
@@ -1008,15 +1008,15 @@ with st.container():
     launches_col, center_col, news_col = st.columns([1.05, 1.8, 1.05], gap="large")
 
     with launches_col:
-        st.markdown('<div class="etf-section-title">ETF Launches</div>', unsafe_allow_html=True)
+        st.markdown('<div class="etf-section-title">Launches</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="etf-section-copy">Recent ETF launches from ETF.com.</div>',
+            '<div class="etf-section-copy">Recent launches from ETF.com.</div>',
             unsafe_allow_html=True,
         )
         launches_items = load_etfcom_launches(ETFCOM_DATA_VERSION)
         if launches_items:
-            launches_container = st.container(height=700)
-            for item in launches_items[:35]:
+            launches_container = st.container(height=760)
+            for item in launches_items[:250]:
                 launches_container.markdown(
                     f"""
                     <div class="etf-news-item">
@@ -1031,7 +1031,7 @@ with st.container():
             st.caption("ETF.com launches were not available right now.")
 
     with center_col:
-        st.markdown('<div class="etf-section-title">ETF Filings</div>', unsafe_allow_html=True)
+        st.markdown('<div class="etf-section-title">Filings</div>', unsafe_allow_html=True)
         st.markdown(
             '<div class="etf-section-copy">Search SEC filings by date range, with the newest filings displayed first.</div>',
             unsafe_allow_html=True,
@@ -1043,9 +1043,9 @@ with st.container():
             search_submitted = filter_cols[2].form_submit_button("Search")
 
     with news_col:
-        st.markdown('<div class="etf-section-title">ETF News</div>', unsafe_allow_html=True)
+        st.markdown('<div class="etf-section-title">News</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="etf-section-copy">Recent ETF.com headlines, with a broader fallback if ETF.com is having a moment.</div>',
+            '<div class="etf-section-copy">Recent headlines from ETF.com, with a broader fallback if ETF.com is having a moment.</div>',
             unsafe_allow_html=True,
         )
         news_items = load_etfcom_news(ETFCOM_DATA_VERSION)
@@ -1053,8 +1053,8 @@ with st.container():
             news_items = load_news(NEWS_QUERIES)
 
         if news_items:
-            news_container = st.container(height=700)
-            for item in news_items[:50]:
+            news_container = st.container(height=760)
+            for item in news_items[:200]:
                 news_date = item.get("date", "") or format_news_date(item.get("pub_date", ""))
                 news_container.markdown(
                     f"""
@@ -1070,7 +1070,7 @@ with st.container():
             fallback_items = build_news_fallback_from_filings(
                 pd.DataFrame(load_filings(DATA_VERSION, st.session_state.search_start_date, st.session_state.search_end_date))
             )
-            news_container = st.container(height=700)
+            news_container = st.container(height=760)
             for item in fallback_items:
                 news_container.markdown(
                     f"""
