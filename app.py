@@ -8,6 +8,8 @@ import re
 import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus
 
+from etfcom import fetch_etfcom_launches, fetch_etfcom_news
+
 HEADERS = {
     "User-Agent": "ETF Dashboard (jhaley1212@gmail.com)"
 }
@@ -948,6 +950,16 @@ def load_news(_query):
     return fetch_news_items(_query)
 
 
+@st.cache_data(ttl=3600)
+def load_etfcom_news():
+    return fetch_etfcom_news(limit=50)
+
+
+@st.cache_data(ttl=3600)
+def load_etfcom_launches():
+    return fetch_etfcom_launches(limit=50)
+
+
 def build_news_fallback_from_filings(filings_df, limit=6):
     fallback_items = []
     if filings_df.empty:
@@ -987,9 +999,32 @@ st.markdown(
 
 search_submitted = False
 with st.container():
-    left_col, right_col = st.columns([2.25, 1], gap="large")
+    launches_col, center_col, news_col = st.columns([1.05, 1.8, 1.05], gap="large")
 
-    with left_col:
+    with launches_col:
+        st.markdown('<div class="etf-section-title">ETF Launches</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="etf-section-copy">Recent ETF launches from ETF.com.</div>',
+            unsafe_allow_html=True,
+        )
+        launches_items = load_etfcom_launches()
+        if launches_items:
+            launches_container = st.container(height=700)
+            for item in launches_items[:35]:
+                launches_container.markdown(
+                    f"""
+                    <div class="etf-news-item">
+                        <div class="etf-news-source">{item.get("date", "")}</div>
+                        <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("ticker", "")}</a>
+                        <div class="etf-news-kicker">{item.get("fund_name", "")}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.caption("ETF.com launches were not available right now.")
+
+    with center_col:
         st.markdown('<div class="etf-section-title">ETF Filings</div>', unsafe_allow_html=True)
         st.markdown(
             '<div class="etf-section-copy">Search SEC filings by date range, with the newest filings displayed first.</div>',
@@ -1001,23 +1036,23 @@ with st.container():
             filter_cols[1].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
             search_submitted = filter_cols[2].form_submit_button("Search")
 
-    with right_col:
+    with news_col:
         st.markdown('<div class="etf-section-title">ETF News</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="etf-section-copy">Recent Google headlines around ETF filings and launches.</div>',
+            '<div class="etf-section-copy">Recent ETF.com headlines.</div>',
             unsafe_allow_html=True,
         )
-        news_items = load_news(NEWS_QUERIES)
+        news_items = load_etfcom_news()
         if news_items:
             news_container = st.container(height=700)
             for item in news_items[:50]:
-                news_date = format_news_date(item.get("pub_date", ""))
+                news_date = item.get("date", "")
                 news_container.markdown(
                     f"""
                     <div class="etf-news-item">
-                        <div class="etf-news-source">{item.get("source", "News")}</div>
+                        <div class="etf-news-source">{item.get("category", "ETF.com")}</div>
                         <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a>
-                        <div class="etf-news-meta">{news_date}</div>
+                        <div class="etf-news-meta">{item.get("author", "ETF.com")} | {news_date}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
