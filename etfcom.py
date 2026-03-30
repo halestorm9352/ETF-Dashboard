@@ -1,14 +1,20 @@
 import csv
 from datetime import datetime
+from html import unescape
 from io import StringIO
+from pathlib import Path
 import shutil
 import subprocess
+import re
 from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 
 ETFCOM_BASE_URL = "https://www.etf.com"
+BASE_DIR = Path(__file__).resolve().parent
+SEED_LAUNCHES_PATH = BASE_DIR / "etfcom_launches_seed.csv"
+SEED_NEWS_PATH = BASE_DIR / "etfcom_news_seed.csv"
 ETFCOM_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -29,6 +35,17 @@ def _parse_date(value, fmt):
         return datetime.strptime(value.strip(), fmt)
     except ValueError:
         return None
+
+
+def _load_seed_rows(path):
+    if not path.exists():
+        return []
+
+    try:
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            return list(csv.DictReader(handle))
+    except OSError:
+        return []
 
 
 def _fetch_text(url):
@@ -71,10 +88,132 @@ def _split_author_and_date(value):
     return cleaned, ""
 
 
+def _is_relevant_etfcom_news(title, category, author):
+    author_text = (author or "").lower()
+    title_text = (title or "").lower()
+    category_text = (category or "").lower()
+
+    if "financewire" in author_text:
+        return False
+    if category_text == "news" and "etf" not in title_text:
+        return False
+    return True
+
+
+def _load_seed_news(limit=50):
+    items = []
+    seen_links = set()
+
+    for row in _load_seed_rows(SEED_NEWS_PATH):
+        title = _clean_text(unescape(row.get("title", "")))
+        category = _clean_text(unescape(row.get("category", "")))
+        author = _clean_text(unescape(row.get("author", "")))
+        date_text = _clean_text(row.get("date", ""))
+        href = _clean_text(row.get("link", ""))
+        published_at = _parse_date(date_text, "%Y-%m-%d")
+        link = urljoin(ETFCOM_BASE_URL, href)
+
+        if not title or not published_at or link in seen_links:
+            continue
+        if not _is_relevant_etfcom_news(title, category, author):
+            continue
+
+        seen_links.add(link)
+        items.append(
+            {
+                "category": category or "ETF.com",
+                "title": title,
+                "author": author or "ETF.com",
+                "date": published_at.strftime("%Y-%m-%d"),
+                "published_at": published_at,
+                "link": link,
+                "source": "ETF.com",
+            }
+        )
+
+    items.sort(key=lambda item: item["published_at"], reverse=True)
+    return items[:limit]
+
+
+def _load_seed_launches(limit=50):
+    items = []
+
+    for row in _load_seed_rows(SEED_LAUNCHES_PATH):
+        date_text = _clean_text(row.get("Inception Date", ""))
+        ticker = _clean_text(row.get("Ticker", ""))
+        fund_name = _clean_text(row.get("Fund Name", ""))
+        published_at = _parse_date(date_text, "%m/%d/%Y")
+
+        if not date_text or not ticker or not fund_name or not published_at:
+            continue
+
+        items.append(
+            {
+                "date": published_at.strftime("%Y-%m-%d"),
+                "ticker": ticker,
+                "fund_name": fund_name,
+                "link": urljoin(ETFCOM_BASE_URL, f"/{ticker}"),
+                "published_at": published_at,
+            }
+        )
+
+    items.sort(key=lambda item: item["published_at"], reverse=True)
+    return items[:limit]
+
+
+def _parse_markdown_news(markdown_text, limit=50):
+    if not markdown_text:
+        return []
+
+    items = []
+    seen_links = set()
+    pattern = re.compile(
+        r"\n\s*(?P<category>[A-Za-z][^\n\[]{1,80}?)\s*\n\s*"
+        r"\[(?P<title>[^\]]+)\]\((?P<href>[^)]+)\)\s*\n\s*"
+        r"(?P<author>[^|\n]+)\s*\|\s*(?P<date>[A-Z][a-z]{2} \d{1,2}, \d{4})",
+        re.MULTILINE,
+    )
+
+    for match in pattern.finditer(markdown_text):
+        category = _clean_text(unescape(match.group("category")))
+        title = _clean_text(unescape(match.group("title")))
+        author = _clean_text(unescape(match.group("author")))
+        date_text = _clean_text(match.group("date"))
+        href = _clean_text(match.group("href"))
+        published_at = _parse_date(date_text, "%b %d, %Y")
+        link = urljoin(ETFCOM_BASE_URL, href)
+
+        if not title or not href or title == "Latest News" or not published_at or link in seen_links:
+            continue
+        if not _is_relevant_etfcom_news(title, category, author):
+            continue
+
+        seen_links.add(link)
+        items.append(
+            {
+                "category": category or "ETF.com",
+                "title": title,
+                "author": author or "ETF.com",
+                "date": published_at.strftime("%Y-%m-%d"),
+                "published_at": published_at,
+                "link": link,
+                "source": "ETF.com",
+            }
+        )
+
+    items.sort(key=lambda item: item["published_at"], reverse=True)
+    return items[:limit]
+
+
 def fetch_etfcom_news(limit=50):
+    markdown_text = _fetch_text(f"{ETFCOM_BASE_URL}/node/55189.md")
+    markdown_items = _parse_markdown_news(markdown_text, limit=limit)
+    if markdown_items:
+        return markdown_items
+
     html = _fetch_text(f"{ETFCOM_BASE_URL}/latest-news")
     if not html:
-        return []
+        return _load_seed_news(limit=limit)
 
     soup = BeautifulSoup(html, "html.parser")
     items = []
@@ -100,6 +239,8 @@ def fetch_etfcom_news(limit=50):
             continue
         if "/media-center/" in href:
             continue
+        if not _is_relevant_etfcom_news(title, category, author):
+            continue
 
         seen_links.add(link)
         items.append(
@@ -115,7 +256,7 @@ def fetch_etfcom_news(limit=50):
         )
 
     items.sort(key=lambda item: item["published_at"], reverse=True)
-    return items[:limit]
+    return items[:limit] if items else _load_seed_news(limit=limit)
 
 
 def fetch_etfcom_launches(limit=50):
@@ -148,12 +289,12 @@ def fetch_etfcom_launches(limit=50):
 
     html = _fetch_text(f"{ETFCOM_BASE_URL}/tools/etf-launches?nopaging=1&page=1")
     if not html:
-        return []
+        return _load_seed_launches(limit=limit)
 
     soup = BeautifulSoup(html, "html.parser")
     table = soup.select_one("table.cols-3") or soup.find("table")
     if not table:
-        return []
+        return _load_seed_launches(limit=limit)
 
     items = []
     for row in table.select("tbody tr"):
@@ -182,4 +323,4 @@ def fetch_etfcom_launches(limit=50):
         )
 
     items.sort(key=lambda item: item["published_at"], reverse=True)
-    return items[:limit]
+    return items[:limit] if items else _load_seed_launches(limit=limit)

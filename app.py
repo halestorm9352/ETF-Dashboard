@@ -148,8 +148,14 @@ DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
 DATA_VERSION = "2026-03-30-ticker-sanitize-and-filing-briefs"
+ETFCOM_DATA_VERSION = "2026-03-30-etfcom-side-rail-fallbacks"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
-NEWS_QUERIES = ('"recent ETF filings"', "ETF filings", "new ETF launches")
+NEWS_QUERIES = (
+    "ETF launches Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",
+    "ETF news Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",
+    "ETF inflows Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",
+    "new ETFs Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",
+)
 TRUSTED_NEWS_SOURCES = {
     "reuters": "Reuters",
     "bloomberg": "Bloomberg",
@@ -951,12 +957,12 @@ def load_news(_query):
 
 
 @st.cache_data(ttl=3600)
-def load_etfcom_news():
+def load_etfcom_news(_version):
     return fetch_etfcom_news(limit=50)
 
 
 @st.cache_data(ttl=3600)
-def load_etfcom_launches():
+def load_etfcom_launches(_version):
     return fetch_etfcom_launches(limit=50)
 
 
@@ -1007,7 +1013,7 @@ with st.container():
             '<div class="etf-section-copy">Recent ETF launches from ETF.com.</div>',
             unsafe_allow_html=True,
         )
-        launches_items = load_etfcom_launches()
+        launches_items = load_etfcom_launches(ETFCOM_DATA_VERSION)
         if launches_items:
             launches_container = st.container(height=700)
             for item in launches_items[:35]:
@@ -1039,10 +1045,10 @@ with st.container():
     with news_col:
         st.markdown('<div class="etf-section-title">ETF News</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="etf-section-copy">Recent ETF.com headlines, with a fallback to trusted financial sources if needed.</div>',
+            '<div class="etf-section-copy">Recent ETF.com headlines, with a broader fallback if ETF.com is having a moment.</div>',
             unsafe_allow_html=True,
         )
-        news_items = load_etfcom_news()
+        news_items = load_etfcom_news(ETFCOM_DATA_VERSION)
         if not news_items:
             news_items = load_news(NEWS_QUERIES)
 
@@ -1077,7 +1083,7 @@ with st.container():
                     unsafe_allow_html=True,
                 )
         else:
-            st.caption("News headlines will appear here once Google returns results or after you run a filing search.")
+            st.caption("ETF headlines will appear here once the feed refreshes.")
 
 if search_submitted:
     if st.session_state.search_start_date < year_start:
