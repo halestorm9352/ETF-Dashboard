@@ -239,6 +239,23 @@ st.markdown(
         background: var(--etf-card);
     }
 
+    div[data-testid="stFormSubmitButton"] > button {
+        width: 100%;
+        min-height: 3.15rem;
+        white-space: nowrap;
+        background: #000000 !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        border-radius: 14px !important;
+    }
+
+    div[data-testid="stFormSubmitButton"] > button:hover,
+    div[data-testid="stFormSubmitButton"] > button:focus {
+        background: #111111 !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.28) !important;
+    }
+
     div[data-testid="stDataFrame"] {
         border: 1px solid var(--etf-border);
         border-radius: 16px;
@@ -568,14 +585,14 @@ with st.container():
             unsafe_allow_html=True,
         )
         with st.form("date_filter_form"):
-            filter_cols = st.columns([0.9, 1.45, 0.9, 0.42])
-            filter_cols[0].date_input("Start date", min_value=year_start, max_value=default_end, key="search_start_date")
-            filter_cols[1].multiselect(
+            filter_cols = st.columns([1.45, 0.82, 0.82, 0.5])
+            filter_cols[0].multiselect(
                 "Issuer groups",
                 options=CIK_GROUP_OPTIONS,
                 key="search_issuer_groups",
                 help="Choose one or more issuer groups. Leave blank to search all configured groups.",
             )
+            filter_cols[1].date_input("Start date", min_value=year_start, max_value=default_end, key="search_start_date")
             filter_cols[2].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
             search_submitted = filter_cols[3].form_submit_button("Search")
         st.caption("Leave issuer groups blank to search all configured issuers.")

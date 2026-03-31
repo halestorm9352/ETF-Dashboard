@@ -123,10 +123,8 @@ def infer_cik_group_name(name):
         return "Capital Group / American Funds"
     if "american century" in lower_name:
         return "American Century"
-    if "proshares" in lower_name:
+    if "proshares" in lower_name or "profunds" in lower_name:
         return "ProShares"
-    if "profunds" in lower_name:
-        return "ProFunds"
     if "global x" in lower_name:
         return "Global X"
     if "goldman sachs" in lower_name:
@@ -196,7 +194,7 @@ for cik, name in CIK_LOOKUP.items():
         CIK_GROUP_ENTRIES.append((group_name, CIK_GROUP_LOOKUP[group_name]))
     CIK_GROUP_LOOKUP[group_name].append(cik)
 
-CIK_GROUP_OPTIONS = [group_name for group_name, _ in CIK_GROUP_ENTRIES]
+CIK_GROUP_OPTIONS = sorted(CIK_GROUP_LOOKUP.keys(), key=str.lower)
 FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
