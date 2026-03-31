@@ -90,7 +90,7 @@ st.markdown(
         gap: 2.5rem;
         width: max-content;
         padding: 0.8rem 0;
-        animation: etfTickerMove 180s linear infinite;
+        animation: etfTickerMove 360s linear infinite;
     }
 
     .etf-ticker-shell:hover .etf-ticker-track {
