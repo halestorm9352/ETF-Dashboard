@@ -285,6 +285,22 @@ def _extract_etfdb_news_items_from_soup(soup, items, seen_links):
             int(href_match.group("month")),
             int(href_match.group("day")),
         )
+        link = urljoin(ETFDB_BASE_URL, href)
+        if link in seen_links:
+            continue
+
+        seen_links.add(link)
+        items.append(
+            {
+                "category": "ETFdb.com",
+                "title": title,
+                "author": "ETFdb.com",
+                "date": published_at.strftime("%Y-%m-%d"),
+                "published_at": published_at,
+                "link": link,
+                "source": "ETFdb.com",
+            }
+        )
 
 
 def _extract_etfstream_news_items_from_soup(soup, items, seen_links):
@@ -469,22 +485,6 @@ def _extract_etfdb_fund_flow_rows(soup):
         seen.add(key)
         deduped.append(item)
     return deduped
-        link = urljoin(ETFDB_BASE_URL, href)
-        if link in seen_links:
-            continue
-
-        seen_links.add(link)
-        items.append(
-            {
-                "category": "ETFdb.com",
-                "title": title,
-                "author": "ETFdb.com",
-                "date": published_at.strftime("%Y-%m-%d"),
-                "published_at": published_at,
-                "link": link,
-                "source": "ETFdb.com",
-            }
-        )
 
 
 def _extract_news_items_from_soup(soup, items, seen_links):
