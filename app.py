@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 from datetime import datetime, timedelta
 from html import escape
+from textwrap import dedent
 
 from config import DATA_VERSION, ETFCOM_DATA_VERSION
 try:
@@ -288,27 +289,26 @@ fund_flow_items = load_etfdb_fund_flows(ETFCOM_DATA_VERSION)
 if news_items:
     ticker_items_html = "".join(
         [
-            f"""
-            <span class="etf-ticker-item">
-                <a href="{escape(item.get("link", "#"))}" target="_blank">{escape(item.get("title", "Headline"))}</a>
-                <span class="etf-ticker-meta">{escape(item.get("source", "ETF"))} | {escape(item.get("date", ""))}</span>
-            </span>
-            """
+            (
+                f'<span class="etf-ticker-item">'
+                f'<a href="{escape(item.get("link", "#"))}" target="_blank">{escape(item.get("title", "Headline"))}</a>'
+                f'<span class="etf-ticker-meta">{escape(item.get("source", "ETF"))} | {escape(item.get("date", ""))}</span>'
+                f'</span>'
+            )
             for item in news_items[:60]
         ]
     )
     st.markdown(
-        f"""
-        <div class="etf-ticker-shell">
-            <div class="etf-ticker-label">News Wire</div>
-            <div class="etf-ticker-window">
-                <div class="etf-ticker-track">
-                    {ticker_items_html}
-                    {ticker_items_html}
+        dedent(
+            f"""
+            <div class="etf-ticker-shell">
+                <div class="etf-ticker-label">News Wire</div>
+                <div class="etf-ticker-window">
+                    <div class="etf-ticker-track">{ticker_items_html}{ticker_items_html}</div>
                 </div>
             </div>
-        </div>
-        """,
+            """
+        ).strip(),
         unsafe_allow_html=True,
     )
 
