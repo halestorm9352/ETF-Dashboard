@@ -61,13 +61,14 @@ def fetch_recent_filings_for_cik(cik):
             time.sleep(1.0 + attempt)
 
 
-def fetch_filings(start_date=None, end_date=None):
+def fetch_filings(start_date=None, end_date=None, ciks=None):
     results = []
     seen_links = set()
     start_bound = datetime.combine(start_date, datetime.min.time()) if start_date else datetime.today() - timedelta(days=DAYS_BACK)
     end_bound = datetime.combine(end_date, datetime.max.time()) if end_date else datetime.today()
+    selected_ciks = list(ciks) if ciks else CIKS
 
-    for cik in CIKS:
+    for cik in selected_ciks:
         cik_data = fetch_recent_filings_for_cik(cik)
         filer_name = str(cik_data.get("filer_name", CIK_LOOKUP.get(cik, cik))).upper()
         recent = cik_data.get("recent", {})

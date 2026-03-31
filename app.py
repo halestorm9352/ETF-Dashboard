@@ -4,7 +4,12 @@ import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 from html import escape
 
-from config import DATA_VERSION, ETFCOM_DATA_VERSION
+from config import (
+    CIK_GROUP_LOOKUP,
+    CIK_GROUP_OPTIONS,
+    DATA_VERSION,
+    ETFCOM_DATA_VERSION,
+)
 try:
     from etfcom import fetch_etf_news, fetch_etfcom_launches, fetch_etfdb_fund_flows
 except ImportError:
@@ -246,8 +251,8 @@ st.markdown(
 
 
 @st.cache_data(ttl=1800)
-def load_filings(_data_version, start_date, end_date):
-    return fetch_filings(start_date, end_date)
+def load_filings(_data_version, start_date, end_date, selected_ciks):
+    return fetch_filings(start_date, end_date, ciks=selected_ciks)
 
 
 @st.cache_data(ttl=3600)
@@ -272,6 +277,8 @@ if "search_start_date" not in st.session_state:
     st.session_state.search_start_date = default_start
 if "search_end_date" not in st.session_state:
     st.session_state.search_end_date = default_end
+if "search_issuer_groups" not in st.session_state:
+    st.session_state.search_issuer_groups = []
 if "search_requested" not in st.session_state:
     st.session_state.search_requested = False
 
@@ -561,10 +568,17 @@ with st.container():
             unsafe_allow_html=True,
         )
         with st.form("date_filter_form"):
-            filter_cols = st.columns([1, 1, 0.45])
+            filter_cols = st.columns([0.9, 1.45, 0.9, 0.42])
             filter_cols[0].date_input("Start date", min_value=year_start, max_value=default_end, key="search_start_date")
-            filter_cols[1].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
-            search_submitted = filter_cols[2].form_submit_button("Search")
+            filter_cols[1].multiselect(
+                "Issuer groups",
+                options=CIK_GROUP_OPTIONS,
+                key="search_issuer_groups",
+                help="Choose one or more issuer groups. Leave blank to search all configured groups.",
+            )
+            filter_cols[2].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
+            search_submitted = filter_cols[3].form_submit_button("Search")
+        st.caption("Leave issuer groups blank to search all configured issuers.")
 
         if search_submitted:
             if st.session_state.search_start_date < year_start:
@@ -578,9 +592,24 @@ with st.container():
         elif st.session_state.search_start_date > st.session_state.search_end_date:
             st.warning("Start date must be on or before end date.")
         else:
+            selected_group_names = st.session_state.search_issuer_groups or []
+            selected_ciks = []
+            seen_selected_ciks = set()
+            groups_to_search = selected_group_names or CIK_GROUP_OPTIONS
+            for group_name in groups_to_search:
+                for cik in CIK_GROUP_LOOKUP.get(group_name, []):
+                    if cik not in seen_selected_ciks:
+                        seen_selected_ciks.add(cik)
+                        selected_ciks.append(cik)
+
             try:
                 with st.spinner("Searching SEC filings for the selected date range..."):
-                    data = load_filings(DATA_VERSION, st.session_state.search_start_date, st.session_state.search_end_date)
+                    data = load_filings(
+                        DATA_VERSION,
+                        st.session_state.search_start_date,
+                        st.session_state.search_end_date,
+                        tuple(selected_ciks),
+                    )
             except Exception as exc:
                 st.error(
                     "The app could not load fresh SEC filing data right now. "

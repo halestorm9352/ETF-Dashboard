@@ -90,6 +90,113 @@ for cik, name in CIK_ENTRIES:
         CIK_LOOKUP[cik] = name
 
 CIKS = list(CIK_LOOKUP.keys())
+
+
+def infer_cik_group_name(name):
+    lower_name = name.lower()
+
+    if "blackrock" in lower_name or "ishares" in lower_name:
+        return "BlackRock"
+    if "vanguard" in lower_name:
+        return "Vanguard"
+    if "spdr" in lower_name:
+        return "SPDR"
+    if "wisdomtree" in lower_name:
+        return "WisdomTree"
+    if "invesco" in lower_name or "db commodity index tracking fund" in lower_name:
+        return "Invesco"
+    if "direxion" in lower_name:
+        return "Direxion"
+    if "schwab" in lower_name:
+        return "Schwab"
+    if "jpmorgan" in lower_name:
+        return "JPMorgan"
+    if "investment managers series trust" in lower_name:
+        return "Investment Managers Series"
+    if "first trust" in lower_name:
+        return "First Trust"
+    if "vaneck" in lower_name:
+        return "VanEck"
+    if "fidelity" in lower_name:
+        return "Fidelity"
+    if "american funds" in lower_name or "capital group" in lower_name:
+        return "Capital Group / American Funds"
+    if "american century" in lower_name:
+        return "American Century"
+    if "proshares" in lower_name:
+        return "ProShares"
+    if "profunds" in lower_name:
+        return "ProFunds"
+    if "global x" in lower_name:
+        return "Global X"
+    if "goldman sachs" in lower_name:
+        return "Goldman Sachs"
+    if "franklin" in lower_name:
+        return "Franklin Templeton"
+    if "janus henderson" in lower_name or lower_name.startswith("janus "):
+        return "Janus Henderson"
+    if "pacer" in lower_name:
+        return "Pacer"
+    if "innovator" in lower_name:
+        return "Innovator"
+    if "pgim" in lower_name:
+        return "PGIM"
+    if "financial investors trust" in lower_name:
+        return "Financial Investors Trust"
+    if "neos" in lower_name:
+        return "NEOS"
+    if "victoryshares" in lower_name:
+        return "VictoryShares"
+    if lower_name.startswith("alps"):
+        return "ALPS"
+    if "amplify" in lower_name:
+        return "Amplify"
+    if "grayscale" in lower_name:
+        return "Grayscale"
+    if "nuveen" in lower_name:
+        return "Nuveen"
+    if lower_name.startswith("ark "):
+        return "ARK"
+    if "northern lights" in lower_name:
+        return "Northern Lights"
+    if "simplify" in lower_name:
+        return "Simplify"
+    if "john hancock" in lower_name:
+        return "John Hancock"
+    if "eaton vance" in lower_name:
+        return "Eaton Vance"
+    if "etf series solutions" in lower_name:
+        return "ETF Series Solutions"
+    if lower_name.startswith("bmo"):
+        return "BMO"
+    if "columbia" in lower_name:
+        return "Columbia"
+    if "principal" in lower_name:
+        return "Principal"
+    if "tidal" in lower_name:
+        return "Tidal"
+    if lower_name.startswith("f/m"):
+        return "F/m"
+    if "etf opportunities" in lower_name:
+        return "ETF Opportunities"
+    if "defiance" in lower_name:
+        return "Defiance"
+    if "bondbloxx" in lower_name:
+        return "BondBloxx"
+
+    return name
+
+
+CIK_GROUP_LOOKUP = {}
+CIK_GROUP_ENTRIES = []
+for cik, name in CIK_LOOKUP.items():
+    group_name = infer_cik_group_name(name)
+    if group_name not in CIK_GROUP_LOOKUP:
+        CIK_GROUP_LOOKUP[group_name] = []
+        CIK_GROUP_ENTRIES.append((group_name, CIK_GROUP_LOOKUP[group_name]))
+    CIK_GROUP_LOOKUP[group_name].append(cik)
+
+CIK_GROUP_OPTIONS = [group_name for group_name, _ in CIK_GROUP_ENTRIES]
 FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
