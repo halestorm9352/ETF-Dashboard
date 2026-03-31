@@ -329,7 +329,7 @@ with st.container():
     with news_col:
         st.markdown('<div class="etf-section-title">News</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="etf-section-copy">Recent headlines from ETF.com, with ETFdb.com backing it up if ETF.com is having a moment.</div>',
+            '<div class="etf-section-copy">Recent headlines from ETF.com, ETFdb.com, ETF Stream, ETF Express, and Trackinsight.</div>',
             unsafe_allow_html=True,
         )
         news_items = load_etfcom_news(ETFCOM_DATA_VERSION)
