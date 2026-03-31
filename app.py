@@ -835,7 +835,7 @@ st.markdown(
         color: var(--etf-muted);
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        font-size: 0.72rem;
+        font-size: 0.66rem;
         margin-bottom: 0.35rem;
     }
 
@@ -1083,7 +1083,11 @@ with st.container():
                     filings_count = len(display_df)
                     listed_tickers = int((filtered_df["ticker"] != "Not Listed").sum())
                     distinct_filers = int(filtered_df["filer"].nunique())
-                    latest_date = display_df.iloc[0]["date"] if not display_df.empty else "N/A"
+                    latest_dt = filtered_df.iloc[0]["date"] if not filtered_df.empty else None
+                    latest_date = (
+                        f"{latest_dt.month}/{latest_dt.day}/{latest_dt.year % 100:02d}"
+                        if latest_dt is not None else "N/A"
+                    )
                     stat_cols = st.columns(4)
                     stat_cols[0].markdown(
                         f'<div class="etf-card"><div class="etf-card-label">Filings Loaded</div><div class="etf-card-value">{filings_count}</div></div>',
@@ -1104,7 +1108,7 @@ with st.container():
 
                     st.success(f"Loaded {filings_count} filing(s) in the selected date range.")
                     st.dataframe(
-                        display_df[["ticker", "etf_name", "filer", "form", "date", "link"]],
+                        display_df[["ticker", "etf_name", "filer", "date", "link"]],
                         use_container_width=True,
                         hide_index=True,
                     )
