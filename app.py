@@ -1,8 +1,8 @@
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 from html import escape
-from textwrap import dedent
 
 from config import DATA_VERSION, ETFCOM_DATA_VERSION
 try:
@@ -298,18 +298,233 @@ if news_items:
             for item in news_items[:60]
         ]
     )
-    st.markdown(
-        dedent(
-            f"""
-            <div class="etf-ticker-shell">
-                <div class="etf-ticker-label">News Wire</div>
-                <div class="etf-ticker-window">
-                    <div class="etf-ticker-track">{ticker_items_html}{ticker_items_html}</div>
-                </div>
+    ticker_component_html = """
+    <!doctype html>
+    <html>
+    <head>
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=PT+Sans+Narrow:wght@400;700&display=swap');
+
+    :root {
+        --etf-accent: #138a36;
+        --etf-card: #121722;
+        --etf-border: rgba(255, 255, 255, 0.08);
+        --etf-muted: #aeb7c7;
+        --etf-text: #f3f6fb;
+    }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        color: var(--etf-text);
+        font-family: 'PT Sans Narrow', sans-serif;
+    }
+
+    .etf-ticker-shell {
+        border: 1px solid var(--etf-border);
+        background: var(--etf-card);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .etf-ticker-label {
+        color: var(--etf-accent);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 0.7rem 1rem 0.45rem;
+        border-bottom: 1px solid var(--etf-border);
+    }
+
+    .etf-ticker-window {
+        overflow: hidden;
+        white-space: nowrap;
+        position: relative;
+    }
+
+    .etf-ticker-track {
+        display: inline-flex;
+        align-items: center;
+        gap: 2.5rem;
+        width: max-content;
+        padding: 0.8rem 0;
+        will-change: transform;
+    }
+
+    .etf-ticker-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+    }
+
+    .etf-ticker-item a {
+        font-weight: 700;
+        text-decoration: none;
+        color: #41a5ff;
+    }
+
+    .etf-ticker-meta {
+        color: var(--etf-muted);
+        font-size: 0.85rem;
+    }
+
+    .etf-ticker-scrubber-wrap {
+        padding: 0.25rem 1rem 0.8rem;
+        border-top: 1px solid var(--etf-border);
+        background: rgba(255, 255, 255, 0.015);
+    }
+
+    .etf-ticker-scrubber {
+        width: 100%;
+        margin: 0;
+        accent-color: var(--etf-accent);
+        background: transparent;
+    }
+
+    .etf-ticker-scrubber::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+    }
+
+    .etf-ticker-scrubber::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        margin-top: -4px;
+        background: var(--etf-accent);
+        border: 0;
+        cursor: pointer;
+    }
+
+    .etf-ticker-scrubber::-moz-range-track {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        border: 0;
+    }
+
+    .etf-ticker-scrubber::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--etf-accent);
+        border: 0;
+        cursor: pointer;
+    }
+    </style>
+    </head>
+    <body>
+        <div class="etf-ticker-shell" id="ticker-shell">
+            <div class="etf-ticker-label">News Wire</div>
+            <div class="etf-ticker-window">
+                <div class="etf-ticker-track" id="ticker-track">""" + ticker_items_html + ticker_items_html + """</div>
             </div>
-            """
-        ).strip(),
-        unsafe_allow_html=True,
+            <div class="etf-ticker-scrubber-wrap">
+                <input
+                    class="etf-ticker-scrubber"
+                    id="ticker-scrubber"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value="0"
+                    aria-label="News wire scrubber"
+                />
+            </div>
+        </div>
+
+        <script>
+        const shell = document.getElementById("ticker-shell");
+        const track = document.getElementById("ticker-track");
+        const scrubber = document.getElementById("ticker-scrubber");
+
+        let singleWidth = 0;
+        let offset = 0;
+        let lastFrame = null;
+        let hoverPaused = false;
+        let dragging = false;
+
+        function measureTrack() {
+            singleWidth = track.scrollWidth / 2;
+            scrubber.max = Math.max(1, Math.round(singleWidth));
+            scrubber.value = Math.min(Number(scrubber.value || 0), Number(scrubber.max));
+        }
+
+        function applyOffset() {
+            if (!singleWidth) {
+                return;
+            }
+            const normalized = ((offset % singleWidth) + singleWidth) % singleWidth;
+            track.style.transform = `translateX(${-normalized}px)`;
+            if (!dragging) {
+                scrubber.value = Math.round(normalized);
+            }
+        }
+
+        function tick(timestamp) {
+            if (lastFrame === null) {
+                lastFrame = timestamp;
+            }
+
+            const elapsed = timestamp - lastFrame;
+            lastFrame = timestamp;
+
+            if (!hoverPaused && !dragging && singleWidth > 0) {
+                const pixelsPerMs = singleWidth / 450000;
+                offset += elapsed * pixelsPerMs;
+                if (offset >= singleWidth) {
+                    offset -= singleWidth;
+                }
+                applyOffset();
+            }
+
+            window.requestAnimationFrame(tick);
+        }
+
+        shell.addEventListener("mouseenter", () => {
+            hoverPaused = true;
+        });
+
+        shell.addEventListener("mouseleave", () => {
+            hoverPaused = false;
+        });
+
+        scrubber.addEventListener("pointerdown", () => {
+            dragging = true;
+        });
+
+        scrubber.addEventListener("pointerup", () => {
+            dragging = false;
+        });
+
+        scrubber.addEventListener("input", (event) => {
+            dragging = true;
+            offset = Number(event.target.value || 0);
+            applyOffset();
+        });
+
+        scrubber.addEventListener("change", () => {
+            dragging = false;
+        });
+
+        window.addEventListener("resize", () => {
+            measureTrack();
+            applyOffset();
+        });
+
+        measureTrack();
+        applyOffset();
+        window.requestAnimationFrame(tick);
+        </script>
+    </body>
+    </html>
+    """
+    components.html(
+        ticker_component_html,
+        height=126,
+        scrolling=False,
     )
 
 search_submitted = False
