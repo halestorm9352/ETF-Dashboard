@@ -1071,12 +1071,16 @@ with st.container():
                             df[column] = ""
 
                     df["date"] = pd.to_datetime(df["date"], errors="coerce")
-                    df = df.dropna(subset=["date"]).sort_values(by="date", ascending=False)
+                    df = df.dropna(subset=["date"])
                     filtered_df = df[
                         (df["date"].dt.date >= st.session_state.search_start_date)
                         & (df["date"].dt.date <= st.session_state.search_end_date)
                     ].copy()
-                    filtered_df = filtered_df.sort_values(by="date", ascending=False)
+                    filtered_df = filtered_df.sort_values(
+                        by=["date", "link", "ticker", "etf_name"],
+                        ascending=[False, True, True, True],
+                        kind="stable",
+                    )
                     filtered_df["ticker"] = filtered_df["ticker"].apply(sanitize_ticker)
                     display_df = filtered_df.copy()
                     display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
