@@ -412,6 +412,63 @@ def _extract_trackinsight_news_items_from_soup(soup, items, seen_links):
                 "source": "Trackinsight",
             }
         )
+
+
+def _extract_etfdb_fund_flow_rows(soup):
+    items = []
+
+    for row in soup.select("table tr"):
+        cells = [_clean_text(cell.get_text(" ", strip=True)) for cell in row.find_all(["td", "th"])]
+        if len(cells) < 8:
+            continue
+
+        issuer = cells[0]
+        if not issuer or issuer.lower().startswith("issuers"):
+            continue
+
+        rank = ""
+        for value in cells[1:4]:
+            if re.fullmatch(r"\d+", value):
+                rank = value
+                break
+
+        flow = ""
+        for value in cells[1:8]:
+            if re.fullmatch(r"\$[\d,]+\.\d{2}|N/A", value):
+                flow = value
+                break
+
+        etf_count = ""
+        for value in reversed(cells):
+            if re.fullmatch(r"\d+", value):
+                etf_count = value
+                break
+
+        link_tag = row.find("a", href=True)
+        link = urljoin(ETFDB_BASE_URL, link_tag.get("href", "").strip()) if link_tag else ""
+
+        if not issuer or not rank or not flow:
+            continue
+
+        items.append(
+            {
+                "issuer": issuer,
+                "rank": int(rank),
+                "flow": flow,
+                "etf_count": etf_count,
+                "link": link,
+            }
+        )
+
+    deduped = []
+    seen = set()
+    for item in sorted(items, key=lambda item: (item["rank"], item["issuer"])):
+        key = item["issuer"].lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped
         link = urljoin(ETFDB_BASE_URL, href)
         if link in seen_links:
             continue
@@ -632,6 +689,20 @@ def fetch_etf_news(limit=50):
             items.append(item)
 
     items.sort(key=lambda item: item.get("published_at", datetime.min), reverse=True)
+    return items[:limit]
+
+
+def fetch_etfdb_fund_flows(limit=100):
+    html = _fetch_text(
+        f"{ETFDB_BASE_URL}/etfs/issuers/#issuer-power-rankings__fund-flow&sort_name=revenue_position&sort_order=asc&page=1"
+    )
+    if not html:
+        html = _fetch_text(f"{ETFDB_BASE_URL}/etfs/issuers/")
+    if not html:
+        return []
+
+    soup = BeautifulSoup(html, "html.parser")
+    items = _extract_etfdb_fund_flow_rows(soup)
     return items[:limit]
 
 

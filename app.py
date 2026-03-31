@@ -1,10 +1,10 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime, timedelta
+from html import escape
 
 from config import DATA_VERSION, ETFCOM_DATA_VERSION
-from etfcom import fetch_etf_news, fetch_etfcom_launches
-from news_sources import format_news_date
+from etfcom import fetch_etf_news, fetch_etfcom_launches, fetch_etfdb_fund_flows
 from sec_filings import fetch_filings
 from sec_parsers import sanitize_ticker
 
@@ -52,6 +52,67 @@ st.markdown(
         color: var(--etf-muted);
         font-size: 0.95rem;
         margin-bottom: 1rem;
+    }
+
+    .etf-ticker-shell {
+        border: 1px solid var(--etf-border);
+        background: var(--etf-card);
+        border-radius: 16px;
+        overflow: hidden;
+        margin: 0.5rem 0 1.25rem;
+    }
+
+    .etf-ticker-label {
+        color: var(--etf-accent);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 0.7rem 1rem 0.45rem;
+        border-bottom: 1px solid var(--etf-border);
+    }
+
+    .etf-ticker-window {
+        overflow: hidden;
+        white-space: nowrap;
+        position: relative;
+    }
+
+    .etf-ticker-track {
+        display: inline-flex;
+        align-items: center;
+        gap: 2.5rem;
+        width: max-content;
+        padding: 0.8rem 0;
+        animation: etfTickerMove 95s linear infinite;
+    }
+
+    .etf-ticker-shell:hover .etf-ticker-track {
+        animation-play-state: paused;
+    }
+
+    .etf-ticker-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+    }
+
+    .etf-ticker-item a {
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .etf-ticker-meta {
+        color: var(--etf-muted);
+        font-size: 0.85rem;
+    }
+
+    @keyframes etfTickerMove {
+        from {
+            transform: translateX(0);
+        }
+        to {
+            transform: translateX(-50%);
+        }
     }
 
     .etf-card {
@@ -192,6 +253,11 @@ def load_etfcom_launches(_version):
     return fetch_etfcom_launches(limit=1000)
 
 
+@st.cache_data(ttl=43200)
+def load_etfdb_fund_flows(_version):
+    return fetch_etfdb_fund_flows(limit=250)
+
+
 default_end = datetime.today().date()
 year_start = datetime(default_end.year, 1, 1).date()
 default_start = max(year_start, default_end - timedelta(days=14))
@@ -210,9 +276,39 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+news_items = load_etfcom_news(ETFCOM_DATA_VERSION)
+fund_flow_items = load_etfdb_fund_flows(ETFCOM_DATA_VERSION)
+
+if news_items:
+    ticker_items_html = "".join(
+        [
+            f"""
+            <span class="etf-ticker-item">
+                <a href="{escape(item.get("link", "#"))}" target="_blank">{escape(item.get("title", "Headline"))}</a>
+                <span class="etf-ticker-meta">{escape(item.get("source", "ETF"))} | {escape(item.get("date", ""))}</span>
+            </span>
+            """
+            for item in news_items[:60]
+        ]
+    )
+    st.markdown(
+        f"""
+        <div class="etf-ticker-shell">
+            <div class="etf-ticker-label">News Wire</div>
+            <div class="etf-ticker-window">
+                <div class="etf-ticker-track">
+                    {ticker_items_html}
+                    {ticker_items_html}
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 search_submitted = False
 with st.container():
-    launches_col, center_col, news_col = st.columns([1.05, 1.8, 1.05], gap="large")
+    launches_col, center_col, flows_col = st.columns([1.05, 1.8, 1.05], gap="large")
 
     with launches_col:
         st.markdown('<div class="etf-section-title">Launches</div>', unsafe_allow_html=True)
@@ -326,26 +422,31 @@ with st.container():
                 else:
                     st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
 
-    with news_col:
-        st.markdown('<div class="etf-section-title">News</div>', unsafe_allow_html=True)
+    with flows_col:
+        st.markdown('<div class="etf-section-title">Fund Flows</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="etf-section-copy">Recent headlines from ETF.com, ETFdb.com, ETF Stream, ETF Express, and Trackinsight.</div>',
+            '<div class="etf-section-copy">ETFdb issuer power rankings sorted by fund flows.</div>',
             unsafe_allow_html=True,
         )
-        news_items = load_etfcom_news(ETFCOM_DATA_VERSION)
-        if news_items:
-            news_container = st.container(height=760)
-            for item in news_items[:800]:
-                news_date = item.get("date", "") or format_news_date(item.get("pub_date", ""))
-                news_container.markdown(
+        if fund_flow_items:
+            flows_container = st.container(height=760)
+            for item in fund_flow_items[:250]:
+                issuer_title = escape(item.get("issuer", "Issuer"))
+                issuer_link = escape(item.get("link", ""))
+                issuer_markup = (
+                    f'<a class="etf-news-title" href="{issuer_link}" target="_blank">{issuer_title}</a>'
+                    if issuer_link else f'<div class="etf-news-title">{issuer_title}</div>'
+                )
+                flows_container.markdown(
                     f"""
                     <div class="etf-news-item">
-                        <div class="etf-news-source">{item.get("category", item.get("source", "ETF.com"))}</div>
-                        <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a>
-                        <div class="etf-news-meta">{item.get("author", item.get("source", "ETF.com"))} | {news_date}</div>
+                        <div class="etf-news-source">Rank {escape(str(item.get("rank", "")))}</div>
+                        {issuer_markup}
+                        <div class="etf-news-meta">3M Fund Flow: {escape(str(item.get("flow", "")))}</div>
+                        <div class="etf-news-kicker">Listed ETFs: {escape(str(item.get("etf_count", "")))}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
         else:
-            st.caption("ETF.com and ETFdb.com headlines will appear here once the feeds refresh.")
+            st.caption("ETFdb fund flow rankings were not available right now.")
