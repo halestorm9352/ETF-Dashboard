@@ -4,7 +4,13 @@ from datetime import datetime, timedelta
 from html import escape
 
 from config import DATA_VERSION, ETFCOM_DATA_VERSION
-from etfcom import fetch_etf_news, fetch_etfcom_launches, fetch_etfdb_fund_flows
+try:
+    from etfcom import fetch_etf_news, fetch_etfcom_launches, fetch_etfdb_fund_flows
+except ImportError:
+    from etfcom import fetch_etf_news, fetch_etfcom_launches
+
+    def fetch_etfdb_fund_flows(limit=100):
+        return []
 from sec_filings import fetch_filings
 from sec_parsers import sanitize_ticker
 
