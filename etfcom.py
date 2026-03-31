@@ -12,8 +12,11 @@ import requests
 from bs4 import BeautifulSoup
 
 ETFCOM_BASE_URL = "https://www.etf.com"
-ETFCOM_NEWS_DAYS_BACK = 31
-ETFCOM_NEWS_MAX_PAGES = 24
+ETFCOM_NEWS_DAYS_BACK = 90
+ETFCOM_NEWS_MAX_PAGES = 40
+ETFDB_BASE_URL = "https://etfdb.com"
+ETFDB_NEWS_DAYS_BACK = 90
+ETFDB_NEWS_MAX_PAGES = 30
 BASE_DIR = Path(__file__).resolve().parent
 SEED_LAUNCHES_PATH = BASE_DIR / "etfcom_launches_seed.csv"
 SEED_NEWS_PATH = BASE_DIR / "etfcom_news_seed.csv"
@@ -248,6 +251,40 @@ def _get_recent_cutoff(days_back):
     return datetime.utcnow() - timedelta(days=days_back)
 
 
+def _extract_etfdb_news_items_from_soup(soup, items, seen_links):
+    for title_link in soup.select("a[href]"):
+        href = title_link.get("href", "").strip()
+        href_match = re.search(r"^/news/(?P<year>\d{4})/(?P<month>\d{2})/(?P<day>\d{2})/[^/]+/?$", href)
+        if not href_match:
+            continue
+
+        title = _clean_text(title_link.get_text(" ", strip=True))
+        if len(title) < 10:
+            continue
+
+        published_at = datetime(
+            int(href_match.group("year")),
+            int(href_match.group("month")),
+            int(href_match.group("day")),
+        )
+        link = urljoin(ETFDB_BASE_URL, href)
+        if link in seen_links:
+            continue
+
+        seen_links.add(link)
+        items.append(
+            {
+                "category": "ETFdb.com",
+                "title": title,
+                "author": "ETFdb.com",
+                "date": published_at.strftime("%Y-%m-%d"),
+                "published_at": published_at,
+                "link": link,
+                "source": "ETFdb.com",
+            }
+        )
+
+
 def _extract_news_items_from_soup(soup, items, seen_links):
     selectors = [
         ("div.image-card", ".image-card__title a", ".image-card__category", ".image-card__author"),
@@ -313,6 +350,51 @@ def fetch_etfcom_news(limit=50):
     if items:
         return items[:limit]
     return _load_seed_news(limit=limit)
+
+
+def fetch_etfdb_news(limit=50):
+    cutoff = _get_recent_cutoff(ETFDB_NEWS_DAYS_BACK)
+    items = []
+    seen_links = set()
+
+    for page_index in range(1, ETFDB_NEWS_MAX_PAGES + 1):
+        page_url = f"{ETFDB_BASE_URL}/news/" if page_index == 1 else f"{ETFDB_BASE_URL}/news/page/{page_index}/"
+        html = _fetch_text(page_url)
+        if not html:
+            continue
+
+        soup = BeautifulSoup(html, "html.parser")
+        before_count = len(items)
+        _extract_etfdb_news_items_from_soup(soup, items, seen_links)
+
+        if len(items) >= limit:
+            break
+        if items and min(item["published_at"] for item in items) <= cutoff and page_index >= 3:
+            break
+        if len(items) == before_count and page_index >= 3:
+            break
+
+    items.sort(key=lambda item: item["published_at"], reverse=True)
+    recent_items = [item for item in items if item["published_at"] >= cutoff]
+    if recent_items:
+        return recent_items[:limit]
+    return items[:limit]
+
+
+def fetch_etf_news(limit=50):
+    items = []
+    seen_links = set()
+
+    for source_items in (fetch_etfcom_news(limit=limit), fetch_etfdb_news(limit=limit)):
+        for item in source_items:
+            link = item.get("link", "")
+            if not link or link in seen_links:
+                continue
+            seen_links.add(link)
+            items.append(item)
+
+    items.sort(key=lambda item: item.get("published_at", datetime.min), reverse=True)
+    return items[:limit]
 
 
 def fetch_etfcom_launches(limit=50):

@@ -95,7 +95,7 @@ DAYS_BACK = 60
 REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
 DATA_VERSION = "2026-03-30-ticker-sanitize-and-filing-briefs"
-ETFCOM_DATA_VERSION = "2026-03-30-31-day-side-rails"
+ETFCOM_DATA_VERSION = "2026-03-31-etfcom-etfdb-deeper-rails"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 NEWS_QUERIES = (
     "ETF launches Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",

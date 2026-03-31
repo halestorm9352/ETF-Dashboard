@@ -2,13 +2,9 @@ import pandas as pd
 import streamlit as st
 from datetime import datetime, timedelta
 
-from config import DATA_VERSION, ETFCOM_DATA_VERSION, NEWS_QUERIES
-from etfcom import fetch_etfcom_launches, fetch_etfcom_news
-from news_sources import (
-    build_news_fallback_from_filings,
-    fetch_news_items,
-    format_news_date,
-)
+from config import DATA_VERSION, ETFCOM_DATA_VERSION
+from etfcom import fetch_etf_news, fetch_etfcom_launches
+from news_sources import format_news_date
 from sec_filings import fetch_filings
 from sec_parsers import sanitize_ticker
 
@@ -186,19 +182,14 @@ def load_filings(_data_version, start_date, end_date):
     return fetch_filings(start_date, end_date)
 
 
-@st.cache_data(ttl=1800)
-def load_news(_query):
-    return fetch_news_items(_query)
-
-
 @st.cache_data(ttl=3600)
 def load_etfcom_news(_version):
-    return fetch_etfcom_news(limit=350)
+    return fetch_etf_news(limit=800)
 
 
 @st.cache_data(ttl=3600)
 def load_etfcom_launches(_version):
-    return fetch_etfcom_launches(limit=400)
+    return fetch_etfcom_launches(limit=1000)
 
 
 default_end = datetime.today().date()
@@ -232,7 +223,7 @@ with st.container():
         launches_items = load_etfcom_launches(ETFCOM_DATA_VERSION)
         if launches_items:
             launches_container = st.container(height=760)
-            for item in launches_items[:400]:
+            for item in launches_items[:1000]:
                 launches_container.markdown(
                     f"""
                     <div class="etf-news-item">
@@ -338,16 +329,13 @@ with st.container():
     with news_col:
         st.markdown('<div class="etf-section-title">News</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="etf-section-copy">Recent headlines from ETF.com, with a broader fallback if ETF.com is having a moment.</div>',
+            '<div class="etf-section-copy">Recent headlines from ETF.com, with ETFdb.com backing it up if ETF.com is having a moment.</div>',
             unsafe_allow_html=True,
         )
         news_items = load_etfcom_news(ETFCOM_DATA_VERSION)
-        if not news_items:
-            news_items = load_news(NEWS_QUERIES)
-
         if news_items:
             news_container = st.container(height=760)
-            for item in news_items[:350]:
+            for item in news_items[:800]:
                 news_date = item.get("date", "") or format_news_date(item.get("pub_date", ""))
                 news_container.markdown(
                     f"""
@@ -359,21 +347,5 @@ with st.container():
                     """,
                     unsafe_allow_html=True,
                 )
-        elif st.session_state.search_requested:
-            fallback_items = build_news_fallback_from_filings(
-                pd.DataFrame(load_filings(DATA_VERSION, st.session_state.search_start_date, st.session_state.search_end_date))
-            )
-            news_container = st.container(height=760)
-            for item in fallback_items:
-                news_container.markdown(
-                    f"""
-                    <div class="etf-news-item">
-                        <div class="etf-news-source">{item.get("source", "ETF Dash")}</div>
-                        <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("title", "Headline")}</a>
-                        <div class="etf-news-kicker">{item.get("summary", "")}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
         else:
-            st.caption("ETF headlines will appear here once the feed refreshes.")
+            st.caption("ETF.com and ETFdb.com headlines will appear here once the feeds refresh.")
