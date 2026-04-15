@@ -793,45 +793,52 @@ def fetch_etfcom_launches(limit=50):
         if items:
             return items[:limit]
 
-    html = _fetch_text(f"{ETFCOM_BASE_URL}/tools/etf-launches?nopaging=1&page=1")
-    if not html:
-        return _load_seed_launches(limit=limit)
+    launch_pages = [
+        f"{ETFCOM_BASE_URL}/topics/etf-launches",
+        f"{ETFCOM_BASE_URL}/tools/etf-launches?nopaging=1&page=1",
+        f"{ETFCOM_BASE_URL}/tools/etf-launches",
+    ]
 
-    soup = BeautifulSoup(html, "html.parser")
-    table = soup.select_one("table.cols-3") or soup.find("table")
-    if not table:
+    for page_url in launch_pages:
+        html = _fetch_text(page_url)
+        if not html:
+            continue
+
+        soup = BeautifulSoup(html, "html.parser")
+        table = soup.select_one("table.cols-3") or soup.find("table")
+        if table:
+            items = []
+            for row in table.select("tbody tr"):
+                cells = row.find_all("td")
+                if len(cells) < 3:
+                    continue
+
+                date_text = _clean_text(cells[0].get_text(" ", strip=True))
+                ticker_link = cells[1].find("a")
+                ticker = _clean_text(cells[1].get_text(" ", strip=True))
+                fund_name = _clean_text(cells[2].get_text(" ", strip=True))
+                published_at = _parse_date(date_text, "%m/%d/%Y")
+                link = urljoin(ETFCOM_BASE_URL, ticker_link.get("href", "").strip()) if ticker_link else ""
+
+                if not date_text or not ticker or not fund_name or not published_at:
+                    continue
+
+                items.append(
+                    {
+                        "date": published_at.strftime("%Y-%m-%d"),
+                        "ticker": ticker,
+                        "fund_name": fund_name,
+                        "link": link,
+                        "published_at": published_at,
+                    }
+                )
+
+            items.sort(key=lambda item: item["published_at"], reverse=True)
+            if items:
+                return items[:limit]
+
         text_rows = _extract_launch_rows_from_text(html, limit=limit)
-        return text_rows if text_rows else _load_seed_launches(limit=limit)
+        if text_rows:
+            return text_rows
 
-    items = []
-    for row in table.select("tbody tr"):
-        cells = row.find_all("td")
-        if len(cells) < 3:
-            continue
-
-        date_text = _clean_text(cells[0].get_text(" ", strip=True))
-        ticker_link = cells[1].find("a")
-        ticker = _clean_text(cells[1].get_text(" ", strip=True))
-        fund_name = _clean_text(cells[2].get_text(" ", strip=True))
-        published_at = _parse_date(date_text, "%m/%d/%Y")
-        link = urljoin(ETFCOM_BASE_URL, ticker_link.get("href", "").strip()) if ticker_link else ""
-
-        if not date_text or not ticker or not fund_name or not published_at:
-            continue
-
-        items.append(
-            {
-                "date": published_at.strftime("%Y-%m-%d"),
-                "ticker": ticker,
-                "fund_name": fund_name,
-                "link": link,
-                "published_at": published_at,
-            }
-        )
-
-    items.sort(key=lambda item: item["published_at"], reverse=True)
-    if items:
-        return items[:limit]
-
-    text_rows = _extract_launch_rows_from_text(html, limit=limit)
-    return text_rows if text_rows else _load_seed_launches(limit=limit)
+    return _load_seed_launches(limit=limit)
