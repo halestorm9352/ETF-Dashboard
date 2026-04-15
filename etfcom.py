@@ -183,6 +183,65 @@ def _load_seed_launches(limit=50):
     return items[:limit]
 
 
+def _extract_launch_rows_from_text(html, limit=50):
+    soup = BeautifulSoup(html, "html.parser")
+    lines = [_clean_text(line) for line in soup.get_text("\n").splitlines()]
+    lines = [line for line in lines if line]
+
+    items = []
+    seen = set()
+    index = 0
+
+    while index < len(lines) - 2 and len(items) < limit:
+        date_text = lines[index]
+        if not re.fullmatch(r"\d{2}/\d{2}/\d{4}", date_text):
+            index += 1
+            continue
+
+        ticker = lines[index + 1].strip().upper()
+        published_at = _parse_date(date_text, "%m/%d/%Y")
+        if not published_at or not re.fullmatch(r"[A-Z0-9]{2,10}", ticker):
+            index += 1
+            continue
+
+        name_parts = []
+        probe = index + 2
+        while probe < len(lines) and len(name_parts) < 4:
+            candidate = lines[probe]
+            if re.fullmatch(r"\d{2}/\d{2}/\d{4}", candidate):
+                break
+            if candidate in {"Inception Date", "Ticker", "Fund Name"}:
+                probe += 1
+                continue
+            name_parts.append(candidate)
+            probe += 1
+
+        fund_name = _clean_text(" ".join(name_parts))
+        if "ETF" not in fund_name.upper():
+            index += 1
+            continue
+
+        row_key = (date_text, ticker, fund_name)
+        if row_key in seen:
+            index = probe
+            continue
+
+        seen.add(row_key)
+        items.append(
+            {
+                "date": published_at.strftime("%Y-%m-%d"),
+                "ticker": ticker,
+                "fund_name": fund_name,
+                "link": urljoin(ETFCOM_BASE_URL, f"/{ticker}"),
+                "published_at": published_at,
+            }
+        )
+        index = probe
+
+    items.sort(key=lambda item: item["published_at"], reverse=True)
+    return items[:limit]
+
+
 def _parse_markdown_news(markdown_text, limit=50):
     if not markdown_text:
         return []
@@ -741,7 +800,8 @@ def fetch_etfcom_launches(limit=50):
     soup = BeautifulSoup(html, "html.parser")
     table = soup.select_one("table.cols-3") or soup.find("table")
     if not table:
-        return _load_seed_launches(limit=limit)
+        text_rows = _extract_launch_rows_from_text(html, limit=limit)
+        return text_rows if text_rows else _load_seed_launches(limit=limit)
 
     items = []
     for row in table.select("tbody tr"):
@@ -770,4 +830,8 @@ def fetch_etfcom_launches(limit=50):
         )
 
     items.sort(key=lambda item: item["published_at"], reverse=True)
-    return items[:limit] if items else _load_seed_launches(limit=limit)
+    if items:
+        return items[:limit]
+
+    text_rows = _extract_launch_rows_from_text(html, limit=limit)
+    return text_rows if text_rows else _load_seed_launches(limit=limit)
