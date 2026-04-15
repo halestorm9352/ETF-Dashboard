@@ -277,7 +277,6 @@ def load_etfcom_news(_version):
     return fetch_etf_news(limit=800)
 
 
-@st.cache_data(ttl=3600)
 def load_etfcom_launches(_version):
     return fetch_etfcom_launches(limit=1000)
 
