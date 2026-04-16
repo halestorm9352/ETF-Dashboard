@@ -766,9 +766,18 @@ def fetch_etfdb_fund_flows(limit=100):
 
 
 def fetch_etfcom_launches(limit=50):
+    aggregated_items = []
+    seen_rows = set()
+
+    def add_launch_item(item):
+        row_key = (item["date"], item["ticker"], item["fund_name"])
+        if row_key in seen_rows:
+            return
+        seen_rows.add(row_key)
+        aggregated_items.append(item)
+
     csv_text = _fetch_text(f"{ETFCOM_BASE_URL}/launches/data/download?nopaging=1&page&_format=csv")
     if csv_text:
-        items = []
         reader = csv.DictReader(StringIO(csv_text))
         for row in reader:
             date_text = _clean_text(row.get("Inception Date", ""))
@@ -779,7 +788,7 @@ def fetch_etfcom_launches(limit=50):
             if not date_text or not ticker or not fund_name or not published_at:
                 continue
 
-            items.append(
+            add_launch_item(
                 {
                     "date": published_at.strftime("%Y-%m-%d"),
                     "ticker": ticker,
@@ -789,14 +798,11 @@ def fetch_etfcom_launches(limit=50):
                 }
             )
 
-        items.sort(key=lambda item: item["published_at"], reverse=True)
-        if items:
-            return items[:limit]
-
     launch_pages = [
-        f"{ETFCOM_BASE_URL}/topics/etf-launches",
-        f"{ETFCOM_BASE_URL}/tools/etf-launches?nopaging=1&page=1",
+        f"{ETFCOM_BASE_URL}/tools/etf-launches?page=1",
         f"{ETFCOM_BASE_URL}/tools/etf-launches",
+        f"{ETFCOM_BASE_URL}/tools/etf-launches?nopaging=1&page=1",
+        f"{ETFCOM_BASE_URL}/topics/etf-launches",
     ]
 
     for page_url in launch_pages:
@@ -807,7 +813,6 @@ def fetch_etfcom_launches(limit=50):
         soup = BeautifulSoup(html, "html.parser")
         table = soup.select_one("table.cols-3") or soup.find("table")
         if table:
-            items = []
             for row in table.select("tbody tr"):
                 cells = row.find_all("td")
                 if len(cells) < 3:
@@ -823,7 +828,7 @@ def fetch_etfcom_launches(limit=50):
                 if not date_text or not ticker or not fund_name or not published_at:
                     continue
 
-                items.append(
+                add_launch_item(
                     {
                         "date": published_at.strftime("%Y-%m-%d"),
                         "ticker": ticker,
@@ -833,12 +838,9 @@ def fetch_etfcom_launches(limit=50):
                     }
                 )
 
-            items.sort(key=lambda item: item["published_at"], reverse=True)
-            if items:
-                return items[:limit]
-
         text_rows = _extract_launch_rows_from_text(html, limit=limit)
-        if text_rows:
-            return text_rows
+        for item in text_rows:
+            add_launch_item(item)
 
-    return _load_seed_launches(limit=limit)
+    aggregated_items.sort(key=lambda item: item["published_at"], reverse=True)
+    return aggregated_items[:limit] if aggregated_items else _load_seed_launches(limit=limit)
