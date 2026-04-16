@@ -765,7 +765,7 @@ def fetch_etfdb_fund_flows(limit=100):
     return items[:limit]
 
 
-def fetch_etfcom_launches(limit=50):
+def fetch_live_etfcom_launches(limit=50):
     aggregated_items = []
     seen_rows = set()
 
@@ -843,4 +843,9 @@ def fetch_etfcom_launches(limit=50):
             add_launch_item(item)
 
     aggregated_items.sort(key=lambda item: item["published_at"], reverse=True)
-    return aggregated_items[:limit] if aggregated_items else _load_seed_launches(limit=limit)
+    return aggregated_items[:limit]
+
+
+def fetch_etfcom_launches(limit=50):
+    items = fetch_live_etfcom_launches(limit=limit)
+    return items if items else _load_seed_launches(limit=limit)

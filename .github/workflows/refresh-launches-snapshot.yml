@@ -1,0 +1,38 @@
+name: Refresh ETF.com Launches Snapshot
+
+on:
+  schedule:
+    - cron: "15 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-launches:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Refresh ETF.com launches snapshot
+        run: python scripts/refresh_launches_snapshot.py
+
+      - name: Commit updated snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add etfcom_launches_seed.csv
+          git diff --cached --quiet || git commit -m "Refresh ETF.com launches snapshot"
+
+      - name: Push changes
+        run: git push
