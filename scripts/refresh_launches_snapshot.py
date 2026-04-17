@@ -1,12 +1,16 @@
 import csv
 from io import StringIO
 from pathlib import Path
-
-from etfcom import fetch_live_etfcom_launches
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED_PATH = ROOT / "etfcom_launches_seed.csv"
+
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from etfcom import fetch_live_etfcom_launches
 
 
 def build_csv_text(items):
