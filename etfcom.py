@@ -239,7 +239,58 @@ def _extract_launch_rows_from_text(html, limit=50):
         index = probe
 
     items.sort(key=lambda item: item["published_at"], reverse=True)
-    return items[:limit]
+    if items:
+        return items[:limit]
+
+    raw_text = _clean_text(soup.get_text("\n", strip=True))
+    section_start = raw_text.find("Inception DateTickerFund Name")
+    if section_start == -1:
+        section_start = raw_text.find("Inception Date | Ticker | Fund Name")
+    if section_start == -1:
+        return []
+
+    section = raw_text[section_start:]
+    for end_marker in ["Export", "Latest Market News", "### Latest Market News"]:
+        end_index = section.find(end_marker)
+        if end_index != -1:
+            section = section[:end_index]
+            break
+
+    dense_pattern = re.compile(
+        r"(\d{2}/\d{2}/\d{4})\s*([A-Z0-9]{2,10})\s*(.+?)(?=\d{2}/\d{2}/\d{4}\s*[A-Z0-9]{2,10}|$)",
+        re.S,
+    )
+
+    dense_items = []
+    seen_dense = set()
+    for match in dense_pattern.finditer(section):
+        date_text = _clean_text(match.group(1))
+        ticker = _clean_text(match.group(2)).upper()
+        fund_name = _clean_text(match.group(3))
+        published_at = _parse_date(date_text, "%m/%d/%Y")
+
+        if not published_at or not re.fullmatch(r"[A-Z0-9]{2,10}", ticker):
+            continue
+        if "ETF" not in fund_name.upper() and "FUND" not in fund_name.upper():
+            continue
+
+        row_key = (date_text, ticker, fund_name)
+        if row_key in seen_dense:
+            continue
+        seen_dense.add(row_key)
+
+        dense_items.append(
+            {
+                "date": published_at.strftime("%Y-%m-%d"),
+                "ticker": ticker,
+                "fund_name": fund_name,
+                "link": urljoin(ETFCOM_BASE_URL, f"/{ticker}"),
+                "published_at": published_at,
+            }
+        )
+
+    dense_items.sort(key=lambda item: item["published_at"], reverse=True)
+    return dense_items[:limit]
 
 
 def _parse_markdown_news(markdown_text, limit=50):
