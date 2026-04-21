@@ -11,12 +11,19 @@ from config import (
     ETFCOM_DATA_VERSION,
 )
 try:
-    from etfcom import fetch_etf_news, fetch_etfcom_launches, fetch_etfdb_fund_flows
+    from etfcom import (
+        fetch_etf_news,
+        fetch_etfcom_launches_with_status,
+        fetch_etfdb_fund_flows,
+    )
 except ImportError:
-    from etfcom import fetch_etf_news, fetch_etfcom_launches
+    from etfcom import fetch_etf_news
 
     def fetch_etfdb_fund_flows(limit=100):
         return []
+
+    def fetch_etfcom_launches_with_status(limit=100):
+        return {"items": [], "status": "Unavailable"}
 from sec_filings import fetch_filings
 from sec_parsers import sanitize_ticker
 
@@ -212,6 +219,20 @@ st.markdown(
         margin-top: 0.15rem;
     }
 
+    .etf-status-line {
+        font-size: 0.86rem;
+        margin-top: -0.15rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .etf-status-live {
+        color: var(--etf-accent);
+    }
+
+    .etf-status-fallback {
+        color: #d8b44a;
+    }
+
     .etf-news-rail {
         max-height: 1450px;
         overflow-y: auto;
@@ -278,7 +299,7 @@ def load_etfcom_news(_version):
 
 
 def load_etfcom_launches(_version):
-    return fetch_etfcom_launches(limit=1000)
+    return fetch_etfcom_launches_with_status(limit=1000)
 
 
 @st.cache_data(ttl=43200)
@@ -560,7 +581,15 @@ with st.container():
             '<div class="etf-section-copy">Recent launches from ETF.com.</div>',
             unsafe_allow_html=True,
         )
-        launches_items = load_etfcom_launches(ETFCOM_DATA_VERSION)
+        launches_payload = load_etfcom_launches(ETFCOM_DATA_VERSION)
+        launches_items = launches_payload.get("items", []) if isinstance(launches_payload, dict) else launches_payload
+        launches_status = launches_payload.get("status", "") if isinstance(launches_payload, dict) else ""
+        status_class = "etf-status-live" if launches_status == "Live ETF.com" else "etf-status-fallback"
+        if launches_status:
+            st.markdown(
+                f'<div class="etf-status-line {status_class}">Source: {escape(launches_status)}</div>',
+                unsafe_allow_html=True,
+            )
         if launches_items:
             launches_container = st.container(height=760)
             for item in launches_items[:1000]:

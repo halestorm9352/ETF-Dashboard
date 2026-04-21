@@ -900,3 +900,11 @@ def fetch_live_etfcom_launches(limit=50):
 def fetch_etfcom_launches(limit=50):
     items = fetch_live_etfcom_launches(limit=limit)
     return items if items else _load_seed_launches(limit=limit)
+
+
+def fetch_etfcom_launches_with_status(limit=50):
+    items = fetch_live_etfcom_launches(limit=limit)
+    if items:
+        return {"items": items, "status": "Live ETF.com"}
+
+    return {"items": _load_seed_launches(limit=limit), "status": "Fallback snapshot"}
