@@ -21,15 +21,21 @@ CIK_ENTRIES = [
     ("0001452937", "Exchange Traded Concepts Trust"),
     ("0000819118", "Fidelity Concord Street Trust"),
     ("0000915802", "Financial Investors Trust"),
+    ("0001655589", "Franklin Templeton ETF Trust"),
     ("0001090372", "First Trust Exchange-Traded Fund"),
     ("0001432353", "Global X Funds"),
+    ("0001479026", "Goldman Sachs ETF Trust"),
     ("0001725210", "Grayscale Ethereum Staking ETF"),
     ("0001318342", "Investment Managers Series Trust"),
     ("0001587982", "Investment Managers Series Trust II"),
     ("0001337567", "iShares Gold Trust"),
     ("0001100663", "iShares Trust"),
+    ("0001500604", "Janus Detroit Street Trust"),
+    ("0001485894", "J.P. Morgan Exchange-Traded Fund Trust"),
     ("0001881741", "NEOS ETF Trust"),
     ("0001644419", "Northern Lights Fund Trust IV"),
+    ("0001635073", "NuShares ETF Trust"),
+    ("0001450011", "PIMCO ETF Trust"),
     ("0001174610", "ProShares Trust"),
     ("0001454889", "Schwab Strategic Trust"),
     ("0001064641", "Select Sector SPDR Trust"),
@@ -71,6 +77,8 @@ def infer_cik_group_name(name):
         return "Schwab"
     if "jpmorgan" in lower_name:
         return "JPMorgan"
+    if "j.p. morgan exchange-traded fund trust" in lower_name:
+        return "JPMorgan"
     if "investment managers series trust" in lower_name:
         return "Investment Managers Series"
     if "first trust" in lower_name:
@@ -85,13 +93,15 @@ def infer_cik_group_name(name):
         return "American Century"
     if "proshares" in lower_name or "profunds" in lower_name:
         return "ProShares"
+    if "pimco" in lower_name:
+        return "PIMCO"
     if "global x" in lower_name:
         return "Global X"
     if "goldman sachs" in lower_name:
         return "Goldman Sachs"
     if "franklin" in lower_name:
         return "Franklin Templeton"
-    if "janus henderson" in lower_name or lower_name.startswith("janus "):
+    if "janus henderson" in lower_name or lower_name.startswith("janus ") or "janus detroit street trust" in lower_name:
         return "Janus Henderson"
     if "pacer" in lower_name:
         return "Pacer"
@@ -112,6 +122,8 @@ def infer_cik_group_name(name):
     if "grayscale" in lower_name:
         return "Grayscale"
     if "nuveen" in lower_name:
+        return "Nuveen"
+    if "nushares" in lower_name:
         return "Nuveen"
     if lower_name.startswith("ark "):
         return "ARK"
