@@ -1,0 +1,380 @@
+﻿[
+    {
+        "cik":  "0001414509",
+        "configured_name":  "iShares U.S. ETF Trust",
+        "sec_name":  "RJEIF INC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001337567",
+        "configured_name":  "iShares Gold Trust",
+        "sec_name":  "GLYCOTEX, INC.",
+        "matching_form_count":  1,
+        "matching_forms":  "S-1"
+    },
+    {
+        "cik":  "0000932476",
+        "configured_name":  "Vanguard Fixed Income Securities Funds",
+        "sec_name":  "FANCAMP EXPLORATION LTD /FI",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0000882184",
+        "configured_name":  "Vanguard Whitehall Funds",
+        "sec_name":  "HORTON D R INC /DE/",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0000932477",
+        "configured_name":  "SPDR Series Trust",
+        "sec_name":  "LENOVO GROUP LTD",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001364742",
+        "configured_name":  "SPDR MSCI World StrategicFactors ETF Trust",
+        "sec_name":  "BlackRock Finance, Inc.",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001400683",
+        "configured_name":  "SPDR ICE Preferred Securities ETF Trust",
+        "sec_name":  "STWC. Holdings, Inc.",
+        "matching_form_count":  2,
+        "matching_forms":  "S-1"
+    },
+    {
+        "cik":  "0001454967",
+        "configured_name":  "SPDR DoubleLine Total Return Tactical ETF",
+        "sec_name":  "LANSDOWNE EUROPEAN LONG ONLY FUND LTD",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001333493",
+        "configured_name":  "Invesco Actively Managed Exchange-Traded Fund Trust",
+        "sec_name":  "eHealth, Inc.",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001452938",
+        "configured_name":  "Invesco DB Commodity Index Tracking Fund",
+        "sec_name":  "VALINOR CAPITAL PARTNERS OFFSHORE MASTER FUND, L.P.",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001454888",
+        "configured_name":  "Schwab Capital Trust",
+        "sec_name":  "Chu Hing",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001109241",
+        "configured_name":  "JPMorgan Trust I",
+        "sec_name":  "WARD NORTH AMERICA HOLDING INC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001090372",
+        "configured_name":  "First Trust Exchange-Traded Fund",
+        "sec_name":  "Jacob Funds Inc.",
+        "matching_form_count":  54,
+        "matching_forms":  "485BPOS, 485APOS, N-1A"
+    },
+    {
+        "cik":  "0001090374",
+        "configured_name":  "First Trust Exchange-Traded Fund III",
+        "sec_name":  "EQCC HOME EQUITY LOAN TRUST 1999-2",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001279890",
+        "configured_name":  "First Trust Exchange-Traded AlphaDEX Fund",
+        "sec_name":  "KAPP PATRICIA",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001320414",
+        "configured_name":  "First Trust Exchange-Traded Fund IV",
+        "sec_name":  "SELECT MEDICAL HOLDINGS CORP",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0000863064",
+        "configured_name":  "VanEck Vectors ETF Trust",
+        "sec_name":  "RIO TINTO PLC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001015965",
+        "configured_name":  "VanEck VIP Trust",
+        "sec_name":  "Voya VARIABLE PORTFOLIOS INC",
+        "matching_form_count":  41,
+        "matching_forms":  "485BPOS, 485APOS"
+    },
+    {
+        "cik":  "0000315066",
+        "configured_name":  "Fidelity Covington Trust",
+        "sec_name":  "FMR LLC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0000051931",
+        "configured_name":  "American Funds Insurance Series",
+        "sec_name":  "INVESTMENT CO OF AMERICA",
+        "matching_form_count":  57,
+        "matching_forms":  "485BPOS, 485APOS"
+    },
+    {
+        "cik":  "0001582983",
+        "configured_name":  "Capital Group Exchange-Traded Fund Trust",
+        "sec_name":  "Prosegur Compania de Seguridad, S.A./ADR",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001471855",
+        "configured_name":  "American Century ETF Trust",
+        "sec_name":  "Pochapski Elena",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0000354908",
+        "configured_name":  "American Century Investment Trust",
+        "sec_name":  "Teledyne FLIR, LLC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0000804239",
+        "configured_name":  "American Century Mutual Funds, Inc.",
+        "sec_name":  "SEI INSTITUTIONAL MANAGED TRUST",
+        "matching_form_count":  7,
+        "matching_forms":  "485BPOS, 485APOS"
+    },
+    {
+        "cik":  "0000914863",
+        "configured_name":  "American Century Strategic Asset Allocations, Inc.",
+        "sec_name":  "MIDSOUTH CAPITAL, INC.",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001308648",
+        "configured_name":  "ProShares Trust III",
+        "sec_name":  "FIRST MAJESTIC SILVER CORP",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0000899140",
+        "configured_name":  "ProFunds Trust",
+        "sec_name":  "WILLKIE FARR \u0026 GALLAGHER",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001378992",
+        "configured_name":  "WisdomTree Trust II",
+        "sec_name":  "BERRY GLOBAL GROUP, INC.",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001414508",
+        "configured_name":  "WisdomTree Trust III",
+        "sec_name":  "GOLDMAN SACHS BMET INVESTORS LP",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001432354",
+        "configured_name":  "Global X Funds II",
+        "sec_name":  "Global X Management CO LLC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0000886982",
+        "configured_name":  "Goldman Sachs ETF Trust",
+        "sec_name":  "GOLDMAN SACHS GROUP INC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001582981",
+        "configured_name":  "Goldman Sachs ActiveBeta ETF Trust",
+        "sec_name":  "Bluecore, Inc.",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001318343",
+        "configured_name":  "Direxion Shares ETF Trust II",
+        "sec_name":  "RC ROYALTY SUB LLC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001308649",
+        "configured_name":  "Direxion Shares ETF Trust III",
+        "sec_name":  "Wessler Scott C",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0000038777",
+        "configured_name":  "Franklin Custodian Funds",
+        "sec_name":  "FRANKLIN RESOURCES INC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001582984",
+        "configured_name":  "Janus Henderson ETF Trust",
+        "sec_name":  "Manne Robert",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001620069",
+        "configured_name":  "Pacer Funds Trust",
+        "sec_name":  "kWantix Trading Fund I, LP",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001685581",
+        "configured_name":  "Pacer Funds Trust II",
+        "sec_name":  "Niehaus Christopher",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001683862",
+        "configured_name":  "Innovator ETFs Trust",
+        "sec_name":  "UNISON FUND I, LLC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001587983",
+        "configured_name":  "PGIM ETF Trust",
+        "sec_name":  "SPECHT RICHARD KENNETH",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001881741",
+        "configured_name":  "NEOS ETF Trust",
+        "sec_name":  "Arogo Capital Acquisition Corp.",
+        "matching_form_count":  1,
+        "matching_forms":  "S-1"
+    },
+    {
+        "cik":  "0001587984",
+        "configured_name":  "VictoryShares ETF Trust",
+        "sec_name":  "Creative Affects LLC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001283333",
+        "configured_name":  "ALPS ETF Trust",
+        "sec_name":  "STRUCTURED PRODUCTS CORP CORTS TR FOR W R BERKLEY CAP TRUST",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001587985",
+        "configured_name":  "Amplify ETF Trust",
+        "sec_name":  "Charlotte Angel Fund LLC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001110805",
+        "configured_name":  "Nuveen ETF Trust",
+        "sec_name":  "NuStar Energy L.P.",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001644418",
+        "configured_name":  "Simplify ETF Trust",
+        "sec_name":  "Goldfarb Sheldon",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001350488",
+        "configured_name":  "John Hancock Exchange-Traded Fund Trust",
+        "sec_name":  "ASIA JUNWEI FINANCE CAPITAL GROUP CO., LTD.",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001350489",
+        "configured_name":  "Eaton Vance ETF Trust",
+        "sec_name":  "WACHOVIA CAPITAL TRUST III",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001566219",
+        "configured_name":  "BMO ETF Trust",
+        "sec_name":  "Keller Ashley Conrad",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001587987",
+        "configured_name":  "Columbia ETF Trust",
+        "sec_name":  "NewtekOne, Inc.",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001587988",
+        "configured_name":  "Principal Exchange-Traded Funds",
+        "sec_name":  "Cor Pharma, LLC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001934941",
+        "configured_name":  "F/m ETF Trust",
+        "sec_name":  "Kawashima Katsumi",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001771147",
+        "configured_name":  "Defiance ETF Trust",
+        "sec_name":  "Global Private Debt Fund LLC",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    },
+    {
+        "cik":  "0001877260",
+        "configured_name":  "BondBloxx ETF Trust",
+        "sec_name":  "Carter Walter E.",
+        "matching_form_count":  0,
+        "matching_forms":  ""
+    }
+]
