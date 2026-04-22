@@ -22,7 +22,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install playwright
+
+      - name: Install browser
+        run: python -m playwright install chromium
 
       - name: Refresh ETF.com launches snapshot
         run: python scripts/refresh_launches_snapshot.py
