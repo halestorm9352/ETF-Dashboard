@@ -9,6 +9,8 @@ from config import (
     CIK_GROUP_OPTIONS,
     DATA_VERSION,
     ETFCOM_DATA_VERSION,
+    FUND_FLOWS_PAGE_SIZE,
+    LAUNCHES_PAGE_SIZE,
 )
 try:
     from etfcom import (
@@ -295,7 +297,7 @@ def load_filings(_data_version, start_date, end_date, selected_ciks):
 
 @st.cache_data(ttl=3600)
 def load_etfcom_news(_version):
-    return fetch_etf_news(limit=800)
+    return fetch_etf_news(limit=600)
 
 
 def load_etfcom_launches(_version):
@@ -318,6 +320,10 @@ if "search_issuer_groups" not in st.session_state:
     st.session_state.search_issuer_groups = []
 if "search_requested" not in st.session_state:
     st.session_state.search_requested = False
+if "launches_visible_count" not in st.session_state:
+    st.session_state.launches_visible_count = LAUNCHES_PAGE_SIZE
+if "fund_flows_visible_count" not in st.session_state:
+    st.session_state.fund_flows_visible_count = FUND_FLOWS_PAGE_SIZE
 
 st.markdown(
     """
@@ -464,7 +470,7 @@ if news_items:
         <div class="etf-ticker-shell" id="ticker-shell">
             <div class="etf-ticker-label">News Wire</div>
             <div class="etf-ticker-window">
-                <div class="etf-ticker-track" id="ticker-track">""" + ticker_items_html + ticker_items_html + """</div>
+                <div class="etf-ticker-track" id="ticker-track">""" + ticker_items_html + """</div>
             </div>
             <div class="etf-ticker-scrubber-wrap">
                 <input
@@ -483,6 +489,11 @@ if news_items:
         const shell = document.getElementById("ticker-shell");
         const track = document.getElementById("ticker-track");
         const scrubber = document.getElementById("ticker-scrubber");
+        const originalMarkup = track.innerHTML;
+
+        if (originalMarkup) {
+            track.innerHTML = originalMarkup + originalMarkup;
+        }
 
         let singleWidth = 0;
         let offset = 0;
@@ -592,7 +603,8 @@ with st.container():
             )
         if launches_items:
             launches_container = st.container(height=760)
-            for item in launches_items[:1000]:
+            visible_launch_count = min(st.session_state.launches_visible_count, len(launches_items))
+            for item in launches_items[:visible_launch_count]:
                 launches_container.markdown(
                     f"""
                     <div class="etf-news-item">
@@ -603,6 +615,21 @@ with st.container():
                     """,
                     unsafe_allow_html=True,
                 )
+            launch_controls = st.columns(2)
+            if visible_launch_count < len(launches_items):
+                if launch_controls[0].button(
+                    f"Load {LAUNCHES_PAGE_SIZE} more",
+                    key="launches_load_more",
+                    use_container_width=True,
+                ):
+                    st.session_state.launches_visible_count += LAUNCHES_PAGE_SIZE
+            elif visible_launch_count > LAUNCHES_PAGE_SIZE:
+                if launch_controls[0].button(
+                    "Show fewer",
+                    key="launches_show_fewer",
+                    use_container_width=True,
+                ):
+                    st.session_state.launches_visible_count = LAUNCHES_PAGE_SIZE
         else:
             st.caption("ETF.com launches were not available right now.")
 
@@ -725,7 +752,8 @@ with st.container():
         )
         if fund_flow_items:
             flows_container = st.container(height=760)
-            for item in fund_flow_items[:250]:
+            visible_flow_count = min(st.session_state.fund_flows_visible_count, len(fund_flow_items))
+            for item in fund_flow_items[:visible_flow_count]:
                 issuer_title = escape(item.get("issuer", "Issuer"))
                 issuer_link = escape(item.get("link", ""))
                 issuer_markup = (
@@ -743,5 +771,20 @@ with st.container():
                     """,
                     unsafe_allow_html=True,
                 )
+            flow_controls = st.columns(2)
+            if visible_flow_count < len(fund_flow_items):
+                if flow_controls[0].button(
+                    f"Load {FUND_FLOWS_PAGE_SIZE} more",
+                    key="fund_flows_load_more",
+                    use_container_width=True,
+                ):
+                    st.session_state.fund_flows_visible_count += FUND_FLOWS_PAGE_SIZE
+            elif visible_flow_count > FUND_FLOWS_PAGE_SIZE:
+                if flow_controls[0].button(
+                    "Show fewer",
+                    key="fund_flows_show_fewer",
+                    use_container_width=True,
+                ):
+                    st.session_state.fund_flows_visible_count = FUND_FLOWS_PAGE_SIZE
         else:
             st.caption("ETFdb fund flow rankings were not available right now.")

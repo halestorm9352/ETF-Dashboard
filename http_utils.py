@@ -1,19 +1,23 @@
+import threading
 import time
 
 import requests
-import streamlit as st
 
 from config import HEADERS
 
+_THREAD_LOCAL = threading.local()
 
-@st.cache_resource
-def get_http_session():
-    session = requests.Session()
-    session.headers.update(HEADERS)
+
+def get_http_session() -> requests.Session:
+    session = getattr(_THREAD_LOCAL, "session", None)
+    if session is None:
+        session = requests.Session()
+        session.headers.update(HEADERS)
+        _THREAD_LOCAL.session = session
     return session
 
 
-def get_response_text(url, max_chars, retries=3):
+def get_response_text(url: str, max_chars: int, retries: int = 3) -> str:
     session = get_http_session()
     for attempt in range(retries):
         try:

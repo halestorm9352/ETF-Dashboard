@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import re
+from typing import Callable
 from urllib.parse import urljoin
 
 import requests
@@ -620,6 +621,44 @@ def _extract_news_items_from_soup(soup, items, seen_links):
             _append_news_item(items, seen_links, title, category, author, date_text, href)
 
 
+def _finalize_news_items(items, cutoff, limit):
+    items.sort(key=lambda item: item["published_at"], reverse=True)
+    recent_items = [item for item in items if item["published_at"] >= cutoff]
+    if recent_items:
+        return recent_items[:limit]
+    return items[:limit]
+
+
+def _fetch_paged_news(
+    page_builder: Callable[[int], str],
+    extractor: Callable[[BeautifulSoup, list, set], None],
+    days_back: int,
+    max_pages: int,
+    limit: int,
+):
+    cutoff = _get_recent_cutoff(days_back)
+    items = []
+    seen_links = set()
+
+    for page_index in range(1, max_pages + 1):
+        html = _fetch_text(page_builder(page_index))
+        if not html:
+            continue
+
+        soup = BeautifulSoup(html, "html.parser")
+        before_count = len(items)
+        extractor(soup, items, seen_links)
+
+        if len(items) >= limit:
+            break
+        if items and min(item["published_at"] for item in items) <= cutoff and page_index >= 3:
+            break
+        if len(items) == before_count and page_index >= 3:
+            break
+
+    return _finalize_news_items(items, cutoff, limit)
+
+
 def fetch_etfcom_news(limit=50):
     cutoff = _get_recent_cutoff(ETFCOM_NEWS_DAYS_BACK)
     markdown_text = _fetch_text(f"{ETFCOM_BASE_URL}/node/55188.md")
@@ -665,119 +704,43 @@ def fetch_etfcom_news(limit=50):
 
 
 def fetch_etfdb_news(limit=50):
-    cutoff = _get_recent_cutoff(ETFDB_NEWS_DAYS_BACK)
-    items = []
-    seen_links = set()
-
-    for page_index in range(1, ETFDB_NEWS_MAX_PAGES + 1):
-        page_url = f"{ETFDB_BASE_URL}/news/" if page_index == 1 else f"{ETFDB_BASE_URL}/news/page/{page_index}/"
-        html = _fetch_text(page_url)
-        if not html:
-            continue
-
-        soup = BeautifulSoup(html, "html.parser")
-        before_count = len(items)
-        _extract_etfdb_news_items_from_soup(soup, items, seen_links)
-
-        if len(items) >= limit:
-            break
-        if items and min(item["published_at"] for item in items) <= cutoff and page_index >= 3:
-            break
-        if len(items) == before_count and page_index >= 3:
-            break
-
-    items.sort(key=lambda item: item["published_at"], reverse=True)
-    recent_items = [item for item in items if item["published_at"] >= cutoff]
-    if recent_items:
-        return recent_items[:limit]
-    return items[:limit]
+    return _fetch_paged_news(
+        lambda page_index: f"{ETFDB_BASE_URL}/news/" if page_index == 1 else f"{ETFDB_BASE_URL}/news/page/{page_index}/",
+        _extract_etfdb_news_items_from_soup,
+        ETFDB_NEWS_DAYS_BACK,
+        ETFDB_NEWS_MAX_PAGES,
+        limit,
+    )
 
 
 def fetch_etfstream_news(limit=50):
-    cutoff = _get_recent_cutoff(ETFSTREAM_NEWS_DAYS_BACK)
-    items = []
-    seen_links = set()
-
-    for page_index in range(1, ETFSTREAM_NEWS_MAX_PAGES + 1):
-        page_url = f"{ETFSTREAM_BASE_URL}/news" if page_index == 1 else f"{ETFSTREAM_BASE_URL}/news/page/{page_index}"
-        html = _fetch_text(page_url)
-        if not html:
-            continue
-
-        soup = BeautifulSoup(html, "html.parser")
-        before_count = len(items)
-        _extract_etfstream_news_items_from_soup(soup, items, seen_links)
-
-        if len(items) >= limit:
-            break
-        if items and min(item["published_at"] for item in items) <= cutoff and page_index >= 3:
-            break
-        if len(items) == before_count and page_index >= 3:
-            break
-
-    items.sort(key=lambda item: item["published_at"], reverse=True)
-    recent_items = [item for item in items if item["published_at"] >= cutoff]
-    if recent_items:
-        return recent_items[:limit]
-    return items[:limit]
+    return _fetch_paged_news(
+        lambda page_index: f"{ETFSTREAM_BASE_URL}/news" if page_index == 1 else f"{ETFSTREAM_BASE_URL}/news/page/{page_index}",
+        _extract_etfstream_news_items_from_soup,
+        ETFSTREAM_NEWS_DAYS_BACK,
+        ETFSTREAM_NEWS_MAX_PAGES,
+        limit,
+    )
 
 
 def fetch_etfexpress_news(limit=50):
-    cutoff = _get_recent_cutoff(ETFEXPRESS_NEWS_DAYS_BACK)
-    items = []
-    seen_links = set()
-
-    for page_index in range(1, ETFEXPRESS_NEWS_MAX_PAGES + 1):
-        page_url = f"{ETFEXPRESS_BASE_URL}/news/" if page_index == 1 else f"{ETFEXPRESS_BASE_URL}/news/page/{page_index}/"
-        html = _fetch_text(page_url)
-        if not html:
-            continue
-
-        soup = BeautifulSoup(html, "html.parser")
-        before_count = len(items)
-        _extract_etfexpress_news_items_from_soup(soup, items, seen_links)
-
-        if len(items) >= limit:
-            break
-        if items and min(item["published_at"] for item in items) <= cutoff and page_index >= 3:
-            break
-        if len(items) == before_count and page_index >= 3:
-            break
-
-    items.sort(key=lambda item: item["published_at"], reverse=True)
-    recent_items = [item for item in items if item["published_at"] >= cutoff]
-    if recent_items:
-        return recent_items[:limit]
-    return items[:limit]
+    return _fetch_paged_news(
+        lambda page_index: f"{ETFEXPRESS_BASE_URL}/news/" if page_index == 1 else f"{ETFEXPRESS_BASE_URL}/news/page/{page_index}/",
+        _extract_etfexpress_news_items_from_soup,
+        ETFEXPRESS_NEWS_DAYS_BACK,
+        ETFEXPRESS_NEWS_MAX_PAGES,
+        limit,
+    )
 
 
 def fetch_trackinsight_news(limit=50):
-    cutoff = _get_recent_cutoff(TRACKINSIGHT_NEWS_DAYS_BACK)
-    items = []
-    seen_links = set()
-
-    for page_index in range(1, TRACKINSIGHT_NEWS_MAX_PAGES + 1):
-        page_url = f"{TRACKINSIGHT_BASE_URL}/en/etf-news" if page_index == 1 else f"{TRACKINSIGHT_BASE_URL}/en/etf-news?p={page_index}"
-        html = _fetch_text(page_url)
-        if not html:
-            continue
-
-        soup = BeautifulSoup(html, "html.parser")
-        before_count = len(items)
-        _extract_trackinsight_news_items_from_soup(soup, items, seen_links)
-
-        if len(items) >= limit:
-            break
-        if items and min(item["published_at"] for item in items) <= cutoff and page_index >= 3:
-            break
-        if len(items) == before_count and page_index >= 3:
-            break
-
-    items.sort(key=lambda item: item["published_at"], reverse=True)
-    recent_items = [item for item in items if item["published_at"] >= cutoff]
-    if recent_items:
-        return recent_items[:limit]
-    return items[:limit]
+    return _fetch_paged_news(
+        lambda page_index: f"{TRACKINSIGHT_BASE_URL}/en/etf-news" if page_index == 1 else f"{TRACKINSIGHT_BASE_URL}/en/etf-news?p={page_index}",
+        _extract_trackinsight_news_items_from_soup,
+        TRACKINSIGHT_NEWS_DAYS_BACK,
+        TRACKINSIGHT_NEWS_MAX_PAGES,
+        limit,
+    )
 
 
 def fetch_etf_news(limit=50):

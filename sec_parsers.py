@@ -1,17 +1,20 @@
 import html
 import re
+from typing import Any
+
+from bs4 import BeautifulSoup
 
 from config import INVALID_TICKERS
 
 
-def clean_html_text(value):
+def clean_html_text(value: str) -> str:
     without_tags = re.sub(r"<[^>]+>", " ", value)
     decoded = html.unescape(without_tags)
     decoded = re.sub(r"[\u2000-\u200f\u2028-\u202f\u205f\u2060\ufeff]", " ", decoded)
     return " ".join(decoded.split())
 
 
-def extract_etf_name(text):
+def extract_etf_name(text: str) -> str:
     bracketed_pipe_match = re.search(
         r'\[\s*[A-Z]{1,8}\s*\]\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
         clean_html_text(text),
@@ -66,7 +69,7 @@ def extract_etf_name(text):
     return fallback.group(1).strip() if fallback else "N/A"
 
 
-def extract_ticker(text):
+def extract_ticker(text: str) -> str:
     bracketed_pipe_match = re.search(
         r'\[\s*([A-Z]{1,8})\s*\]\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
         clean_html_text(text),
@@ -137,14 +140,25 @@ def extract_ticker(text):
     return ""
 
 
-def sanitize_ticker(value):
+def sanitize_ticker(value: Any) -> str:
     ticker = str(value or "").strip().upper()
     if re.fullmatch(r"[A-Z]{1,8}", ticker) and ticker not in INVALID_TICKERS:
         return ticker
     return "Not Listed"
 
 
-def extract_filer_name(text):
+def extract_filer_name(text: str) -> str:
+    if not text:
+        return ""
+
+    soup = BeautifulSoup(text, "html.parser")
+    company = soup.select_one("span.companyName")
+    if company:
+        company_text = clean_html_text(company.get_text(" ", strip=True))
+        company_text = re.sub(r"\s*\(Filer\).*", "", company_text, flags=re.IGNORECASE)
+        if company_text:
+            return company_text.upper()
+
     company_match = re.search(
         r'<span class="companyName">(.*?)\s*\(Filer\)',
         text,
@@ -164,7 +178,33 @@ def extract_filer_name(text):
     return ""
 
 
-def extract_series_entries(text):
+def extract_series_entries(text: str) -> list[dict[str, str]]:
+    if not text:
+        return []
+
+    soup = BeautifulSoup(text, "html.parser")
+    parsed_entries: list[dict[str, str]] = []
+    for row in soup.select("tr.contractRow"):
+        cells = row.find_all("td")
+        if len(cells) < 4:
+            continue
+
+        name = clean_html_text(cells[2].get_text(" ", strip=True))
+        ticker = clean_html_text(cells[3].get_text(" ", strip=True)).upper()
+        if not name:
+            continue
+        if ticker and not re.fullmatch(r"[A-Z]{1,8}", ticker):
+            ticker = ""
+        parsed_entries.append(
+            {
+                "etf_name": name,
+                "ticker": ticker if ticker not in INVALID_TICKERS else "",
+            }
+        )
+
+    if parsed_entries:
+        return parsed_entries
+
     entries = []
     contract_rows = re.findall(
         r'<tr[^>]*class="contractRow"[^>]*>.*?<td[^>]*>.*?</td>\s*<td[^>]*>.*?</td>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>\s*</tr>',
@@ -187,14 +227,33 @@ def extract_series_entries(text):
     return entries
 
 
-def build_sec_url(path_or_url):
+def build_sec_url(path_or_url: str) -> str:
     if path_or_url.startswith("http"):
         return path_or_url
     return f"https://www.sec.gov{path_or_url}"
 
 
-def extract_supporting_document_urls(index_text):
+def extract_supporting_document_urls(index_text: str) -> list[str]:
+    if not index_text:
+        return []
+
+    soup = BeautifulSoup(index_text, "html.parser")
     prioritized_paths = []
+
+    for link in soup.find_all("a", href=True):
+        href = link.get("href", "").strip()
+        if "/Archives/edgar/data/" not in href:
+            continue
+        filename = href.rsplit("/", 1)[-1].lower()
+        if filename in {"index.htm", "index.html"}:
+            continue
+        if href.lower().startswith("/ix?doc="):
+            href = href.split("/ix?doc=", 1)[-1]
+        if href not in prioritized_paths:
+            prioritized_paths.append(href)
+
+    if prioritized_paths:
+        return [build_sec_url(path) for path in prioritized_paths]
 
     ix_primary_matches = re.findall(
         r'href="/ix\?doc=(/Archives/edgar/data/[^"]+\.(?:htm|html))"',

@@ -154,10 +154,13 @@ for cik, name in CIK_LOOKUP.items():
 CIK_GROUP_OPTIONS = sorted(CIK_GROUP_LOOKUP.keys(), key=str.lower)
 FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
-REQUEST_DELAY_SECONDS = 0.35
 INDEX_PAGE_MAX_CHARS = 60000
-DATA_VERSION = "2026-03-30-ticker-sanitize-and-filing-briefs"
-ETFCOM_DATA_VERSION = "2026-03-31-etfcom-etfdb-deeper-rails"
+SEC_MAX_WORKERS = 6
+MAX_SUPPORTING_DOCUMENTS = 2
+LAUNCHES_PAGE_SIZE = 120
+FUND_FLOWS_PAGE_SIZE = 50
+DATA_VERSION = "2026-04-22-sec-parallel-and-rail-pagination"
+ETFCOM_DATA_VERSION = "2026-04-22-etf-sources-and-rail-optimization"
 INVALID_TICKERS = {"CIK", "ETF", "FUND"}
 NEWS_QUERIES = (
     "ETF launches Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",
