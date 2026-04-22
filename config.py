@@ -7,6 +7,7 @@ CIK_ENTRIES = [
     # - exact SEC name matches are retained
     # - a small provisional set is retained where recent target ETF filing forms still appeared
     # - mismatches with no recent ETF filing activity were removed from the active list
+    ("0001496608", "AB Active ETFs, Inc."),
     ("0000804239", "American Century Mutual Funds, Inc."),
     ("0000051931", "American Funds Insurance Series"),
     ("0001633061", "Amplify ETF Trust"),
@@ -52,6 +53,8 @@ CIKS = list(CIK_LOOKUP.keys())
 def infer_cik_group_name(name):
     lower_name = name.lower()
 
+    if "alliancebernstein" in lower_name or "ab active etfs" in lower_name:
+        return "AllianceBernstein"
     if "blackrock" in lower_name or "ishares" in lower_name:
         return "BlackRock"
     if "vanguard" in lower_name:
