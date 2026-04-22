@@ -861,13 +861,49 @@ def fetch_live_etfcom_launches(limit=50):
 
 
 def fetch_etfcom_launches(limit=50):
-    items = fetch_live_etfcom_launches(limit=limit)
-    return items if items else _load_seed_launches(limit=limit)
+    live_items = fetch_live_etfcom_launches(limit=limit)
+    seed_items = _load_seed_launches(limit=limit)
+    merged_items = []
+    seen_rows = set()
+
+    for item in sorted(
+        live_items + seed_items,
+        key=lambda current: current.get("published_at", datetime.min),
+        reverse=True,
+    ):
+        row_key = (item.get("date"), item.get("ticker"), item.get("fund_name"))
+        if row_key in seen_rows:
+            continue
+        seen_rows.add(row_key)
+        merged_items.append(item)
+
+    return merged_items[:limit]
 
 
 def fetch_etfcom_launches_with_status(limit=50):
     items = fetch_live_etfcom_launches(limit=limit)
-    if items:
-        return {"items": items, "status": "Live ETF.com"}
+    seed_items = _load_seed_launches(limit=limit)
+    merged_items = []
+    seen_rows = set()
 
-    return {"items": _load_seed_launches(limit=limit), "status": "Fallback snapshot"}
+    for item in sorted(
+        items + seed_items,
+        key=lambda current: current.get("published_at", datetime.min),
+        reverse=True,
+    ):
+        row_key = (item.get("date"), item.get("ticker"), item.get("fund_name"))
+        if row_key in seen_rows:
+            continue
+        seen_rows.add(row_key)
+        merged_items.append(item)
+
+    if items and seed_items:
+        live_latest = items[0].get("published_at", datetime.min)
+        seed_latest = seed_items[0].get("published_at", datetime.min)
+        if seed_latest > live_latest:
+            return {"items": merged_items[:limit], "status": "Fallback snapshot"}
+        return {"items": merged_items[:limit], "status": "Live ETF.com"}
+    if items:
+        return {"items": merged_items[:limit], "status": "Live ETF.com"}
+
+    return {"items": merged_items[:limit], "status": "Fallback snapshot"}

@@ -27,7 +27,7 @@ jobs:
           pip install playwright
 
       - name: Install browser
-        run: python -m playwright install chromium
+        run: python -m playwright install --with-deps chromium
 
       - name: Refresh ETF.com launches snapshot
         run: python scripts/refresh_launches_snapshot.py
