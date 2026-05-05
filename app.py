@@ -761,17 +761,14 @@ with st.container():
                         f"{st.session_state.search_end_date.isoformat()}.csv"
                     )
 
-                    export_cols = st.columns([1.2, 2.8])
-                    export_cols[0].download_button(
-                        "Download Filings CSV",
+                    export_cols = st.columns([1, 1.15, 1])
+                    export_cols[1].download_button(
+                        "Download",
                         data=export_csv,
                         file_name=export_file_name,
                         mime="text/csv",
                         key="download_filings_csv",
                         use_container_width=True,
-                    )
-                    export_cols[1].caption(
-                        "Exports the currently filtered filings table as a CSV."
                     )
 
                     st.success(f"Loaded {filings_count} filing(s) in the selected date range.")
