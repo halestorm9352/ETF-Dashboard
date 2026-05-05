@@ -279,6 +279,24 @@ st.markdown(
         border-color: rgba(255, 255, 255, 0.28) !important;
     }
 
+    div[data-testid="stDownloadButton"] > button {
+        min-height: 2.85rem;
+        white-space: nowrap;
+        background: #000000 !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        border-radius: 14px !important;
+        padding: 0.2rem 1rem !important;
+        font-weight: 700 !important;
+    }
+
+    div[data-testid="stDownloadButton"] > button:hover,
+    div[data-testid="stDownloadButton"] > button:focus {
+        background: #111111 !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.28) !important;
+    }
+
     div[data-testid="stDataFrame"] {
         border: 1px solid var(--etf-border);
         border-radius: 16px;
@@ -735,9 +753,30 @@ with st.container():
                         unsafe_allow_html=True,
                     )
 
+                    export_df = display_df[["ticker", "etf_name", "filer", "date", "link"]].copy()
+                    export_csv = export_df.to_csv(index=False).encode("utf-8")
+                    export_file_name = (
+                        f"etf_dash_filings_"
+                        f"{st.session_state.search_start_date.isoformat()}_to_"
+                        f"{st.session_state.search_end_date.isoformat()}.csv"
+                    )
+
+                    export_cols = st.columns([1.2, 2.8])
+                    export_cols[0].download_button(
+                        "Download Filings CSV",
+                        data=export_csv,
+                        file_name=export_file_name,
+                        mime="text/csv",
+                        key="download_filings_csv",
+                        use_container_width=True,
+                    )
+                    export_cols[1].caption(
+                        "Exports the currently filtered filings table as a CSV."
+                    )
+
                     st.success(f"Loaded {filings_count} filing(s) in the selected date range.")
                     st.dataframe(
-                        display_df[["ticker", "etf_name", "filer", "date", "link"]],
+                        export_df,
                         use_container_width=True,
                         hide_index=True,
                     )
