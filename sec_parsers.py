@@ -14,22 +14,54 @@ def clean_html_text(value: str) -> str:
     return " ".join(decoded.split())
 
 
+def normalize_etf_name(value: str) -> str:
+    cleaned = clean_html_text(value).upper()
+    cleaned = re.sub(r"[^A-Z0-9]+", " ", cleaned)
+    return " ".join(cleaned.split())
+
+
 def extract_etf_name(text: str) -> str:
+    cleaned_text = clean_html_text(text)
+
     bracketed_pipe_match = re.search(
         r'\[\s*[A-Z]{1,8}\s*\]\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
-        clean_html_text(text),
+        cleaned_text,
         re.IGNORECASE,
     )
     if bracketed_pipe_match:
         return bracketed_pipe_match.group(1).strip()
 
+    name_pipe_match = re.search(
+        r'([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s*\|\s*[A-Z]{1,8}\s*\|',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if name_pipe_match:
+        return name_pipe_match.group(1).strip()
+
     pipe_match = re.search(
         r'([A-Z]{2,6})\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
-        clean_html_text(text),
+        cleaned_text,
         re.IGNORECASE,
     )
     if pipe_match:
         return pipe_match.group(2).strip()
+
+    ticker_name_match = re.search(
+        r'\b[A-Z]{1,8}\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+(?:is\s+)?listed\s+on\b',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if ticker_name_match:
+        return ticker_name_match.group(1).strip()
+
+    series_text_match = re.search(
+        r'Series\s+S\d+\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+Class/Contract',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if series_text_match:
+        return series_text_match.group(1).strip()
 
     series_match = re.search(
         r'<td[^>]*class="seriesName"[^>]*>.*?</td>\s*'
@@ -45,7 +77,7 @@ def extract_etf_name(text: str) -> str:
 
     contract_match = re.search(
         r'<tr[^>]*class="contractRow"[^>]*>.*?'
-        r'<td[^>]*>(.*?)</td>\s*<td[^>]*>.*?</td>\s*</tr>',
+        r'<td[^>]*>.*?</td>\s*<td[^>]*>.*?</td>\s*<td[^>]*>(.*?)</td>\s*</tr>',
         text,
         re.IGNORECASE | re.DOTALL,
     )
@@ -64,15 +96,16 @@ def extract_etf_name(text: str) -> str:
         if name:
             return name
 
-    fallback_text = clean_html_text(text)
-    fallback = re.search(r'([A-Z][A-Za-z0-9&\s\-]{5,100}(ETF|Fund))', fallback_text)
+    fallback = re.search(r'([A-Z][A-Za-z0-9&\s\-]{5,100}(ETF|Fund))', cleaned_text)
     return fallback.group(1).strip() if fallback else "N/A"
 
 
 def extract_ticker(text: str) -> str:
+    cleaned_text = clean_html_text(text)
+
     bracketed_pipe_match = re.search(
         r'\[\s*([A-Z]{1,8})\s*\]\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
-        clean_html_text(text),
+        cleaned_text,
         re.IGNORECASE,
     )
     if bracketed_pipe_match:
@@ -92,6 +125,26 @@ def extract_ticker(text: str) -> str:
             if re.fullmatch(r"[A-Z]{1,8}", ticker_candidate) and ticker_candidate not in INVALID_TICKERS:
                 return ticker_candidate
 
+    name_ticker_pipe_match = re.search(
+        r'[A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund)\s*\|\s*([A-Z]{1,8})\s*\|',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if name_ticker_pipe_match:
+        ticker = name_ticker_pipe_match.group(2).upper()
+        if ticker not in INVALID_TICKERS:
+            return ticker
+
+    ticker_name_listed_match = re.search(
+        r'\b([A-Z]{1,8})\s+[A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund)\s+(?:is\s+)?listed\s+on\b',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if ticker_name_listed_match:
+        ticker = ticker_name_listed_match.group(1).upper()
+        if ticker not in INVALID_TICKERS:
+            return ticker
+
     raw_label_match = re.search(r'Ticker Symbol', text, re.IGNORECASE)
     if raw_label_match:
         ticker_snippet = clean_html_text(text[raw_label_match.start(): raw_label_match.start() + 2000])
@@ -104,8 +157,6 @@ def extract_ticker(text: str) -> str:
             ticker = ticker_label_match.group(1).upper()
             if ticker not in INVALID_TICKERS:
                 return ticker
-
-    cleaned_text = clean_html_text(text)
 
     prospectus_table_match = re.search(
         r'Fund\s+Ticker\s+Principal U\.S\. Listing Exchange.*?(?:ETF|Fund)\s+([A-Z]{1,8})\b',
@@ -134,6 +185,16 @@ def extract_ticker(text: str) -> str:
     )
     if ticker_cell_match:
         ticker = ticker_cell_match.group(1).upper()
+        if ticker not in INVALID_TICKERS:
+            return ticker
+
+    series_ticker_match = re.search(
+        r'Class/Contract\s+C\d+\s+[A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund)\s+([A-Z]{1,8})(?=\s+(?:Status\s+Name\s+Ticker\s+Symbol|Mailing\s+Address|Business\s+Address|$))',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if series_ticker_match:
+        ticker = series_ticker_match.group(2).upper()
         if ticker not in INVALID_TICKERS:
             return ticker
 
@@ -224,7 +285,79 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
                 "ticker": ticker if ticker not in INVALID_TICKERS else "",
             }
         )
+
+    if entries:
+        return entries
+
+    cleaned_text = clean_html_text(text)
+    text_matches = re.findall(
+        r'Series\s+S\d+\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+'
+        r'Class/Contract\s+C\d+\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))'
+        r'(?:\s+([A-Z]{1,8}))?(?=\s+(?:Status\s+Name\s+Ticker\s+Symbol|Mailing\s+Address|Business\s+Address|$))',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    for _series_name, _series_suffix, contract_name, _contract_suffix, ticker in text_matches:
+        if not contract_name:
+            continue
+        entries.append(
+            {
+                "etf_name": contract_name.strip(),
+                "ticker": ticker.upper() if ticker and ticker.upper() not in INVALID_TICKERS else "",
+            }
+        )
     return entries
+
+
+def extract_named_ticker_pairs(text: str) -> list[dict[str, str]]:
+    if not text:
+        return []
+
+    cleaned_text = clean_html_text(text)
+    pairs: list[dict[str, str]] = []
+    seen_keys: set[tuple[str, str]] = set()
+
+    def add_pair(name: str, ticker: str) -> None:
+        clean_name = clean_html_text(name)
+        clean_ticker = sanitize_ticker(ticker)
+        if clean_ticker == "Not Listed" or "ETF" not in clean_name.upper():
+            return
+        key = (normalize_etf_name(clean_name), clean_ticker)
+        if key in seen_keys:
+            return
+        seen_keys.add(key)
+        pairs.append({"etf_name": clean_name, "ticker": clean_ticker})
+
+    for match in re.finditer(
+        r'\[\s*([A-Z]{1,8})\s*\]\s*\|\s*([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))',
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        add_pair(match.group(2), match.group(1))
+
+    for match in re.finditer(
+        r'([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s*\|\s*([A-Z]{1,8})\s*\|\s*(?:NYSE|NASDAQ|CBOE|BZX|ARCA|STOCK\s+EXCHANGE)',
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        add_pair(match.group(1), match.group(3))
+
+    for match in re.finditer(
+        r'\b([A-Z]{1,8})\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+(?:is\s+)?listed\s+on\b',
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        add_pair(match.group(2), match.group(1))
+
+    for match in re.finditer(
+        r'Series\s+S\d+\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+'
+        r'Class/Contract\s+C\d+\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+([A-Z]{1,8})',
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        add_pair(match.group(3), match.group(5))
+
+    return pairs
 
 
 def build_sec_url(path_or_url: str) -> str:

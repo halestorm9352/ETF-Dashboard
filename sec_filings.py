@@ -17,9 +17,11 @@ from http_utils import get_http_session, get_response_text
 from sec_parsers import (
     extract_etf_name,
     extract_filer_name,
+    extract_named_ticker_pairs,
     extract_series_entries,
     extract_supporting_document_urls,
     extract_ticker,
+    normalize_etf_name,
     sanitize_ticker,
 )
 
@@ -92,6 +94,38 @@ def _needs_supporting_documents(
     return any(not entry.get("ticker") for entry in series_entries)
 
 
+def _merge_series_entries_with_pairs(
+    series_entries: list[dict[str, str]],
+    named_ticker_pairs: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    if not series_entries or not named_ticker_pairs:
+        return series_entries
+
+    merged_entries = [dict(entry) for entry in series_entries]
+    pair_lookup: dict[str, str] = {}
+    for pair in named_ticker_pairs:
+        normalized_name = normalize_etf_name(pair.get("etf_name", ""))
+        ticker = pair.get("ticker", "")
+        if normalized_name and ticker:
+            pair_lookup[normalized_name] = ticker
+
+    for entry in merged_entries:
+        if entry.get("ticker"):
+            continue
+        normalized_entry_name = normalize_etf_name(entry.get("etf_name", ""))
+        if normalized_entry_name in pair_lookup:
+            entry["ticker"] = pair_lookup[normalized_entry_name]
+            continue
+        for pair_name, pair_ticker in pair_lookup.items():
+            if normalized_entry_name and (
+                normalized_entry_name in pair_name or pair_name in normalized_entry_name
+            ):
+                entry["ticker"] = pair_ticker
+                break
+
+    return merged_entries
+
+
 def _fetch_filings_for_cik(
     cik: str,
     start_bound: datetime,
@@ -144,16 +178,19 @@ def _fetch_filings_for_cik(
         series_entries = extract_series_entries(index_text)
         primary_ticker = ""
         primary_etf_name = "N/A"
+        primary_named_pairs: list[dict[str, str]] = []
 
         if primary_document_url and _needs_primary_document(series_entries, filing_filer_name):
             primary_text = extract_text(primary_document_url, max_chars=300000)
             if primary_text:
                 primary_ticker = extract_ticker(primary_text)
                 primary_etf_name = extract_etf_name(primary_text)
+                primary_named_pairs = extract_named_ticker_pairs(primary_text)
                 parsed_filer_name = extract_filer_name(primary_text)
                 if parsed_filer_name:
                     filing_filer_name = parsed_filer_name
 
+        supporting_named_pairs: list[dict[str, str]] = []
         if index_text and _needs_supporting_documents(
             series_entries,
             primary_ticker,
@@ -165,10 +202,15 @@ def _fetch_filings_for_cik(
                     primary_ticker = extract_ticker(supporting_text)
                 if primary_etf_name == "N/A":
                     primary_etf_name = extract_etf_name(supporting_text)
+                supporting_named_pairs.extend(extract_named_ticker_pairs(supporting_text))
                 if not filing_filer_name:
                     filing_filer_name = extract_filer_name(supporting_text)
                 if primary_ticker and primary_etf_name != "N/A" and filing_filer_name:
                     break
+
+        all_named_pairs = primary_named_pairs + supporting_named_pairs
+        if series_entries:
+            series_entries = _merge_series_entries_with_pairs(series_entries, all_named_pairs)
 
         resolved_filer_name = filing_filer_name or filer_name
         rows_to_append: list[dict[str, str]] = []
@@ -190,18 +232,31 @@ def _fetch_filings_for_cik(
                     }
                 )
         else:
-            fallback_name = primary_etf_name if primary_etf_name != "N/A" else extract_etf_name(index_text)
-            fallback_ticker = primary_ticker or extract_ticker(index_text) or "Not Listed"
-            rows_to_append.append(
-                {
-                    "ticker": sanitize_ticker(fallback_ticker),
-                    "etf_name": fallback_name,
-                    "filer": resolved_filer_name,
-                    "form": form,
-                    "date": date_str,
-                    "link": filing_link,
-                }
-            )
+            if all_named_pairs:
+                for pair in all_named_pairs:
+                    rows_to_append.append(
+                        {
+                            "ticker": sanitize_ticker(pair.get("ticker", "")),
+                            "etf_name": pair.get("etf_name", "N/A"),
+                            "filer": resolved_filer_name,
+                            "form": form,
+                            "date": date_str,
+                            "link": filing_link,
+                        }
+                    )
+            else:
+                fallback_name = primary_etf_name if primary_etf_name != "N/A" else extract_etf_name(index_text)
+                fallback_ticker = primary_ticker or extract_ticker(index_text) or "Not Listed"
+                rows_to_append.append(
+                    {
+                        "ticker": sanitize_ticker(fallback_ticker),
+                        "etf_name": fallback_name,
+                        "filer": resolved_filer_name,
+                        "form": form,
+                        "date": date_str,
+                        "link": filing_link,
+                    }
+                )
 
         for row in rows_to_append:
             if "ETF" not in str(row["etf_name"]).upper():
