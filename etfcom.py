@@ -860,14 +860,12 @@ def fetch_live_etfcom_launches(limit=50):
     return aggregated_items[:limit]
 
 
-def fetch_etfcom_launches(limit=50):
-    live_items = fetch_live_etfcom_launches(limit=limit)
-    seed_items = _load_seed_launches(limit=limit)
+def _merge_launch_items(*launch_sets):
     merged_items = []
     seen_rows = set()
 
     for item in sorted(
-        live_items + seed_items,
+        [item for launch_set in launch_sets for item in launch_set],
         key=lambda current: current.get("published_at", datetime.min),
         reverse=True,
     ):
@@ -877,25 +875,20 @@ def fetch_etfcom_launches(limit=50):
         seen_rows.add(row_key)
         merged_items.append(item)
 
+    return merged_items
+
+
+def fetch_etfcom_launches(limit=50):
+    live_items = fetch_live_etfcom_launches(limit=limit)
+    seed_items = _load_seed_launches(limit=limit)
+    merged_items = _merge_launch_items(live_items, seed_items)
     return merged_items[:limit]
 
 
 def fetch_etfcom_launches_with_status(limit=50):
     items = fetch_live_etfcom_launches(limit=limit)
     seed_items = _load_seed_launches(limit=limit)
-    merged_items = []
-    seen_rows = set()
-
-    for item in sorted(
-        items + seed_items,
-        key=lambda current: current.get("published_at", datetime.min),
-        reverse=True,
-    ):
-        row_key = (item.get("date"), item.get("ticker"), item.get("fund_name"))
-        if row_key in seen_rows:
-            continue
-        seen_rows.add(row_key)
-        merged_items.append(item)
+    merged_items = _merge_launch_items(items, seed_items)
 
     if items and seed_items:
         live_latest = items[0].get("published_at", datetime.min)
@@ -907,3 +900,10 @@ def fetch_etfcom_launches_with_status(limit=50):
         return {"items": merged_items[:limit], "status": "Live ETF.com"}
 
     return {"items": merged_items[:limit], "status": "Fallback snapshot"}
+
+
+def fetch_scheduled_etfcom_launches_with_status(limit=50):
+    seed_items = _load_seed_launches(limit=limit)
+    if not seed_items:
+        return {"items": [], "status": "Snapshot unavailable"}
+    return {"items": seed_items[:limit], "status": "Scheduled snapshot"}
