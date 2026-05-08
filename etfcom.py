@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 from datetime import datetime, timedelta
 from html import unescape
@@ -7,8 +8,10 @@ from pathlib import Path
 import shutil
 import subprocess
 import re
+import threading
+import time
 from typing import Callable
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from zoneinfo import ZoneInfo
 
 import requests
@@ -33,7 +36,13 @@ BASE_DIR = Path(__file__).resolve().parent
 SEED_LAUNCHES_PATH = BASE_DIR / "etfcom_launches_seed.csv"
 SEED_LAUNCHES_STATUS_PATH = BASE_DIR / "etfcom_launches_status.json"
 SEED_NEWS_PATH = BASE_DIR / "etfcom_news_seed.csv"
-_SESSION = None
+ETFCOM_REQUEST_TIMEOUT = 15
+ETFCOM_CURL_TIMEOUT = 12
+SOURCE_DEAD_TTL_SECONDS = 900
+NEWS_SOURCE_MAX_WORKERS = 5
+_THREAD_LOCAL = threading.local()
+_DEAD_HOSTS: dict[str, float] = {}
+_DEAD_HOSTS_LOCK = threading.Lock()
 ETFCOM_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -68,26 +77,65 @@ def _load_seed_rows(path):
 
 
 def _get_session():
-    global _SESSION
-    if _SESSION is None:
-        _SESSION = requests.Session()
-        _SESSION.headers.update(ETFCOM_HEADERS)
-    return _SESSION
+    session = getattr(_THREAD_LOCAL, "session", None)
+    if session is None:
+        session = requests.Session()
+        session.headers.update(ETFCOM_HEADERS)
+        _THREAD_LOCAL.session = session
+    return session
+
+
+def _get_host(url):
+    try:
+        return urlparse(url).netloc.lower()
+    except ValueError:
+        return ""
+
+
+def _is_host_temporarily_dead(url):
+    host = _get_host(url)
+    if not host:
+        return False
+
+    with _DEAD_HOSTS_LOCK:
+        retry_after = _DEAD_HOSTS.get(host)
+        if not retry_after:
+            return False
+        if retry_after <= time.time():
+            _DEAD_HOSTS.pop(host, None)
+            return False
+        return True
+
+
+def _mark_host_temporarily_dead(url):
+    host = _get_host(url)
+    if not host:
+        return
+
+    with _DEAD_HOSTS_LOCK:
+        _DEAD_HOSTS[host] = time.time() + SOURCE_DEAD_TTL_SECONDS
 
 
 def _fetch_text(url):
+    if _is_host_temporarily_dead(url):
+        return ""
+
     session = _get_session()
+    blocking_issue = False
 
     try:
-        response = session.get(url, timeout=20)
+        response = session.get(url, timeout=ETFCOM_REQUEST_TIMEOUT)
         response.raise_for_status()
         if "Just a moment" not in response.text[:5000]:
             return response.text
+        blocking_issue = True
+    except requests.HTTPError:
+        return ""
     except requests.RequestException:
-        pass
+        blocking_issue = True
 
     curl_path = shutil.which("curl") or shutil.which("curl.exe")
-    if not curl_path:
+    if not curl_path or not blocking_issue:
         return ""
 
     try:
@@ -95,14 +143,16 @@ def _fetch_text(url):
             [curl_path, "-A", ETFCOM_HEADERS["User-Agent"], "-L", url],
             capture_output=True,
             text=True,
-            timeout=40,
+            timeout=ETFCOM_CURL_TIMEOUT,
             check=False,
         )
         if completed.returncode == 0 and "Just a moment" not in completed.stdout[:5000]:
             return completed.stdout
     except (OSError, subprocess.SubprocessError):
+        _mark_host_temporarily_dead(url)
         return ""
 
+    _mark_host_temporarily_dead(url)
     return ""
 
 
@@ -798,20 +848,28 @@ def fetch_trackinsight_news(limit=50):
 def fetch_etf_news(limit=50):
     items = []
     seen_links = set()
+    fetchers = (
+        fetch_etfcom_news,
+        fetch_etfdb_news,
+        fetch_etfstream_news,
+        fetch_etfexpress_news,
+        fetch_trackinsight_news,
+    )
 
-    for source_items in (
-        fetch_etfcom_news(limit=limit),
-        fetch_etfdb_news(limit=limit),
-        fetch_etfstream_news(limit=limit),
-        fetch_etfexpress_news(limit=limit),
-        fetch_trackinsight_news(limit=limit),
-    ):
-        for item in source_items:
-            link = item.get("link", "")
-            if not link or link in seen_links:
+    with ThreadPoolExecutor(max_workers=min(NEWS_SOURCE_MAX_WORKERS, len(fetchers))) as executor:
+        futures = [executor.submit(fetcher, limit) for fetcher in fetchers]
+        for future in as_completed(futures):
+            try:
+                source_items = future.result()
+            except Exception:
                 continue
-            seen_links.add(link)
-            items.append(item)
+
+            for item in source_items:
+                link = item.get("link", "")
+                if not link or link in seen_links:
+                    continue
+                seen_links.add(link)
+                items.append(item)
 
     items.sort(key=lambda item: item.get("published_at", datetime.min), reverse=True)
     return items[:limit]

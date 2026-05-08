@@ -327,6 +327,41 @@ def load_etfdb_fund_flows(_version):
     return fetch_etfdb_fund_flows(limit=250)
 
 
+def _render_launch_cards(items):
+    return "".join(
+        f"""
+        <div class="etf-news-item">
+            <div class="etf-news-source">{escape(item.get("date", ""))}</div>
+            <a class="etf-news-title" href="{escape(item.get("link", "#"))}" target="_blank">{escape(item.get("ticker", ""))}</a>
+            <div class="etf-news-kicker">{escape(item.get("fund_name", ""))}</div>
+        </div>
+        """
+        for item in items
+    )
+
+
+def _render_fund_flow_cards(items):
+    rendered_items = []
+    for item in items:
+        issuer_title = escape(item.get("issuer", "Issuer"))
+        issuer_link = escape(item.get("link", ""))
+        issuer_markup = (
+            f'<a class="etf-news-title" href="{issuer_link}" target="_blank">{issuer_title}</a>'
+            if issuer_link else f'<div class="etf-news-title">{issuer_title}</div>'
+        )
+        rendered_items.append(
+            f"""
+            <div class="etf-news-item">
+                <div class="etf-news-source">Rank {escape(str(item.get("rank", "")))}</div>
+                {issuer_markup}
+                <div class="etf-news-meta">3M Fund Flow: {escape(str(item.get("flow", "")))}</div>
+                <div class="etf-news-kicker">Listed ETFs: {escape(str(item.get("etf_count", "")))}</div>
+            </div>
+            """
+        )
+    return "".join(rendered_items)
+
+
 default_end = datetime.today().date()
 year_start = datetime(default_end.year, 1, 1).date()
 default_start = max(year_start, default_end - timedelta(days=14))
@@ -627,17 +662,10 @@ with st.container():
         if launches_items:
             launches_container = st.container(height=760)
             visible_launch_count = min(st.session_state.launches_visible_count, len(launches_items))
-            for item in launches_items[:visible_launch_count]:
-                launches_container.markdown(
-                    f"""
-                    <div class="etf-news-item">
-                        <div class="etf-news-source">{item.get("date", "")}</div>
-                        <a class="etf-news-title" href="{item.get("link", "#")}" target="_blank">{item.get("ticker", "")}</a>
-                        <div class="etf-news-kicker">{item.get("fund_name", "")}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+            launches_container.markdown(
+                _render_launch_cards(launches_items[:visible_launch_count]),
+                unsafe_allow_html=True,
+            )
             launch_controls = st.columns(2)
             if visible_launch_count < len(launches_items):
                 if launch_controls[0].button(
@@ -696,6 +724,7 @@ with st.container():
                     if cik not in seen_selected_ciks:
                         seen_selected_ciks.add(cik)
                         selected_ciks.append(cik)
+            selected_ciks = tuple(sorted(seen_selected_ciks))
 
             try:
                 with st.spinner("Searching SEC filings for the selected date range..."):
@@ -703,7 +732,7 @@ with st.container():
                         DATA_VERSION,
                         st.session_state.search_start_date,
                         st.session_state.search_end_date,
-                        tuple(selected_ciks),
+                        selected_ciks,
                     )
             except Exception as exc:
                 st.error(
@@ -794,24 +823,10 @@ with st.container():
         if fund_flow_items:
             flows_container = st.container(height=760)
             visible_flow_count = min(st.session_state.fund_flows_visible_count, len(fund_flow_items))
-            for item in fund_flow_items[:visible_flow_count]:
-                issuer_title = escape(item.get("issuer", "Issuer"))
-                issuer_link = escape(item.get("link", ""))
-                issuer_markup = (
-                    f'<a class="etf-news-title" href="{issuer_link}" target="_blank">{issuer_title}</a>'
-                    if issuer_link else f'<div class="etf-news-title">{issuer_title}</div>'
-                )
-                flows_container.markdown(
-                    f"""
-                    <div class="etf-news-item">
-                        <div class="etf-news-source">Rank {escape(str(item.get("rank", "")))}</div>
-                        {issuer_markup}
-                        <div class="etf-news-meta">3M Fund Flow: {escape(str(item.get("flow", "")))}</div>
-                        <div class="etf-news-kicker">Listed ETFs: {escape(str(item.get("etf_count", "")))}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+            flows_container.markdown(
+                _render_fund_flow_cards(fund_flow_items[:visible_flow_count]),
+                unsafe_allow_html=True,
+            )
             flow_controls = st.columns(2)
             if visible_flow_count < len(fund_flow_items):
                 if flow_controls[0].button(
