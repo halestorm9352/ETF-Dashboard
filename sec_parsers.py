@@ -47,13 +47,22 @@ def extract_etf_name(text: str) -> str:
     if pipe_match:
         return pipe_match.group(2).strip()
 
-    ticker_name_match = re.search(
-        r'\b[A-Z]{1,8}\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+(?:is\s+)?listed\s+on\b',
+    duplicated_header_match = re.search(
+        r'\b[A-Z]{2,8}\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,120}?(ETF|Fund))\s+'
+        r'([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+is\s+listed\s+on\b',
         cleaned_text,
         re.IGNORECASE,
     )
-    if ticker_name_match:
-        return ticker_name_match.group(1).strip()
+    if duplicated_header_match:
+        return duplicated_header_match.group(3).strip()
+
+    listed_name_match = re.search(
+        r'\b([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+is\s+listed\s+on\b',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if listed_name_match:
+        return listed_name_match.group(1).strip()
 
     series_text_match = re.search(
         r'Series\s+S\d+\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+Class/Contract',
@@ -132,16 +141,6 @@ def extract_ticker(text: str) -> str:
     )
     if name_ticker_pipe_match:
         ticker = name_ticker_pipe_match.group(2).upper()
-        if ticker not in INVALID_TICKERS:
-            return ticker
-
-    ticker_name_listed_match = re.search(
-        r'\b([A-Z]{1,8})\s+[A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund)\s+(?:is\s+)?listed\s+on\b',
-        cleaned_text,
-        re.IGNORECASE,
-    )
-    if ticker_name_listed_match:
-        ticker = ticker_name_listed_match.group(1).upper()
         if ticker not in INVALID_TICKERS:
             return ticker
 
@@ -336,18 +335,27 @@ def extract_named_ticker_pairs(text: str) -> list[dict[str, str]]:
         add_pair(match.group(2), match.group(1))
 
     for match in re.finditer(
+        r'\b([A-Z]{2,8})\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,120}?(ETF|Fund))\s+'
+        r'(ProShares\s+[A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,160}?(ETF|Fund))\s+is\s+listed\s+on\b',
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        add_pair(match.group(4), match.group(1))
+
+    for match in re.finditer(
+        r'\b([A-Z]{2,8})\s+(ProShares\s+[A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,160}?(ETF|Fund))'
+        r'(?=\s+[A-Z]{2,8}\s+ProShares|\s+Each Fund is listed on|\s+Each ETF is listed on|\s+is listed on\b)',
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        add_pair(match.group(2), match.group(1))
+
+    for match in re.finditer(
         r'([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s*\|\s*([A-Z]{1,8})\s*\|\s*(?:NYSE|NASDAQ|CBOE|BZX|ARCA|STOCK\s+EXCHANGE)',
         cleaned_text,
         re.IGNORECASE,
     ):
         add_pair(match.group(1), match.group(3))
-
-    for match in re.finditer(
-        r'\b([A-Z]{1,8})\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+(?:is\s+)?listed\s+on\b',
-        cleaned_text,
-        re.IGNORECASE,
-    ):
-        add_pair(match.group(2), match.group(1))
 
     for match in re.finditer(
         r'Series\s+S\d+\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))\s+'
