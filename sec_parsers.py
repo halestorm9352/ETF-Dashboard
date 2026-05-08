@@ -112,6 +112,12 @@ def extract_etf_name(text: str) -> str:
 def extract_ticker(text: str) -> str:
     cleaned_text = clean_html_text(text)
 
+    named_pairs = extract_named_ticker_pairs(text)
+    if len(named_pairs) == 1:
+        single_ticker = named_pairs[0].get("ticker", "")
+        if single_ticker and single_ticker != "Not Listed":
+            return single_ticker
+
     bracketed_pipe_match = re.search(
         r'\[\s*([A-Z]{3,4})\s*\]\s*\|\s*([A-Za-z0-9&\-\.\s]{3,120}?(ETF|Fund))',
         cleaned_text,
