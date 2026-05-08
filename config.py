@@ -33,7 +33,9 @@ CIK_ENTRIES = [
     ("0001500604", "Janus Detroit Street Trust"),
     ("0001485894", "J.P. Morgan Exchange-Traded Fund Trust"),
     ("0001881741", "NEOS ETF Trust"),
+    ("0001491978", "FlexShares Trust"),
     ("0001644419", "Northern Lights Fund Trust IV"),
+    ("0000916620", "Northern Funds"),
     ("0001635073", "NuShares ETF Trust"),
     ("0001450011", "PIMCO ETF Trust"),
     ("0001174610", "ProShares Trust"),
@@ -127,6 +129,8 @@ def infer_cik_group_name(name):
         return "Nuveen"
     if lower_name.startswith("ark "):
         return "ARK"
+    if "flexshares trust" in lower_name or "northern funds" in lower_name or "northern trust" in lower_name:
+        return "Northern Trust Asset Management"
     if "northern lights" in lower_name:
         return "Northern Lights"
     if "simplify" in lower_name:
