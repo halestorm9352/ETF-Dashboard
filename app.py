@@ -606,10 +606,6 @@ with st.container():
 
     with launches_col:
         st.markdown('<div class="etf-section-title">Launches</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="etf-section-copy">Recent launches from ETF.com, refreshed on a 24-hour schedule.</div>',
-            unsafe_allow_html=True,
-        )
         launches_payload = load_etfcom_launches(ETFCOM_DATA_VERSION)
         launches_items = launches_payload.get("items", []) if isinstance(launches_payload, dict) else launches_payload
         launches_status = launches_payload.get("status", "") if isinstance(launches_payload, dict) else ""
