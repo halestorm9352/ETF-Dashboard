@@ -609,12 +609,21 @@ with st.container():
         launches_payload = load_etfcom_launches(ETFCOM_DATA_VERSION)
         launches_items = launches_payload.get("items", []) if isinstance(launches_payload, dict) else launches_payload
         launches_status = launches_payload.get("status", "") if isinstance(launches_payload, dict) else ""
+        launches_metadata = launches_payload.get("metadata", {}) if isinstance(launches_payload, dict) else {}
         status_class = "etf-status-live" if launches_status == "Scheduled snapshot" else "etf-status-fallback"
         if launches_status:
             st.markdown(
                 f'<div class="etf-status-line {status_class}">Source: {escape(launches_status)}</div>',
                 unsafe_allow_html=True,
             )
+        refreshed_display = launches_metadata.get("refreshed_display", "")
+        newest_launch_date = launches_metadata.get("newest_launch_date", "")
+        if refreshed_display:
+            st.caption(f"Updated: {refreshed_display}")
+        if newest_launch_date:
+            st.caption(f"Newest launch date: {newest_launch_date}")
+        if launches_metadata.get("stale"):
+            st.warning("Launch snapshot may be stale right now. The latest scheduled refresh appears to be behind.")
         if launches_items:
             launches_container = st.container(height=760)
             visible_launch_count = min(st.session_state.launches_visible_count, len(launches_items))

@@ -2,12 +2,14 @@ import csv
 from datetime import datetime, timedelta
 from html import unescape
 from io import StringIO
+import json
 from pathlib import Path
 import shutil
 import subprocess
 import re
 from typing import Callable
 from urllib.parse import urljoin
+from zoneinfo import ZoneInfo
 
 import requests
 from bs4 import BeautifulSoup
@@ -29,6 +31,7 @@ TRACKINSIGHT_NEWS_DAYS_BACK = 90
 TRACKINSIGHT_NEWS_MAX_PAGES = 20
 BASE_DIR = Path(__file__).resolve().parent
 SEED_LAUNCHES_PATH = BASE_DIR / "etfcom_launches_seed.csv"
+SEED_LAUNCHES_STATUS_PATH = BASE_DIR / "etfcom_launches_status.json"
 SEED_NEWS_PATH = BASE_DIR / "etfcom_news_seed.csv"
 _SESSION = None
 ETFCOM_HEADERS = {
@@ -182,6 +185,55 @@ def _load_seed_launches(limit=50):
 
     items.sort(key=lambda item: item["published_at"], reverse=True)
     return items[:limit]
+
+
+def _load_seed_launches_status(seed_items=None):
+    if seed_items is None:
+        seed_items = _load_seed_launches(limit=1000)
+
+    metadata = {}
+    if SEED_LAUNCHES_STATUS_PATH.exists():
+        try:
+            metadata = json.loads(SEED_LAUNCHES_STATUS_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            metadata = {}
+
+    refreshed_at = metadata.get("refreshed_at_utc", "")
+    newest_launch_date = metadata.get("newest_launch_date", "")
+    item_count = metadata.get("item_count")
+    refresh_source = metadata.get("refresh_source", "Scheduled snapshot")
+    refresh_success = metadata.get("refresh_success", bool(seed_items))
+
+    if not newest_launch_date and seed_items:
+        newest_launch_date = seed_items[0].get("date", "")
+    if item_count is None:
+        item_count = len(seed_items)
+
+    refreshed_display = ""
+    if refreshed_at:
+        try:
+            refreshed_dt = datetime.fromisoformat(refreshed_at.replace("Z", "+00:00"))
+            refreshed_display = refreshed_dt.astimezone(ZoneInfo("America/New_York")).strftime("%-m/%-d/%y %-I:%M %p ET")
+        except ValueError:
+            refreshed_display = refreshed_at
+
+    stale = False
+    if refreshed_at:
+        try:
+            refreshed_dt = datetime.fromisoformat(refreshed_at.replace("Z", "+00:00"))
+            stale = (datetime.now(ZoneInfo("UTC")) - refreshed_dt.astimezone(ZoneInfo("UTC"))) > timedelta(hours=30)
+        except ValueError:
+            stale = False
+
+    return {
+        "refreshed_at_utc": refreshed_at,
+        "refreshed_display": refreshed_display,
+        "newest_launch_date": newest_launch_date,
+        "item_count": item_count,
+        "refresh_source": refresh_source,
+        "refresh_success": refresh_success,
+        "stale": stale,
+    }
 
 
 def _extract_launch_rows_from_text(html, limit=50):
@@ -905,5 +957,13 @@ def fetch_etfcom_launches_with_status(limit=50):
 def fetch_scheduled_etfcom_launches_with_status(limit=50):
     seed_items = _load_seed_launches(limit=limit)
     if not seed_items:
-        return {"items": [], "status": "Snapshot unavailable"}
-    return {"items": seed_items[:limit], "status": "Scheduled snapshot"}
+        return {
+            "items": [],
+            "status": "Snapshot unavailable",
+            "metadata": _load_seed_launches_status(seed_items=[]),
+        }
+    return {
+        "items": seed_items[:limit],
+        "status": "Scheduled snapshot",
+        "metadata": _load_seed_launches_status(seed_items=seed_items),
+    }
