@@ -27,9 +27,9 @@ except ImportError:
         LAUNCHES_PAGE_SIZE,
     )
 
-    FLOW_VIEW_OPTIONS = ("All", "Top 3", "Independent Brands", "Hot Sauce")
+    FLOW_VIEW_OPTIONS = ("All", "Top 3", "Series Trusts")
     _TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
-    _HOT_SAUCE_FLOW_GROUPS = {
+    _SERIES_TRUST_FLOW_GROUPS = {
         "EA Series Trust",
         "ETF Opportunities",
         "ETF Series Solutions",
@@ -48,8 +48,8 @@ except ImportError:
     def classify_flow_group(group_name):
         if group_name in _TOP_FLOW_GROUPS:
             return "Top 3"
-        if group_name in _HOT_SAUCE_FLOW_GROUPS:
-            return "Hot Sauce"
+        if group_name in _SERIES_TRUST_FLOW_GROUPS:
+            return "Series Trusts"
         return "Independent Brands"
 try:
     from etfcom import (
@@ -881,10 +881,9 @@ with st.container():
             label_visibility="collapsed",
         )
         flow_copy = {
-            "All": "ETFdb issuer flows across the big three, independent brands, and Hot Sauce wrappers.",
+            "All": "ETFdb issuer flows across the big three, independent brands, and series-trust wrappers.",
             "Top 3": "The biggest ETF complexes: Vanguard, BlackRock, and SPDR / State Street.",
-            "Independent Brands": "Branded ETF issuers outside the top three and outside the series-trust wrappers.",
-            "Hot Sauce": "Series-trust and platform issuers like ETF Opportunities Trust, EA Series Trust, and friends.",
+            "Series Trusts": "Series-trust and platform issuers like ETF Opportunities Trust, EA Series Trust, and friends.",
         }
         st.markdown(
             f'<div class="etf-section-copy">{flow_copy.get(flow_view, flow_copy["All"])}</div>',

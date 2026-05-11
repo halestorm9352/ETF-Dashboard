@@ -171,9 +171,9 @@ for cik, name in CIK_LOOKUP.items():
     CIK_GROUP_LOOKUP[group_name].append(cik)
 
 CIK_GROUP_OPTIONS = sorted(CIK_GROUP_LOOKUP.keys(), key=str.lower)
-FLOW_VIEW_OPTIONS = ("All", "Top 3", "Independent Brands", "Hot Sauce")
+FLOW_VIEW_OPTIONS = ("All", "Top 3", "Series Trusts")
 TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
-HOT_SAUCE_FLOW_GROUPS = {
+SERIES_TRUST_FLOW_GROUPS = {
     "EA Series Trust",
     "ETF Opportunities",
     "ETF Series Solutions",
@@ -192,8 +192,8 @@ def normalize_flow_issuer_group(name):
 def classify_flow_group(group_name):
     if group_name in TOP_FLOW_GROUPS:
         return "Top 3"
-    if group_name in HOT_SAUCE_FLOW_GROUPS:
-        return "Hot Sauce"
+    if group_name in SERIES_TRUST_FLOW_GROUPS:
+        return "Series Trusts"
     return "Independent Brands"
 
 
