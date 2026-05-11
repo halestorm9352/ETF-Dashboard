@@ -4,17 +4,53 @@ import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 from html import escape
 
-from config import (
-    classify_flow_group,
-    CIK_GROUP_LOOKUP,
-    CIK_GROUP_OPTIONS,
-    DATA_VERSION,
-    ETFCOM_DATA_VERSION,
-    FLOW_VIEW_OPTIONS,
-    FUND_FLOWS_PAGE_SIZE,
-    LAUNCHES_PAGE_SIZE,
-    normalize_flow_issuer_group,
-)
+try:
+    from config import (
+        classify_flow_group,
+        CIK_GROUP_LOOKUP,
+        CIK_GROUP_OPTIONS,
+        DATA_VERSION,
+        ETFCOM_DATA_VERSION,
+        FLOW_VIEW_OPTIONS,
+        FUND_FLOWS_PAGE_SIZE,
+        LAUNCHES_PAGE_SIZE,
+        normalize_flow_issuer_group,
+    )
+except ImportError:
+    from config import (
+        CIK_GROUP_LOOKUP,
+        CIK_GROUP_OPTIONS,
+        DATA_VERSION,
+        ETFCOM_DATA_VERSION,
+        FUND_FLOWS_PAGE_SIZE,
+        infer_cik_group_name,
+        LAUNCHES_PAGE_SIZE,
+    )
+
+    FLOW_VIEW_OPTIONS = ("All", "Top 3", "Independent Brands", "Hot Sauce")
+    _TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
+    _HOT_SAUCE_FLOW_GROUPS = {
+        "EA Series Trust",
+        "ETF Opportunities",
+        "ETF Series Solutions",
+        "Exchange Traded Concepts",
+        "Financial Investors Trust",
+        "Investment Managers Series",
+        "Northern Lights",
+        "Tidal",
+    }
+
+    def normalize_flow_issuer_group(name):
+        if not name:
+            return "Issuer"
+        return infer_cik_group_name(name)
+
+    def classify_flow_group(group_name):
+        if group_name in _TOP_FLOW_GROUPS:
+            return "Top 3"
+        if group_name in _HOT_SAUCE_FLOW_GROUPS:
+            return "Hot Sauce"
+        return "Independent Brands"
 try:
     from etfcom import (
         fetch_etf_news,
