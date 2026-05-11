@@ -366,6 +366,9 @@ def load_etfdb_fund_flows(_version):
     return fetch_etfdb_fund_flows(limit=250)
 
 
+FLOW_FACTOR_OPTIONS = ("Flows", "AUM")
+
+
 def _render_launch_cards(items):
     return "".join(
         f"""
@@ -379,28 +382,46 @@ def _render_launch_cards(items):
     )
 
 
-def _render_fund_flow_cards(items):
+def _render_fund_flow_cards(items, factor="Flows"):
     rendered_items = []
     for item in items:
         issuer_title = escape(item.get("issuer", "Issuer"))
         issuer_link = escape(item.get("link", ""))
         flow_category = escape(item.get("flow_category", "All"))
-        rank = escape(str(item.get("rank", "")))
+        rank_value = item.get("aum_rank") if factor == "AUM" else item.get("rank", "")
+        rank = escape(str(rank_value))
         issuer_markup = (
             f'<a class="etf-news-title" href="{issuer_link}" target="_blank">{issuer_title}</a>'
             if issuer_link else f'<div class="etf-news-title">{issuer_title}</div>'
         )
+        meta_label = "AUM" if factor == "AUM" else "3M Fund Flow"
+        meta_value = escape(str(item.get("aum", "N/A"))) if factor == "AUM" else escape(str(item.get("flow", "")))
         rendered_items.append(
             f"""
             <div class="etf-news-item">
                 <div class="etf-news-source">{flow_category} | Rank {rank}</div>
                 {issuer_markup}
-                <div class="etf-news-meta">3M Fund Flow: {escape(str(item.get("flow", "")))}</div>
+                <div class="etf-news-meta">{meta_label}: {meta_value}</div>
                 <div class="etf-news-kicker">Listed ETFs: {escape(str(item.get("etf_count", "")))}</div>
             </div>
             """
         )
     return "".join(rendered_items)
+
+
+def _sort_fund_flow_items(items, factor):
+    ranked_items = list(items)
+    if factor == "AUM":
+        ranked_items.sort(
+            key=lambda item: (
+                item.get("aum_rank") is None,
+                item.get("aum_rank", 10**9),
+                item.get("issuer", ""),
+            )
+        )
+    else:
+        ranked_items.sort(key=lambda item: (item.get("rank", 10**9), item.get("issuer", "")))
+    return ranked_items
 
 
 def _prepare_fund_flow_items(items):
@@ -434,6 +455,8 @@ if "fund_flows_visible_count" not in st.session_state:
     st.session_state.fund_flows_visible_count = FUND_FLOWS_PAGE_SIZE
 if "fund_flow_view" not in st.session_state:
     st.session_state.fund_flow_view = "All"
+if "fund_flow_factor" not in st.session_state:
+    st.session_state.fund_flow_factor = "Flows"
 
 st.markdown(
     """
@@ -868,29 +891,26 @@ with st.container():
             key="fund_flow_view",
             label_visibility="collapsed",
         )
-        flow_copy = {
-            "All": "ETFdb issuer flows across the big three, independent brands, and series-trust wrappers.",
-            "Top 3": "The biggest ETF complexes: Vanguard, BlackRock, and SPDR / State Street.",
-            "The Field": "ETF issuers outside the top three and outside the series-trust wrappers.",
-            "Series Trusts": "Series-trust and platform issuers like ETF Opportunities Trust, EA Series Trust, and friends.",
-        }
-        st.markdown(
-            f'<div class="etf-section-copy">{flow_copy.get(flow_view, flow_copy["All"])}</div>',
-            unsafe_allow_html=True,
+        flow_factor = st.radio(
+            "Fund flow factor",
+            FLOW_FACTOR_OPTIONS,
+            horizontal=True,
+            key="fund_flow_factor",
+            label_visibility="collapsed",
         )
-        st.caption("Cached for up to 12 hours from ETFdb issuer rankings.")
 
         filtered_fund_flow_items = (
             fund_flow_items
             if flow_view == "All"
             else [item for item in fund_flow_items if item.get("flow_category") == flow_view]
         )
+        filtered_fund_flow_items = _sort_fund_flow_items(filtered_fund_flow_items, flow_factor)
 
         if filtered_fund_flow_items:
             flows_container = st.container(height=760)
             visible_flow_count = min(st.session_state.fund_flows_visible_count, len(filtered_fund_flow_items))
             flows_container.markdown(
-                _render_fund_flow_cards(filtered_fund_flow_items[:visible_flow_count]),
+                _render_fund_flow_cards(filtered_fund_flow_items[:visible_flow_count], factor=flow_factor),
                 unsafe_allow_html=True,
             )
             flow_controls = st.columns(2)
