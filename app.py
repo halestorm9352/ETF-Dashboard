@@ -5,12 +5,15 @@ from datetime import datetime, timedelta
 from html import escape
 
 from config import (
+    classify_flow_group,
     CIK_GROUP_LOOKUP,
     CIK_GROUP_OPTIONS,
     DATA_VERSION,
     ETFCOM_DATA_VERSION,
+    FLOW_VIEW_OPTIONS,
     FUND_FLOWS_PAGE_SIZE,
     LAUNCHES_PAGE_SIZE,
+    normalize_flow_issuer_group,
 )
 try:
     from etfcom import (
@@ -345,6 +348,8 @@ def _render_fund_flow_cards(items):
     for item in items:
         issuer_title = escape(item.get("issuer", "Issuer"))
         issuer_link = escape(item.get("link", ""))
+        flow_category = escape(item.get("flow_category", "All"))
+        rank = escape(str(item.get("rank", "")))
         issuer_markup = (
             f'<a class="etf-news-title" href="{issuer_link}" target="_blank">{issuer_title}</a>'
             if issuer_link else f'<div class="etf-news-title">{issuer_title}</div>'
@@ -352,7 +357,7 @@ def _render_fund_flow_cards(items):
         rendered_items.append(
             f"""
             <div class="etf-news-item">
-                <div class="etf-news-source">Rank {escape(str(item.get("rank", "")))}</div>
+                <div class="etf-news-source">{flow_category} | Rank {rank}</div>
                 {issuer_markup}
                 <div class="etf-news-meta">3M Fund Flow: {escape(str(item.get("flow", "")))}</div>
                 <div class="etf-news-kicker">Listed ETFs: {escape(str(item.get("etf_count", "")))}</div>
@@ -360,6 +365,20 @@ def _render_fund_flow_cards(items):
             """
         )
     return "".join(rendered_items)
+
+
+def _prepare_fund_flow_items(items):
+    prepared_items = []
+    for item in items:
+        issuer_group = normalize_flow_issuer_group(item.get("issuer", ""))
+        prepared_items.append(
+            {
+                **item,
+                "issuer_group": issuer_group,
+                "flow_category": classify_flow_group(issuer_group),
+            }
+        )
+    return prepared_items
 
 
 default_end = datetime.today().date()
@@ -377,6 +396,8 @@ if "launches_visible_count" not in st.session_state:
     st.session_state.launches_visible_count = LAUNCHES_PAGE_SIZE
 if "fund_flows_visible_count" not in st.session_state:
     st.session_state.fund_flows_visible_count = FUND_FLOWS_PAGE_SIZE
+if "fund_flow_view" not in st.session_state:
+    st.session_state.fund_flow_view = "All"
 
 st.markdown(
     """
@@ -387,7 +408,7 @@ st.markdown(
 )
 
 news_items = load_etfcom_news(ETFCOM_DATA_VERSION)
-fund_flow_items = load_etfdb_fund_flows(ETFCOM_DATA_VERSION)
+fund_flow_items = _prepare_fund_flow_items(load_etfdb_fund_flows(ETFCOM_DATA_VERSION))
 
 if news_items:
     ticker_items_html = "".join(
@@ -816,19 +837,40 @@ with st.container():
 
     with flows_col:
         st.markdown('<div class="etf-section-title">Fund Flows</div>', unsafe_allow_html=True)
+        flow_view = st.radio(
+            "Fund flow view",
+            FLOW_VIEW_OPTIONS,
+            horizontal=True,
+            key="fund_flow_view",
+            label_visibility="collapsed",
+        )
+        flow_copy = {
+            "All": "ETFdb issuer flows across the big three, independent brands, and Hot Sauce wrappers.",
+            "Top 3": "The biggest ETF complexes: Vanguard, BlackRock, and SPDR / State Street.",
+            "Independent Brands": "Branded ETF issuers outside the top three and outside the series-trust wrappers.",
+            "Hot Sauce": "Series-trust and platform issuers like ETF Opportunities Trust, EA Series Trust, and friends.",
+        }
         st.markdown(
-            '<div class="etf-section-copy">ETFdb issuer power rankings sorted by fund flows.</div>',
+            f'<div class="etf-section-copy">{flow_copy.get(flow_view, flow_copy["All"])}</div>',
             unsafe_allow_html=True,
         )
-        if fund_flow_items:
+        st.caption("Cached for up to 12 hours from ETFdb issuer rankings.")
+
+        filtered_fund_flow_items = (
+            fund_flow_items
+            if flow_view == "All"
+            else [item for item in fund_flow_items if item.get("flow_category") == flow_view]
+        )
+
+        if filtered_fund_flow_items:
             flows_container = st.container(height=760)
-            visible_flow_count = min(st.session_state.fund_flows_visible_count, len(fund_flow_items))
+            visible_flow_count = min(st.session_state.fund_flows_visible_count, len(filtered_fund_flow_items))
             flows_container.markdown(
-                _render_fund_flow_cards(fund_flow_items[:visible_flow_count]),
+                _render_fund_flow_cards(filtered_fund_flow_items[:visible_flow_count]),
                 unsafe_allow_html=True,
             )
             flow_controls = st.columns(2)
-            if visible_flow_count < len(fund_flow_items):
+            if visible_flow_count < len(filtered_fund_flow_items):
                 if flow_controls[0].button(
                     f"Load {FUND_FLOWS_PAGE_SIZE} more",
                     key="fund_flows_load_more",
@@ -843,4 +885,4 @@ with st.container():
                 ):
                     st.session_state.fund_flows_visible_count = FUND_FLOWS_PAGE_SIZE
         else:
-            st.caption("ETFdb fund flow rankings were not available right now.")
+            st.caption("No issuer rows matched that flow view right now.")

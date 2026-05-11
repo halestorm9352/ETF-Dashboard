@@ -67,7 +67,7 @@ def infer_cik_group_name(name):
         return "BlackRock"
     if "vanguard" in lower_name:
         return "Vanguard"
-    if "spdr" in lower_name:
+    if "spdr" in lower_name or "state street" in lower_name or "ssga" in lower_name:
         return "SPDR"
     if "wisdomtree" in lower_name:
         return "WisdomTree"
@@ -171,6 +171,32 @@ for cik, name in CIK_LOOKUP.items():
     CIK_GROUP_LOOKUP[group_name].append(cik)
 
 CIK_GROUP_OPTIONS = sorted(CIK_GROUP_LOOKUP.keys(), key=str.lower)
+FLOW_VIEW_OPTIONS = ("All", "Top 3", "Independent Brands", "Hot Sauce")
+TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
+HOT_SAUCE_FLOW_GROUPS = {
+    "EA Series Trust",
+    "ETF Opportunities",
+    "ETF Series Solutions",
+    "Exchange Traded Concepts",
+    "Financial Investors Trust",
+    "Investment Managers Series",
+    "Northern Lights",
+    "Tidal",
+}
+
+
+def normalize_flow_issuer_group(name):
+    return infer_cik_group_name(name)
+
+
+def classify_flow_group(group_name):
+    if group_name in TOP_FLOW_GROUPS:
+        return "Top 3"
+    if group_name in HOT_SAUCE_FLOW_GROUPS:
+        return "Hot Sauce"
+    return "Independent Brands"
+
+
 FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 INDEX_PAGE_MAX_CHARS = 60000
