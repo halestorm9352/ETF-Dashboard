@@ -172,6 +172,7 @@ for cik, name in CIK_LOOKUP.items():
 
 CIK_GROUP_OPTIONS = sorted(CIK_GROUP_LOOKUP.keys(), key=str.lower)
 FLOW_VIEW_OPTIONS = ("All", "Top 3", "The Field", "Series Trusts")
+PULSE_FACTOR_OPTIONS = ("Flows", "AUM", "Filings")
 TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
 SERIES_TRUST_FLOW_GROUPS = {
     "EA Series Trust",
