@@ -14,7 +14,6 @@ try:
         FLOW_VIEW_OPTIONS,
         FUND_FLOWS_PAGE_SIZE,
         LAUNCHES_PAGE_SIZE,
-        PULSE_FACTOR_OPTIONS,
         normalize_flow_issuer_group,
     )
 except ImportError:
@@ -29,7 +28,6 @@ except ImportError:
     )
 
     FLOW_VIEW_OPTIONS = ("All", "Top 3", "The Field", "Series Trusts")
-    PULSE_FACTOR_OPTIONS = ("Flows", "AUM", "Filings")
     _TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
     _SERIES_TRUST_FLOW_GROUPS = {
         "EA Series Trust",
@@ -368,12 +366,6 @@ def load_etfdb_fund_flows(_version):
     return fetch_etfdb_fund_flows(limit=250)
 
 
-@st.cache_data(ttl=43200)
-def load_pulse_filings(_data_version, end_date):
-    start_date = end_date - timedelta(days=89)
-    return fetch_filings(start_date=start_date, end_date=end_date)
-
-
 def _render_launch_cards(items):
     return "".join(
         f"""
@@ -387,36 +379,24 @@ def _render_launch_cards(items):
     )
 
 
-def _render_pulse_cards(items, factor):
+def _render_fund_flow_cards(items):
     rendered_items = []
     for item in items:
         issuer_title = escape(item.get("issuer", "Issuer"))
         issuer_link = escape(item.get("link", ""))
         flow_category = escape(item.get("flow_category", "All"))
-        rank = escape(str(item.get("display_rank", item.get("rank", ""))))
+        rank = escape(str(item.get("rank", "")))
         issuer_markup = (
             f'<a class="etf-news-title" href="{issuer_link}" target="_blank">{issuer_title}</a>'
             if issuer_link else f'<div class="etf-news-title">{issuer_title}</div>'
         )
-        if factor == "AUM":
-            meta_label = "AUM"
-            meta_value = escape(str(item.get("aum", "N/A")))
-            kicker_text = f"Listed ETFs: {escape(str(item.get('etf_count', '')))}"
-        elif factor == "Filings":
-            meta_label = "3M Filings"
-            meta_value = escape(str(item.get("filings_count", 0)))
-            kicker_text = f"Latest filing: {escape(str(item.get('latest_filing', 'N/A')))}"
-        else:
-            meta_label = "3M Fund Flow"
-            meta_value = escape(str(item.get("flow", "N/A")))
-            kicker_text = f"Listed ETFs: {escape(str(item.get('etf_count', '')))}"
         rendered_items.append(
             f"""
             <div class="etf-news-item">
                 <div class="etf-news-source">{flow_category} | Rank {rank}</div>
                 {issuer_markup}
-                <div class="etf-news-meta">{meta_label}: {meta_value}</div>
-                <div class="etf-news-kicker">{kicker_text}</div>
+                <div class="etf-news-meta">3M Fund Flow: {escape(str(item.get("flow", "")))}</div>
+                <div class="etf-news-kicker">Listed ETFs: {escape(str(item.get("etf_count", "")))}</div>
             </div>
             """
         )
@@ -437,85 +417,6 @@ def _prepare_fund_flow_items(items):
     return prepared_items
 
 
-def _prepare_pulse_filings_items(items):
-    grouped = {}
-    for item in items:
-        issuer_group = normalize_flow_issuer_group(item.get("filer", ""))
-        bucket = grouped.setdefault(
-            issuer_group,
-            {
-                "issuer": issuer_group,
-                "link": "",
-                "flow_category": classify_flow_group(issuer_group),
-                "filings_count": 0,
-                "latest_filing": "N/A",
-                "_latest_dt": None,
-            },
-        )
-        bucket["filings_count"] += 1
-        date_text = item.get("date", "")
-        try:
-            filing_dt = datetime.strptime(date_text, "%Y-%m-%d")
-        except (TypeError, ValueError):
-            filing_dt = None
-        if filing_dt and (bucket["_latest_dt"] is None or filing_dt > bucket["_latest_dt"]):
-            bucket["_latest_dt"] = filing_dt
-            bucket["latest_filing"] = filing_dt.strftime("%Y-%m-%d")
-
-    prepared = []
-    for issuer_group, bucket in grouped.items():
-        prepared.append(
-            {
-                "issuer": bucket["issuer"],
-                "link": "",
-                "flow_category": bucket["flow_category"],
-                "filings_count": bucket["filings_count"],
-                "latest_filing": bucket["latest_filing"],
-            }
-        )
-    return prepared
-
-
-def _filter_pulse_items(items, flow_view):
-    if flow_view == "All":
-        return items
-    return [item for item in items if item.get("flow_category") == flow_view]
-
-
-def _rank_pulse_items(items, factor):
-    ranked_items = list(items)
-    if factor == "AUM":
-        ranked_items.sort(
-            key=lambda item: (
-                item.get("aum_rank") is None,
-                item.get("aum_rank", 10**9),
-                item.get("issuer", ""),
-            )
-        )
-    elif factor == "Filings":
-        def _filing_sort_key(item):
-            latest_text = str(item.get("latest_filing", ""))
-            try:
-                latest_dt = datetime.strptime(latest_text, "%Y-%m-%d")
-            except ValueError:
-                latest_dt = datetime.min
-            return (
-                -int(item.get("filings_count", 0)),
-                -latest_dt.toordinal() if latest_dt != datetime.min else float("inf"),
-                str(item.get("issuer", "")),
-            )
-
-        ranked_items.sort(
-            key=_filing_sort_key
-        )
-    else:
-        ranked_items.sort(key=lambda item: (item.get("rank", 10**9), item.get("issuer", "")))
-
-    for index, item in enumerate(ranked_items, start=1):
-        item["display_rank"] = index
-    return ranked_items
-
-
 default_end = datetime.today().date()
 year_start = datetime(default_end.year, 1, 1).date()
 default_start = max(year_start, default_end - timedelta(days=14))
@@ -533,8 +434,6 @@ if "fund_flows_visible_count" not in st.session_state:
     st.session_state.fund_flows_visible_count = FUND_FLOWS_PAGE_SIZE
 if "fund_flow_view" not in st.session_state:
     st.session_state.fund_flow_view = "All"
-if "pulse_factor_view" not in st.session_state:
-    st.session_state.pulse_factor_view = "Flows"
 
 st.markdown(
     """
@@ -961,37 +860,41 @@ with st.container():
                     st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
 
     with flows_col:
-        st.markdown('<div class="etf-section-title">Issuer Pulse</div>', unsafe_allow_html=True)
+        st.markdown('<div class="etf-section-title">Fund Flows</div>', unsafe_allow_html=True)
         flow_view = st.radio(
-            "Issuer group view",
+            "Fund flow view",
             FLOW_VIEW_OPTIONS,
             horizontal=True,
             key="fund_flow_view",
             label_visibility="collapsed",
         )
-        pulse_factor = st.radio(
-            "Pulse factor view",
-            PULSE_FACTOR_OPTIONS,
-            horizontal=True,
-            key="pulse_factor_view",
-            label_visibility="collapsed",
+        flow_copy = {
+            "All": "ETFdb issuer flows across the big three, independent brands, and series-trust wrappers.",
+            "Top 3": "The biggest ETF complexes: Vanguard, BlackRock, and SPDR / State Street.",
+            "The Field": "ETF issuers outside the top three and outside the series-trust wrappers.",
+            "Series Trusts": "Series-trust and platform issuers like ETF Opportunities Trust, EA Series Trust, and friends.",
+        }
+        st.markdown(
+            f'<div class="etf-section-copy">{flow_copy.get(flow_view, flow_copy["All"])}</div>',
+            unsafe_allow_html=True,
+        )
+        st.caption("Cached for up to 12 hours from ETFdb issuer rankings.")
+
+        filtered_fund_flow_items = (
+            fund_flow_items
+            if flow_view == "All"
+            else [item for item in fund_flow_items if item.get("flow_category") == flow_view]
         )
 
-        if pulse_factor == "Filings":
-            pulse_filings_items = _prepare_pulse_filings_items(load_pulse_filings(DATA_VERSION, default_end))
-            pulse_items = _rank_pulse_items(_filter_pulse_items(pulse_filings_items, flow_view), "Filings")
-        else:
-            pulse_items = _rank_pulse_items(_filter_pulse_items(fund_flow_items, flow_view), pulse_factor)
-
-        if pulse_items:
+        if filtered_fund_flow_items:
             flows_container = st.container(height=760)
-            visible_flow_count = min(st.session_state.fund_flows_visible_count, len(pulse_items))
+            visible_flow_count = min(st.session_state.fund_flows_visible_count, len(filtered_fund_flow_items))
             flows_container.markdown(
-                _render_pulse_cards(pulse_items[:visible_flow_count], pulse_factor),
+                _render_fund_flow_cards(filtered_fund_flow_items[:visible_flow_count]),
                 unsafe_allow_html=True,
             )
             flow_controls = st.columns(2)
-            if visible_flow_count < len(pulse_items):
+            if visible_flow_count < len(filtered_fund_flow_items):
                 if flow_controls[0].button(
                     f"Load {FUND_FLOWS_PAGE_SIZE} more",
                     key="fund_flows_load_more",
@@ -1006,4 +909,4 @@ with st.container():
                 ):
                     st.session_state.fund_flows_visible_count = FUND_FLOWS_PAGE_SIZE
         else:
-            st.caption("No issuer rows matched that view right now.")
+            st.caption("No issuer rows matched that flow view right now.")

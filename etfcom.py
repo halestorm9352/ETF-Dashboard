@@ -655,22 +655,17 @@ def _extract_etfdb_fund_flow_rows(soup):
         if not issuer or issuer.lower().startswith("issuers"):
             continue
 
-        dollar_values = [value for value in cells if re.fullmatch(r"\$[\d,]+\.\d{2}|N/A", value)]
-        digit_values = [value for value in cells if re.fullmatch(r"\d+", value)]
+        rank = ""
+        for value in cells[1:4]:
+            if re.fullmatch(r"\d+", value):
+                rank = value
+                break
 
-        rank = cells[1] if len(cells) > 1 and re.fullmatch(r"\d+", cells[1]) else ""
-        flow = cells[3] if len(cells) > 3 and re.fullmatch(r"\$[\d,]+\.\d{2}|N/A", cells[3]) else ""
-        aum_rank = cells[7] if len(cells) > 7 and re.fullmatch(r"\d+", cells[7]) else ""
-        aum = cells[9] if len(cells) > 9 and re.fullmatch(r"\$[\d,]+\.\d{2}|N/A", cells[9]) else ""
-
-        if not rank and digit_values:
-            rank = digit_values[0]
-        if not flow and dollar_values:
-            flow = dollar_values[0]
-        if not aum_rank and len(digit_values) > 2:
-            aum_rank = digit_values[2]
-        if not aum and len(dollar_values) > 1:
-            aum = dollar_values[1]
+        flow = ""
+        for value in cells[1:8]:
+            if re.fullmatch(r"\$[\d,]+\.\d{2}|N/A", value):
+                flow = value
+                break
 
         etf_count = ""
         for value in reversed(cells):
@@ -689,8 +684,6 @@ def _extract_etfdb_fund_flow_rows(soup):
                 "issuer": issuer,
                 "rank": int(rank),
                 "flow": flow,
-                "aum_rank": int(aum_rank) if aum_rank else None,
-                "aum": aum,
                 "etf_count": etf_count,
                 "link": link,
             }
