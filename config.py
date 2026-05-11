@@ -171,7 +171,7 @@ for cik, name in CIK_LOOKUP.items():
     CIK_GROUP_LOOKUP[group_name].append(cik)
 
 CIK_GROUP_OPTIONS = sorted(CIK_GROUP_LOOKUP.keys(), key=str.lower)
-FLOW_VIEW_OPTIONS = ("All", "Top 3", "Series Trusts")
+FLOW_VIEW_OPTIONS = ("All", "Top 3", "The Field", "Series Trusts")
 TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
 SERIES_TRUST_FLOW_GROUPS = {
     "EA Series Trust",
@@ -194,7 +194,7 @@ def classify_flow_group(group_name):
         return "Top 3"
     if group_name in SERIES_TRUST_FLOW_GROUPS:
         return "Series Trusts"
-    return "Independent Brands"
+    return "The Field"
 
 
 FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]

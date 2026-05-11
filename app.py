@@ -27,7 +27,7 @@ except ImportError:
         LAUNCHES_PAGE_SIZE,
     )
 
-    FLOW_VIEW_OPTIONS = ("All", "Top 3", "Series Trusts")
+    FLOW_VIEW_OPTIONS = ("All", "Top 3", "The Field", "Series Trusts")
     _TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
     _SERIES_TRUST_FLOW_GROUPS = {
         "EA Series Trust",
@@ -50,7 +50,7 @@ except ImportError:
             return "Top 3"
         if group_name in _SERIES_TRUST_FLOW_GROUPS:
             return "Series Trusts"
-        return "Independent Brands"
+        return "The Field"
 try:
     from etfcom import (
         fetch_etf_news,
@@ -871,6 +871,7 @@ with st.container():
         flow_copy = {
             "All": "ETFdb issuer flows across the big three, independent brands, and series-trust wrappers.",
             "Top 3": "The biggest ETF complexes: Vanguard, BlackRock, and SPDR / State Street.",
+            "The Field": "ETF issuers outside the top three and outside the series-trust wrappers.",
             "Series Trusts": "Series-trust and platform issuers like ETF Opportunities Trust, EA Series Trust, and friends.",
         }
         st.markdown(
