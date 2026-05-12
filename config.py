@@ -205,7 +205,7 @@ MAX_SUPPORTING_DOCUMENTS = 2
 LAUNCHES_PAGE_SIZE = 120
 FUND_FLOWS_PAGE_SIZE = 50
 DATA_VERSION = "2026-05-08-proshares-parser-fixes-v3"
-ETFCOM_DATA_VERSION = "2026-04-22-etf-sources-and-rail-optimization"
+ETFCOM_DATA_VERSION = "2026-05-12-etfdb-aum-source-v1"
 INVALID_TICKERS = {"CIK", "ETF", "FUND", "THIS", "NAME", "DATE", "EACH", "FREE", "NONE"}
 NEWS_QUERIES = (
     "ETF launches Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",

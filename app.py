@@ -883,7 +883,7 @@ with st.container():
                     st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
 
     with flows_col:
-        st.markdown('<div class="etf-section-title">Fund Flows</div>', unsafe_allow_html=True)
+        st.markdown('<div class="etf-section-title">Issuer Pulse</div>', unsafe_allow_html=True)
         flow_view = st.radio(
             "Fund flow view",
             FLOW_VIEW_OPTIONS,

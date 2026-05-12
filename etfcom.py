@@ -691,6 +691,8 @@ def _extract_etfdb_fund_flow_rows(soup):
                 "flow": flow,
                 "aum_rank": int(aum_rank) if aum_rank else None,
                 "aum": aum,
+                "aum_source": "ETFdb issuer power rankings",
+                "flow_source": "ETFdb issuer power rankings",
                 "etf_count": etf_count,
                 "link": link,
             }
