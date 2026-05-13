@@ -43,6 +43,7 @@ CIK_ENTRIES = [
     ("0001064641", "Select Sector SPDR Trust"),
     ("0001400683", "SPDR ICE Preferred Securities ETF Trust"),
     ("0001064642", "SPDR Series Trust"),
+    ("0001742912", "Tidal ETF Trust"),
     ("0001924868", "Tidal Trust II"),
     ("0001137360", "VanEck ETF Trust"),
     ("0001015965", "VanEck VIP Trust"),
@@ -113,6 +114,8 @@ def infer_cik_group_name(name):
         return "PGIM"
     if "financial investors trust" in lower_name:
         return "Financial Investors Trust"
+    if "ea series trust" in lower_name or "alpha architect" in lower_name or "etf architect" in lower_name or "empowered funds" in lower_name:
+        return "ETF Architect"
     if "neos" in lower_name:
         return "NEOS"
     if "victoryshares" in lower_name:
@@ -148,11 +151,11 @@ def infer_cik_group_name(name):
     if "principal" in lower_name:
         return "Principal"
     if "tidal" in lower_name:
-        return "Tidal"
+        return "TIDAL"
     if lower_name.startswith("f/m"):
         return "F/m"
     if "etf opportunities" in lower_name:
-        return "ETF Opportunities"
+        return "ETF Opportunities Trust"
     if "defiance" in lower_name:
         return "Defiance"
     if "bondbloxx" in lower_name:
@@ -175,13 +178,14 @@ FLOW_VIEW_OPTIONS = ("All", "Top 3", "The Field", "Series Trusts")
 TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
 SERIES_TRUST_FLOW_GROUPS = {
     "EA Series Trust",
-    "ETF Opportunities",
+    "ETF Architect",
+    "ETF Opportunities Trust",
     "ETF Series Solutions",
     "Exchange Traded Concepts",
     "Financial Investors Trust",
     "Investment Managers Series",
     "Northern Lights",
-    "Tidal",
+    "TIDAL",
 }
 
 

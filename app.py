@@ -31,13 +31,14 @@ except ImportError:
     _TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
     _SERIES_TRUST_FLOW_GROUPS = {
         "EA Series Trust",
-        "ETF Opportunities",
+        "ETF Architect",
+        "ETF Opportunities Trust",
         "ETF Series Solutions",
         "Exchange Traded Concepts",
         "Financial Investors Trust",
         "Investment Managers Series",
         "Northern Lights",
-        "Tidal",
+        "TIDAL",
     }
 
     def normalize_flow_issuer_group(name):
