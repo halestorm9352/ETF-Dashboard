@@ -439,6 +439,16 @@ def _prepare_fund_flow_items(items):
     return prepared_items
 
 
+def _issuer_groups_for_segment(segment):
+    if segment == "All":
+        return list(CIK_GROUP_OPTIONS)
+    return [
+        group_name
+        for group_name in CIK_GROUP_OPTIONS
+        if classify_flow_group(group_name) == segment
+    ]
+
+
 default_end = datetime.today().date()
 year_start = datetime(default_end.year, 1, 1).date()
 default_start = max(year_start, default_end - timedelta(days=14))
@@ -446,6 +456,10 @@ if "search_start_date" not in st.session_state:
     st.session_state.search_start_date = default_start
 if "search_end_date" not in st.session_state:
     st.session_state.search_end_date = default_end
+if "search_issuer_segment" not in st.session_state:
+    st.session_state.search_issuer_segment = "All"
+if st.session_state.search_issuer_segment not in FLOW_VIEW_OPTIONS:
+    st.session_state.search_issuer_segment = "All"
 if "search_issuer_groups" not in st.session_state:
     st.session_state.search_issuer_groups = []
 if "search_requested" not in st.session_state:
@@ -759,18 +773,30 @@ with st.container():
             '<div class="etf-section-copy">Search SEC filings by date range, with the newest filings displayed first.</div>',
             unsafe_allow_html=True,
         )
+        issuer_group_options = _issuer_groups_for_segment(st.session_state.search_issuer_segment)
+        st.session_state.search_issuer_groups = [
+            group_name
+            for group_name in st.session_state.search_issuer_groups
+            if group_name in issuer_group_options
+        ]
         with st.form("date_filter_form"):
-            filter_cols = st.columns([1.45, 0.82, 0.82, 0.5])
-            filter_cols[0].multiselect(
-                "Issuer groups",
-                options=CIK_GROUP_OPTIONS,
-                key="search_issuer_groups",
-                help="Choose one or more issuer groups. Leave blank to search all configured groups.",
+            filter_cols = st.columns([0.95, 1.35, 0.8, 0.8, 0.65])
+            filter_cols[0].selectbox(
+                "Issuer segment",
+                options=FLOW_VIEW_OPTIONS,
+                key="search_issuer_segment",
+                help="Use the same issuer buckets as the Issuer Pulse rail.",
             )
-            filter_cols[1].date_input("Start date", min_value=year_start, max_value=default_end, key="search_start_date")
-            filter_cols[2].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
-            search_submitted = filter_cols[3].form_submit_button("Search")
-        st.caption("Leave issuer groups blank to search all configured issuers.")
+            filter_cols[1].multiselect(
+                "Issuer groups",
+                options=issuer_group_options,
+                key="search_issuer_groups",
+                help="Choose one or more issuer groups inside the selected segment.",
+            )
+            filter_cols[2].date_input("Start date", min_value=year_start, max_value=default_end, key="search_start_date")
+            filter_cols[3].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
+            search_submitted = filter_cols[4].form_submit_button("Search", use_container_width=True)
+        st.caption("Leave issuer groups blank to search all issuers in the selected segment.")
 
         if search_submitted:
             if st.session_state.search_start_date < year_start:
@@ -787,7 +813,8 @@ with st.container():
             selected_group_names = st.session_state.search_issuer_groups or []
             selected_ciks = []
             seen_selected_ciks = set()
-            groups_to_search = selected_group_names or CIK_GROUP_OPTIONS
+            segment_group_names = _issuer_groups_for_segment(st.session_state.search_issuer_segment)
+            groups_to_search = selected_group_names or segment_group_names
             for group_name in groups_to_search:
                 for cik in CIK_GROUP_LOOKUP.get(group_name, []):
                     if cik not in seen_selected_ciks:
