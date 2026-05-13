@@ -83,7 +83,7 @@ def infer_cik_group_name(name):
     if "j.p. morgan exchange-traded fund trust" in lower_name:
         return "JPMorgan"
     if "investment managers series trust" in lower_name:
-        return "Investment Managers Series"
+        return "Investment Managers Series Trust"
     if "first trust" in lower_name:
         return "First Trust"
     if "vaneck" in lower_name:
@@ -114,6 +114,8 @@ def infer_cik_group_name(name):
         return "PGIM"
     if "financial investors trust" in lower_name:
         return "Financial Investors Trust"
+    if "exchange traded concepts trust" in lower_name:
+        return "Exchange Traded Concepts Trust"
     if "ea series trust" in lower_name or "alpha architect" in lower_name or "etf architect" in lower_name or "empowered funds" in lower_name:
         return "ETF Architect"
     if "neos" in lower_name:
@@ -181,9 +183,9 @@ SERIES_TRUST_FLOW_GROUPS = {
     "ETF Architect",
     "ETF Opportunities Trust",
     "ETF Series Solutions",
-    "Exchange Traded Concepts",
+    "Exchange Traded Concepts Trust",
     "Financial Investors Trust",
-    "Investment Managers Series",
+    "Investment Managers Series Trust",
     "Northern Lights",
     "TIDAL",
 }

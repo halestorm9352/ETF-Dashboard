@@ -34,9 +34,9 @@ except ImportError:
         "ETF Architect",
         "ETF Opportunities Trust",
         "ETF Series Solutions",
-        "Exchange Traded Concepts",
+        "Exchange Traded Concepts Trust",
         "Financial Investors Trust",
-        "Investment Managers Series",
+        "Investment Managers Series Trust",
         "Northern Lights",
         "TIDAL",
     }
