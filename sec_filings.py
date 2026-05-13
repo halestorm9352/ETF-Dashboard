@@ -133,6 +133,58 @@ def _display_filer_name(cik: str, filer_name: str) -> str:
     return normalized_name
 
 
+def _row_timestamp(row: dict[str, str]) -> datetime:
+    accepted_at = str(row.get("accepted_at", "")).strip()
+    if accepted_at:
+        try:
+            return datetime.fromisoformat(accepted_at.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError:
+            pass
+
+    try:
+        return datetime.strptime(str(row.get("date", "")), "%Y-%m-%d")
+    except ValueError:
+        return datetime.min
+
+
+def _row_filing_date(row: dict[str, str]) -> datetime:
+    try:
+        return datetime.strptime(str(row.get("date", "")), "%Y-%m-%d")
+    except ValueError:
+        return datetime.min
+
+
+def _filter_rows_to_bounds(
+    rows: list[dict[str, str]],
+    start_bound: datetime,
+    end_bound: datetime,
+) -> list[dict[str, str]]:
+    return [
+        row
+        for row in rows
+        if start_bound <= _row_filing_date(row) <= end_bound
+    ]
+
+
+def _enrich_missing_tickers_from_later_filings(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    latest_ticker_by_fund: dict[tuple[str, str], str] = {}
+    enriched_rows = sorted(rows, key=_row_timestamp, reverse=True)
+
+    for row in enriched_rows:
+        normalized_name = normalize_etf_name(row.get("etf_name", ""))
+        if not normalized_name:
+            continue
+
+        key = (row.get("cik", ""), normalized_name)
+        ticker = sanitize_ticker(row.get("ticker", ""))
+        if ticker != "Not Listed":
+            latest_ticker_by_fund.setdefault(key, ticker)
+        elif key in latest_ticker_by_fund:
+            row["ticker"] = latest_ticker_by_fund[key]
+
+    return rows
+
+
 def _fetch_filings_for_cik(
     cik: str,
     start_bound: datetime,
@@ -148,6 +200,7 @@ def _fetch_filings_for_cik(
 
     forms = recent.get("form", [])
     filing_dates = recent.get("filingDate", [])
+    accepted_times = recent.get("acceptanceDateTime", [])
     accession_numbers = recent.get("accessionNumber", [])
     primary_documents = recent.get("primaryDocument", [])
 
@@ -158,6 +211,7 @@ def _fetch_filings_for_cik(
             continue
 
         date_str = filing_dates[index]
+        accepted_at = accepted_times[index] if index < len(accepted_times) else ""
         date = datetime.strptime(date_str, "%Y-%m-%d")
         if date < start_bound or date > end_bound:
             continue
@@ -235,6 +289,8 @@ def _fetch_filings_for_cik(
                         "filer": resolved_filer_name,
                         "form": form,
                         "date": date_str,
+                        "accepted_at": accepted_at,
+                        "cik": cik,
                         "link": filing_link,
                     }
                 )
@@ -248,6 +304,8 @@ def _fetch_filings_for_cik(
                             "filer": resolved_filer_name,
                             "form": form,
                             "date": date_str,
+                            "accepted_at": accepted_at,
+                            "cik": cik,
                             "link": filing_link,
                         }
                     )
@@ -261,6 +319,8 @@ def _fetch_filings_for_cik(
                         "filer": resolved_filer_name,
                         "form": form,
                         "date": date_str,
+                        "accepted_at": accepted_at,
+                        "cik": cik,
                         "link": filing_link,
                     }
                 )
@@ -277,6 +337,7 @@ def fetch_filings(start_date=None, end_date=None, ciks=None) -> list[dict[str, s
     results: list[dict[str, str]] = []
     start_bound = datetime.combine(start_date, datetime.min.time()) if start_date else datetime.today() - timedelta(days=DAYS_BACK)
     end_bound = datetime.combine(end_date, datetime.max.time()) if end_date else datetime.today()
+    enrichment_end_bound = max(end_bound, datetime.today())
     selected_ciks = list(ciks) if ciks else CIKS
     if not selected_ciks:
         return results
@@ -284,12 +345,13 @@ def fetch_filings(start_date=None, end_date=None, ciks=None) -> list[dict[str, s
     worker_count = max(1, min(SEC_MAX_WORKERS, len(selected_ciks)))
     if worker_count == 1:
         for cik in selected_ciks:
-            results.extend(_fetch_filings_for_cik(cik, start_bound, end_bound))
-        return results
+            results.extend(_fetch_filings_for_cik(cik, start_bound, enrichment_end_bound))
+        enriched_results = _enrich_missing_tickers_from_later_filings(results)
+        return _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
 
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         future_map = {
-            executor.submit(_fetch_filings_for_cik, cik, start_bound, end_bound): cik
+            executor.submit(_fetch_filings_for_cik, cik, start_bound, enrichment_end_bound): cik
             for cik in selected_ciks
         }
         for future in as_completed(future_map):
@@ -298,4 +360,5 @@ def fetch_filings(start_date=None, end_date=None, ciks=None) -> list[dict[str, s
             except Exception:
                 continue
 
-    return results
+    enriched_results = _enrich_missing_tickers_from_later_filings(results)
+    return _filter_rows_to_bounds(enriched_results, start_bound, end_bound)

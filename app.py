@@ -349,7 +349,7 @@ st.markdown(
 
 
 @st.cache_data(ttl=1800)
-def load_filings(_data_version, start_date, end_date, selected_ciks):
+def load_filings(data_version, refresh_token, start_date, end_date, selected_ciks):
     return fetch_filings(start_date, end_date, ciks=selected_ciks)
 
 
@@ -462,6 +462,8 @@ if st.session_state.search_issuer_segment not in FLOW_VIEW_OPTIONS:
     st.session_state.search_issuer_segment = "All"
 if "search_issuer_groups" not in st.session_state:
     st.session_state.search_issuer_groups = []
+if "search_refresh_token" not in st.session_state:
+    st.session_state.search_refresh_token = 0
 if "search_requested" not in st.session_state:
     st.session_state.search_requested = False
 if "launches_visible_count" not in st.session_state:
@@ -804,6 +806,7 @@ with st.container():
             if st.session_state.search_end_date < year_start:
                 st.session_state.search_end_date = year_start
             st.session_state.search_requested = True
+            st.session_state.search_refresh_token += 1
 
         if not st.session_state.search_requested:
             st.info("Choose a date range and click Search to run the SEC scrape.")
@@ -826,6 +829,7 @@ with st.container():
                 with st.spinner("Searching SEC filings for the selected date range..."):
                     data = load_filings(
                         DATA_VERSION,
+                        st.session_state.search_refresh_token,
                         st.session_state.search_start_date,
                         st.session_state.search_end_date,
                         selected_ciks,
