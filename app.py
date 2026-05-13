@@ -144,7 +144,7 @@ st.markdown(
         gap: 2.5rem;
         width: max-content;
         padding: 0.8rem 0;
-        animation: etfTickerMove 450s linear infinite;
+        animation: etfTickerMove 900s linear infinite;
     }
 
     .etf-ticker-shell:hover .etf-ticker-track {
@@ -677,7 +677,7 @@ if news_items:
             lastFrame = timestamp;
 
             if (!hoverPaused && !dragging && singleWidth > 0) {
-                const pixelsPerMs = singleWidth / 450000;
+                const pixelsPerMs = singleWidth / 900000;
                 offset += elapsed * pixelsPerMs;
                 if (offset >= singleWidth) {
                     offset -= singleWidth;
@@ -734,7 +734,7 @@ if news_items:
 
 search_submitted = False
 with st.container():
-    launches_col, center_col, flows_col = st.columns([1.05, 1.8, 1.05], gap="large")
+    launches_col, center_col, flows_col = st.columns([0.85, 2.0, 1.05], gap="large")
 
     with launches_col:
         st.markdown('<div class="etf-section-title">Launches</div>', unsafe_allow_html=True)
@@ -784,21 +784,33 @@ with st.container():
         with st.form("date_filter_form"):
             filter_cols = st.columns([0.95, 1.35, 0.8, 0.8, 0.65])
             filter_cols[0].selectbox(
-                "Issuer segment",
+                "Segment",
                 options=FLOW_VIEW_OPTIONS,
                 key="search_issuer_segment",
                 help="Use the same issuer buckets as the Issuer Pulse rail.",
             )
             filter_cols[1].multiselect(
-                "Issuer groups",
+                "Issuers",
                 options=issuer_group_options,
                 key="search_issuer_groups",
                 help="Choose one or more issuer groups inside the selected segment.",
             )
-            filter_cols[2].date_input("Start date", min_value=year_start, max_value=default_end, key="search_start_date")
-            filter_cols[3].date_input("End date", min_value=year_start, max_value=default_end, key="search_end_date")
+            filter_cols[2].date_input(
+                "Start date",
+                min_value=year_start,
+                max_value=default_end,
+                key="search_start_date",
+                format="MM/DD/YYYY",
+            )
+            filter_cols[3].date_input(
+                "End date",
+                min_value=year_start,
+                max_value=default_end,
+                key="search_end_date",
+                format="MM/DD/YYYY",
+            )
             search_submitted = filter_cols[4].form_submit_button("Search", use_container_width=True)
-        st.caption("Leave issuer groups blank to search all issuers in the selected segment.")
+        st.caption("Leave issuers blank to search all issuers in the selected segment.")
 
         if search_submitted:
             if st.session_state.search_start_date < year_start:
