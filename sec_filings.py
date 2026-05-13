@@ -126,6 +126,13 @@ def _merge_series_entries_with_pairs(
     return merged_entries
 
 
+def _display_filer_name(cik: str, filer_name: str) -> str:
+    normalized_name = str(filer_name or "").upper()
+    if cik in {"0001742912", "0001924868"} or "TIDAL TRUST" in normalized_name:
+        return "TIDAL"
+    return normalized_name
+
+
 def _fetch_filings_for_cik(
     cik: str,
     start_bound: datetime,
@@ -212,7 +219,7 @@ def _fetch_filings_for_cik(
         if series_entries:
             series_entries = _merge_series_entries_with_pairs(series_entries, all_named_pairs)
 
-        resolved_filer_name = filing_filer_name or filer_name
+        resolved_filer_name = _display_filer_name(cik, filing_filer_name or filer_name)
         rows_to_append: list[dict[str, str]] = []
 
         if series_entries:

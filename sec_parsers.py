@@ -257,6 +257,15 @@ def extract_filer_name(text: str) -> str:
     if company_match:
         return clean_html_text(company_match.group(1)).upper()
 
+    line_text = soup.get_text("\n")
+    lines = [clean_html_text(line) for line in line_text.splitlines()]
+    for index, line in enumerate(lines):
+        if "Exact Name of Registrant as Specified in Charter" not in line:
+            continue
+        for previous_line in reversed(lines[max(0, index - 5):index]):
+            if previous_line and re.search(r"[A-Za-z]", previous_line):
+                return previous_line.upper()
+
     exact_name_match = re.search(
         r'([A-Za-z0-9&,\.\-\s]+)\s*\(Exact Name of Registrant as Specified in Charter\)',
         clean_html_text(text),
@@ -394,6 +403,25 @@ def extract_named_ticker_pairs(text: str) -> list[dict[str, str]]:
         re.IGNORECASE,
     ):
         add_pair(match.group(3), match.group(5))
+
+    line_text = BeautifulSoup(text, "html.parser").get_text("\n")
+    for raw_line in line_text.splitlines():
+        line = clean_html_text(raw_line)
+        line_match = re.fullmatch(
+            r'([A-Z]{3,4})\s+([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,140}?(ETF|Fund))',
+            line,
+            re.IGNORECASE,
+        )
+        if line_match:
+            add_pair(line_match.group(2), line_match.group(1))
+
+        parenthetical_match = re.fullmatch(
+            r'([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,140}?(ETF|Fund))\s*\(\s*([A-Z]{3,4})\s*\)',
+            line,
+            re.IGNORECASE,
+        )
+        if parenthetical_match:
+            add_pair(parenthetical_match.group(1), parenthetical_match.group(3))
 
     return pairs
 
