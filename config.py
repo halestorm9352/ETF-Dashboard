@@ -156,7 +156,7 @@ def infer_cik_group_name(name):
         return "TIDAL"
     if lower_name.startswith("f/m"):
         return "F/m"
-    if "etf opportunities" in lower_name:
+    if "etf opportunities" in lower_name or "opportunities trust" in lower_name:
         return "ETF Opportunities Trust"
     if "defiance" in lower_name:
         return "Defiance"
