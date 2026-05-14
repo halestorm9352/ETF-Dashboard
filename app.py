@@ -68,6 +68,7 @@ except ImportError:
         return {"items": [], "status": "Unavailable"}
 from sec_filings import fetch_filings
 from sec_parsers import sanitize_ticker
+from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
 
 
 st.set_page_config(page_title="ETF Dash", layout="wide")
@@ -194,6 +195,33 @@ st.markdown(
 
     .etf-card-value {
         font-size: 1.65rem;
+        font-weight: 700;
+    }
+
+    .etf-theme-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin: 0.2rem 0 1rem;
+    }
+
+    .etf-theme-card {
+        border: 1px solid var(--etf-border);
+        background: rgba(18, 23, 34, 0.74);
+        border-radius: 16px;
+        padding: 0.8rem 0.9rem;
+    }
+
+    .etf-theme-label {
+        color: var(--etf-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.62rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .etf-theme-value {
+        font-size: 1.35rem;
         font-weight: 700;
     }
 
@@ -871,6 +899,7 @@ with st.container():
                         kind="stable",
                     )
                     filtered_df["ticker"] = filtered_df["ticker"].apply(sanitize_ticker)
+                    filtered_df["themes"] = filtered_df["etf_name"].apply(classify_primary_theme)
                     display_df = filtered_df.copy()
                     display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
                     filings_count = len(display_df)
@@ -899,7 +928,25 @@ with st.container():
                         unsafe_allow_html=True,
                     )
 
-                    export_df = display_df[["ticker", "etf_name", "filer", "date", "link"]].copy()
+                    theme_counts = summarize_themes(filtered_df["etf_name"])
+                    theme_cards = "".join(
+                        f"""
+                        <div class="etf-theme-card">
+                            <div class="etf-theme-label">{escape(theme)}</div>
+                            <div class="etf-theme-value">{theme_counts.get(theme, 0)}</div>
+                        </div>
+                        """
+                        for theme in THEME_ORDER
+                    )
+                    st.markdown(
+                        f"""
+                        <div class="etf-section-copy">Top filing themes from ETF names.</div>
+                        <div class="etf-theme-strip">{theme_cards}</div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                    export_df = display_df[["ticker", "etf_name", "themes", "filer", "date", "link"]].copy()
                     export_csv = export_df.to_csv(index=False).encode("utf-8")
                     export_file_name = (
                         f"etf_dash_filings_"
