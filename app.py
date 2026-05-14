@@ -200,7 +200,7 @@ st.markdown(
 
     .etf-theme-strip {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
         gap: 0.75rem;
         margin: 0.2rem 0 1rem;
     }
