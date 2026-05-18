@@ -14,7 +14,7 @@ STATUS_PATH = ROOT / "etfcom_launches_status.json"
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from etfcom import fetch_live_etfcom_launches
+from etfcom import fetch_live_etfcom_launches, _extract_launch_rows_from_text
 from sec_parsers import clean_html_text
 
 
@@ -72,6 +72,16 @@ def fetch_browser_launches():
             try:
                 page.goto(url, wait_until="networkidle")
                 page.wait_for_timeout(2500)
+                html = page.content()
+                html_items = _extract_launch_rows_from_text(html, limit=1000)
+                if html_items:
+                    for item in html_items:
+                        row_key = (item.get("date"), item.get("ticker"), item.get("fund_name"))
+                        if row_key in seen:
+                            continue
+                        seen.add(row_key)
+                        items.append(item)
+                    continue
                 text = page.locator("body").inner_text()
             except Exception:
                 continue

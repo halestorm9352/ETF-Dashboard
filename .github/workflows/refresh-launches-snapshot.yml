@@ -4,6 +4,13 @@ on:
   schedule:
     - cron: "15 12 * * *"
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/refresh-launches-snapshot.yml"
+      - "scripts/refresh_launches_snapshot.py"
+      - "etfcom.py"
 
 permissions:
   contents: write
