@@ -32,6 +32,7 @@ CIK_ENTRIES = [
     ("0001100663", "iShares Trust"),
     ("0001500604", "Janus Detroit Street Trust"),
     ("0001485894", "J.P. Morgan Exchange-Traded Fund Trust"),
+    ("0001676326", "Morgan Stanley ETF Trust"),
     ("0001881741", "NEOS ETF Trust"),
     ("0001491978", "FlexShares Trust"),
     ("0001644419", "Northern Lights Fund Trust IV"),
@@ -82,6 +83,8 @@ def infer_cik_group_name(name):
         return "JPMorgan"
     if "j.p. morgan exchange-traded fund trust" in lower_name:
         return "JPMorgan"
+    if "morgan stanley" in lower_name:
+        return "Morgan Stanley"
     if "investment managers series trust" in lower_name:
         return "Investment Managers Series Trust"
     if "first trust" in lower_name:
@@ -210,7 +213,7 @@ SEC_MAX_WORKERS = 6
 MAX_SUPPORTING_DOCUMENTS = 2
 LAUNCHES_PAGE_SIZE = 120
 FUND_FLOWS_PAGE_SIZE = 50
-DATA_VERSION = "2026-05-13-live-amendment-enrichment-v1"
+DATA_VERSION = "2026-05-18-morgan-stanley-etf-trust-v1"
 ETFCOM_DATA_VERSION = "2026-05-12-etfdb-aum-source-v1"
 INVALID_TICKERS = {"CIK", "ETF", "FUND", "THIS", "NAME", "DATE", "EACH", "FREE", "NONE"}
 NEWS_QUERIES = (
