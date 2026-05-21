@@ -214,7 +214,7 @@ MAX_SUPPORTING_DOCUMENTS = 2
 LAUNCHES_PAGE_SIZE = 120
 FUND_FLOWS_PAGE_SIZE = 50
 DATA_VERSION = "2026-05-18-morgan-stanley-etf-trust-v1"
-ETFCOM_DATA_VERSION = "2026-05-12-etfdb-aum-source-v1"
+ETFCOM_DATA_VERSION = "2026-05-21-launch-staleness-guard-v1"
 INVALID_TICKERS = {"CIK", "ETF", "FUND", "THIS", "NAME", "DATE", "EACH", "FREE", "NONE"}
 NEWS_QUERIES = (
     "ETF launches Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",

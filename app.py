@@ -55,6 +55,7 @@ except ImportError:
 try:
     from etfcom import (
         fetch_etf_news,
+        fetch_etfcom_launches_with_status,
         fetch_scheduled_etfcom_launches_with_status,
         fetch_etfdb_fund_flows,
     )
@@ -63,6 +64,9 @@ except ImportError:
 
     def fetch_etfdb_fund_flows(limit=100):
         return []
+
+    def fetch_etfcom_launches_with_status(limit=100):
+        return {"items": [], "status": "Unavailable"}
 
     def fetch_scheduled_etfcom_launches_with_status(limit=100):
         return {"items": [], "status": "Unavailable"}
@@ -386,8 +390,16 @@ def load_etfcom_news(_version):
     return fetch_etf_news(limit=600)
 
 
+@st.cache_data(ttl=1800)
 def load_etfcom_launches(_version):
-    return fetch_scheduled_etfcom_launches_with_status(limit=1000)
+    scheduled_payload = fetch_scheduled_etfcom_launches_with_status(limit=1000)
+    scheduled_metadata = scheduled_payload.get("metadata", {}) if isinstance(scheduled_payload, dict) else {}
+    if scheduled_metadata.get("stale"):
+        live_payload = fetch_etfcom_launches_with_status(limit=1000)
+        live_items = live_payload.get("items", []) if isinstance(live_payload, dict) else []
+        if live_items:
+            return live_payload
+    return scheduled_payload
 
 
 @st.cache_data(ttl=43200)

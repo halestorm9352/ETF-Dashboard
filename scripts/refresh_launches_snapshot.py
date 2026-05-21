@@ -69,21 +69,28 @@ def fetch_browser_launches():
         page.set_default_timeout(30000)
 
         for url in launch_urls:
+            html = ""
+            text = ""
             try:
-                page.goto(url, wait_until="networkidle")
-                page.wait_for_timeout(2500)
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(5000)
                 html = page.content()
-                html_items = _extract_launch_rows_from_text(html, limit=1000)
-                if html_items:
-                    for item in html_items:
-                        row_key = (item.get("date"), item.get("ticker"), item.get("fund_name"))
-                        if row_key in seen:
-                            continue
-                        seen.add(row_key)
-                        items.append(item)
-                    continue
                 text = page.locator("body").inner_text()
             except Exception:
+                try:
+                    html = page.content()
+                    text = page.locator("body").inner_text()
+                except Exception:
+                    continue
+
+            html_items = _extract_launch_rows_from_text(html, limit=1000)
+            if html_items:
+                for item in html_items:
+                    row_key = (item.get("date"), item.get("ticker"), item.get("fund_name"))
+                    if row_key in seen:
+                        continue
+                    seen.add(row_key)
+                    items.append(item)
                 continue
 
             lines = [clean_html_text(line) for line in text.splitlines()]

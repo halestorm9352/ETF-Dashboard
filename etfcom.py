@@ -909,28 +909,6 @@ def fetch_live_etfcom_launches(limit=50):
         seen_rows.add(row_key)
         aggregated_items.append(item)
 
-    csv_text = _fetch_text(f"{ETFCOM_BASE_URL}/launches/data/download?nopaging=1&page&_format=csv")
-    if csv_text:
-        reader = csv.DictReader(StringIO(csv_text))
-        for row in reader:
-            date_text = _clean_text(row.get("Inception Date", ""))
-            ticker = _clean_text(row.get("Ticker", ""))
-            fund_name = _clean_text(row.get("Fund Name", ""))
-            published_at = _parse_date(date_text, "%m/%d/%Y")
-
-            if not date_text or not ticker or not fund_name or not published_at:
-                continue
-
-            add_launch_item(
-                {
-                    "date": published_at.strftime("%Y-%m-%d"),
-                    "ticker": ticker,
-                    "fund_name": fund_name,
-                    "link": urljoin(ETFCOM_BASE_URL, f"/{ticker}"),
-                    "published_at": published_at,
-                }
-            )
-
     launch_pages = [
         f"{ETFCOM_BASE_URL}/tools/etf-launches?page=1",
         f"{ETFCOM_BASE_URL}/tools/etf-launches",
@@ -975,6 +953,28 @@ def fetch_live_etfcom_launches(limit=50):
         for item in text_rows:
             add_launch_item(item)
 
+    csv_text = _fetch_text(f"{ETFCOM_BASE_URL}/launches/data/download?nopaging=1&page&_format=csv")
+    if csv_text:
+        reader = csv.DictReader(StringIO(csv_text))
+        for row in reader:
+            date_text = _clean_text(row.get("Inception Date", ""))
+            ticker = _clean_text(row.get("Ticker", ""))
+            fund_name = _clean_text(row.get("Fund Name", ""))
+            published_at = _parse_date(date_text, "%m/%d/%Y")
+
+            if not date_text or not ticker or not fund_name or not published_at:
+                continue
+
+            add_launch_item(
+                {
+                    "date": published_at.strftime("%Y-%m-%d"),
+                    "ticker": ticker,
+                    "fund_name": fund_name,
+                    "link": urljoin(ETFCOM_BASE_URL, f"/{ticker}"),
+                    "published_at": published_at,
+                }
+            )
+
     aggregated_items.sort(key=lambda item: item["published_at"], reverse=True)
     return aggregated_items[:limit]
 
@@ -1008,17 +1008,36 @@ def fetch_etfcom_launches_with_status(limit=50):
     items = fetch_live_etfcom_launches(limit=limit)
     seed_items = _load_seed_launches(limit=limit)
     merged_items = _merge_launch_items(items, seed_items)
+    metadata = _load_seed_launches_status(seed_items=seed_items)
 
     if items and seed_items:
         live_latest = items[0].get("published_at", datetime.min)
         seed_latest = seed_items[0].get("published_at", datetime.min)
         if seed_latest > live_latest:
-            return {"items": merged_items[:limit], "status": "Fallback snapshot"}
-        return {"items": merged_items[:limit], "status": "Live ETF.com"}
+            return {"items": merged_items[:limit], "status": "Fallback snapshot", "metadata": metadata}
+        metadata = {
+            **metadata,
+            "refreshed_display": datetime.now(ZoneInfo("America/New_York")).strftime("%-m/%-d/%y %-I:%M %p ET"),
+            "newest_launch_date": merged_items[0].get("date", "") if merged_items else "",
+            "item_count": len(merged_items),
+            "refresh_source": "live ETF.com fallback",
+            "refresh_success": True,
+            "stale": False,
+        }
+        return {"items": merged_items[:limit], "status": "Live ETF.com", "metadata": metadata}
     if items:
-        return {"items": merged_items[:limit], "status": "Live ETF.com"}
+        metadata = {
+            **metadata,
+            "refreshed_display": datetime.now(ZoneInfo("America/New_York")).strftime("%-m/%-d/%y %-I:%M %p ET"),
+            "newest_launch_date": merged_items[0].get("date", "") if merged_items else "",
+            "item_count": len(merged_items),
+            "refresh_source": "live ETF.com fallback",
+            "refresh_success": True,
+            "stale": False,
+        }
+        return {"items": merged_items[:limit], "status": "Live ETF.com", "metadata": metadata}
 
-    return {"items": merged_items[:limit], "status": "Fallback snapshot"}
+    return {"items": merged_items[:limit], "status": "Fallback snapshot", "metadata": metadata}
 
 
 def fetch_scheduled_etfcom_launches_with_status(limit=50):
