@@ -33,6 +33,8 @@ CIK_ENTRIES = [
     ("0001500604", "Janus Detroit Street Trust"),
     ("0001485894", "J.P. Morgan Exchange-Traded Fund Trust"),
     ("0001676326", "Morgan Stanley ETF Trust"),
+    ("0001969995", "Nomura ETF Trust"),
+    ("0000809064", "Nomura ETF Trust II"),
     ("0001881741", "NEOS ETF Trust"),
     ("0001491978", "FlexShares Trust"),
     ("0001644419", "Northern Lights Fund Trust IV"),
@@ -41,6 +43,7 @@ CIK_ENTRIES = [
     ("0001450011", "PIMCO ETF Trust"),
     ("0001174610", "ProShares Trust"),
     ("0001454889", "Schwab Strategic Trust"),
+    ("0001888997", "SEI Exchange Traded Funds"),
     ("0001064641", "Select Sector SPDR Trust"),
     ("0001400683", "SPDR ICE Preferred Securities ETF Trust"),
     ("0001064642", "SPDR Series Trust"),
@@ -85,6 +88,10 @@ def infer_cik_group_name(name):
         return "JPMorgan"
     if "morgan stanley" in lower_name:
         return "Morgan Stanley"
+    if "nomura" in lower_name:
+        return "Nomura"
+    if "sei exchange traded funds" in lower_name:
+        return "SEI"
     if "investment managers series trust" in lower_name:
         return "Investment Managers Series Trust"
     if "first trust" in lower_name:
@@ -213,7 +220,7 @@ SEC_MAX_WORKERS = 6
 MAX_SUPPORTING_DOCUMENTS = 2
 LAUNCHES_PAGE_SIZE = 120
 FUND_FLOWS_PAGE_SIZE = 50
-DATA_VERSION = "2026-05-21-series-name-without-etf-v1"
+DATA_VERSION = "2026-05-21-nomura-sei-ciks-v1"
 ETFCOM_DATA_VERSION = "2026-05-21-launch-staleness-guard-v1"
 INVALID_TICKERS = {"CIK", "ETF", "FUND", "THIS", "NAME", "DATE", "EACH", "FREE", "NONE"}
 NEWS_QUERIES = (
