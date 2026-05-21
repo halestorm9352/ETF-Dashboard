@@ -292,6 +292,7 @@ def _fetch_filings_for_cik(
                         "accepted_at": accepted_at,
                         "cik": cik,
                         "link": filing_link,
+                        "_source": "series",
                     }
                 )
         else:
@@ -307,6 +308,7 @@ def _fetch_filings_for_cik(
                             "accepted_at": accepted_at,
                             "cik": cik,
                             "link": filing_link,
+                            "_source": "named_pair",
                         }
                     )
             else:
@@ -322,11 +324,16 @@ def _fetch_filings_for_cik(
                         "accepted_at": accepted_at,
                         "cik": cik,
                         "link": filing_link,
+                        "_source": "fallback",
                     }
                 )
 
         for row in rows_to_append:
-            if "ETF" not in str(row["etf_name"]).upper():
+            source = row.pop("_source", "")
+            row_name = str(row["etf_name"] or "").strip()
+            if not row_name or row_name.upper() == "N/A":
+                continue
+            if source != "series" and "ETF" not in row_name.upper() and "FUND" not in row_name.upper():
                 continue
             results.append(row)
 

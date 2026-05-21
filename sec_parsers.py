@@ -20,6 +20,24 @@ def normalize_etf_name(value: str) -> str:
     return " ".join(cleaned.split())
 
 
+def _clean_series_entry_name(value: str) -> str:
+    cleaned = clean_html_text(value)
+    cleaned = re.sub(r"^(?:new|existing|active|inactive)\s+", "", cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
+
+
+def _split_series_contract_name_and_ticker(value: str) -> tuple[str, str]:
+    cleaned = _clean_series_entry_name(value)
+    ticker_match = re.search(r"\s+([A-Z]{3,4})$", cleaned)
+    if not ticker_match:
+        return cleaned, ""
+
+    ticker = ticker_match.group(1).upper()
+    if ticker in INVALID_TICKERS:
+        return cleaned, ""
+    return cleaned[: ticker_match.start()].strip(), ticker
+
+
 def extract_etf_name(text: str) -> str:
     cleaned_text = clean_html_text(text)
 
@@ -71,6 +89,19 @@ def extract_etf_name(text: str) -> str:
     )
     if series_text_match:
         return series_text_match.group(1).strip()
+
+    generic_series_text_match = re.search(
+        r'Series\s+S\d+\s+(?:new|existing|active|inactive)?\s*'
+        r'([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?)\s+'
+        r'Class/Contract\s+C\d+\s+'
+        r'([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?)(?=\s+(?:Mailing\s+Address|Business\s+Address|$))',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if generic_series_text_match:
+        name, _ticker = _split_series_contract_name_and_ticker(generic_series_text_match.group(2))
+        if name:
+            return name
 
     series_match = re.search(
         r'<td[^>]*class="seriesName"[^>]*>.*?</td>\s*'
@@ -342,6 +373,36 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
             {
                 "etf_name": contract_name.strip(),
                 "ticker": ticker.upper() if ticker and ticker.upper() not in INVALID_TICKERS else "",
+            }
+        )
+    generic_text_matches = re.finditer(
+        r'Series\s+S\d+\s+(?:new|existing|active|inactive)?\s*'
+        r'(?P<series_name>[A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?)\s+'
+        r'Class/Contract\s+C\d+\s+'
+        r'(?P<contract_name>[A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?)'
+        r'(?=\s+(?:Status\s+Name\s+Ticker\s+Symbol|Mailing\s+Address|Business\s+Address|$))',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    seen_generic_entries = {
+        (normalize_etf_name(entry["etf_name"]), entry.get("ticker", ""))
+        for entry in entries
+    }
+    for match in generic_text_matches:
+        name, ticker = _split_series_contract_name_and_ticker(match.group("contract_name"))
+        if not name:
+            name = _clean_series_entry_name(match.group("series_name"))
+        if not name:
+            continue
+
+        row_key = (normalize_etf_name(name), ticker)
+        if row_key in seen_generic_entries:
+            continue
+        seen_generic_entries.add(row_key)
+        entries.append(
+            {
+                "etf_name": name,
+                "ticker": ticker if ticker and ticker.upper() not in INVALID_TICKERS else "",
             }
         )
     return entries
