@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
+import re
 from typing import Any
 
 import requests
@@ -127,7 +128,8 @@ def _merge_series_entries_with_pairs(
 
 
 def _display_filer_name(cik: str, filer_name: str) -> str:
-    normalized_name = str(filer_name or "").upper()
+    configured_name = CIK_LOOKUP.get(cik, "")
+    normalized_name = str(configured_name or filer_name or "").upper()
     if cik in {"0001742912", "0001924868"} or "TIDAL TRUST" in normalized_name:
         return "TIDAL"
     return normalized_name
@@ -183,6 +185,28 @@ def _enrich_missing_tickers_from_later_filings(rows: list[dict[str, str]]) -> li
             row["ticker"] = latest_ticker_by_fund[key]
 
     return rows
+
+
+def _dedupe_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    deduped_rows: list[dict[str, str]] = []
+    seen_funds: set[tuple[str, str]] = set()
+
+    for row in sorted(rows, key=_row_timestamp, reverse=True):
+        normalized_name = normalize_etf_name(row.get("etf_name", ""))
+        key = (row.get("cik", ""), normalized_name)
+        if not normalized_name:
+            deduped_rows.append(row)
+            continue
+        if key in seen_funds:
+            continue
+        seen_funds.add(key)
+        deduped_rows.append(row)
+
+    return deduped_rows
+
+
+def _is_placeholder_share_class_name(name: str) -> bool:
+    return bool(re.fullmatch(r"Class\s+[A-Z0-9]+", str(name or "").strip(), re.IGNORECASE))
 
 
 def _fetch_filings_for_cik(
@@ -333,6 +357,8 @@ def _fetch_filings_for_cik(
             row_name = str(row["etf_name"] or "").strip()
             if not row_name or row_name.upper() == "N/A":
                 continue
+            if _is_placeholder_share_class_name(row_name):
+                continue
             if source != "series" and "ETF" not in row_name.upper() and "FUND" not in row_name.upper():
                 continue
             results.append(row)
@@ -354,7 +380,8 @@ def fetch_filings(start_date=None, end_date=None, ciks=None) -> list[dict[str, s
         for cik in selected_ciks:
             results.extend(_fetch_filings_for_cik(cik, start_bound, enrichment_end_bound))
         enriched_results = _enrich_missing_tickers_from_later_filings(results)
-        return _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
+        bounded_results = _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
+        return _dedupe_latest_fund_rows(bounded_results)
 
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         future_map = {
@@ -368,4 +395,5 @@ def fetch_filings(start_date=None, end_date=None, ciks=None) -> list[dict[str, s
                 continue
 
     enriched_results = _enrich_missing_tickers_from_later_filings(results)
-    return _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
+    bounded_results = _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
+    return _dedupe_latest_fund_rows(bounded_results)

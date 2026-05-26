@@ -427,6 +427,56 @@ def extract_named_ticker_pairs(text: str) -> list[dict[str, str]]:
         seen_keys.add(key)
         pairs.append({"etf_name": clean_name, "ticker": clean_ticker})
 
+    soup = BeautifulSoup(text, "html.parser")
+    exchange_words = r"(?:NYSE|NASDAQ|CBOE|Cboe|ARCA|Arca|BZX|Exchange|Stock\s+Exchange)"
+
+    for row in soup.find_all("tr"):
+        cells = [clean_html_text(cell.get_text(" ", strip=True)) for cell in row.find_all(["td", "th"])]
+        cells = [cell for cell in cells if cell]
+        if not cells or any("ticker symbol" in cell.lower() for cell in cells):
+            continue
+
+        for index, cell in enumerate(cells):
+            parenthetical_match = re.search(
+                r'([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(?:ETF|Fund))\s*\(\s*([A-Z]{3,4})\s*\)',
+                cell,
+                re.IGNORECASE,
+            )
+            if parenthetical_match:
+                add_pair(parenthetical_match.group(1), parenthetical_match.group(2))
+
+            if "ETF" not in cell.upper() and "FUND" not in cell.upper():
+                continue
+            if index + 1 >= len(cells):
+                continue
+            ticker = sanitize_ticker(cells[index + 1])
+            if ticker == "Not Listed":
+                continue
+            add_pair(cell, ticker)
+
+    for match in re.finditer(
+        r'([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(?:ETF|Fund))\s*\(\s*([A-Z]{3,4})\s*\)',
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        add_pair(match.group(1), match.group(2))
+
+    for match in re.finditer(
+        r'(?:Fund\s+Name\s+Ticker\s+Symbol\s+Exchange\s+)?'
+        r'([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(?:ETF|Fund))\s+'
+        r'([A-Z]{3,4})\s+'
+        rf'{exchange_words}',
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        name = re.sub(
+            r'^(?:Fund\s+Name\s+Ticker\s+Symbol\s+Exchange\s+)',
+            "",
+            match.group(1),
+            flags=re.IGNORECASE,
+        )
+        add_pair(name, match.group(2))
+
     for match in re.finditer(
         r'\[\s*([A-Z]{3,4})\s*\]\s*\|\s*([A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund))',
         cleaned_text,

@@ -50,7 +50,6 @@ CIK_ENTRIES = [
     ("0001742912", "Tidal ETF Trust"),
     ("0001924868", "Tidal Trust II"),
     ("0001137360", "VanEck ETF Trust"),
-    ("0001015965", "VanEck VIP Trust"),
     ("0000036405", "Vanguard Index Funds"),
     ("0001350487", "WisdomTree Trust"),
 ]
@@ -220,9 +219,24 @@ SEC_MAX_WORKERS = 6
 MAX_SUPPORTING_DOCUMENTS = 2
 LAUNCHES_PAGE_SIZE = 120
 FUND_FLOWS_PAGE_SIZE = 50
-DATA_VERSION = "2026-05-21-nomura-sei-ciks-v1"
+DATA_VERSION = "2026-05-26-comment-cleanup-v1"
 ETFCOM_DATA_VERSION = "2026-05-21-launch-staleness-guard-v1"
-INVALID_TICKERS = {"CIK", "ETF", "FUND", "THIS", "NAME", "DATE", "EACH", "FREE", "NONE"}
+INVALID_TICKERS = {
+    "AND",
+    "CIK",
+    "DATE",
+    "EACH",
+    "ETF",
+    "EXCH",
+    "FREE",
+    "FUND",
+    "MID",
+    "NAME",
+    "NONE",
+    "SEI",
+    "THE",
+    "THIS",
+}
 NEWS_QUERIES = (
     "ETF launches Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",
     "ETF news Reuters Bloomberg MarketWatch CNBC Yahoo Finance Morningstar WSJ",
