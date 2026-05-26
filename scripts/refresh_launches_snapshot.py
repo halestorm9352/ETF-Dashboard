@@ -159,8 +159,7 @@ def main():
         items = browser_items
         refresh_source = "browser fallback"
     if not items:
-        print("No live ETF.com launches were fetched. Leaving snapshot unchanged.")
-        return
+        raise RuntimeError("No live ETF.com launches were fetched. Leaving snapshot unchanged.")
 
     csv_text = build_csv_text(items)
     status_payload = build_status_payload(items, refresh_source)
