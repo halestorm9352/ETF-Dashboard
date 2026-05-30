@@ -12,9 +12,6 @@ try:
         DATA_VERSION,
         ETFCOM_DATA_VERSION,
         FLOW_VIEW_OPTIONS,
-        FUND_FLOWS_PAGE_SIZE,
-        LAUNCHES_PAGE_SIZE,
-        normalize_flow_issuer_group,
     )
 except ImportError:
     from config import (
@@ -22,9 +19,7 @@ except ImportError:
         CIK_GROUP_OPTIONS,
         DATA_VERSION,
         ETFCOM_DATA_VERSION,
-        FUND_FLOWS_PAGE_SIZE,
         infer_cik_group_name,
-        LAUNCHES_PAGE_SIZE,
     )
 
     FLOW_VIEW_OPTIONS = ("All", "Top 3", "The Field", "Series Trusts")
@@ -41,11 +36,6 @@ except ImportError:
         "TIDAL",
     }
 
-    def normalize_flow_issuer_group(name):
-        if not name:
-            return "Issuer"
-        return infer_cik_group_name(name)
-
     def classify_flow_group(group_name):
         if group_name in _TOP_FLOW_GROUPS:
             return "Top 3"
@@ -53,23 +43,9 @@ except ImportError:
             return "Series Trusts"
         return "The Field"
 try:
-    from etfcom import (
-        fetch_etf_news,
-        fetch_etfcom_launches_with_status,
-        fetch_scheduled_etfcom_launches_with_status,
-        fetch_etfdb_fund_flows,
-    )
+    from etfcom import fetch_etf_news
 except ImportError:
     from etfcom import fetch_etf_news
-
-    def fetch_etfdb_fund_flows(limit=100):
-        return []
-
-    def fetch_etfcom_launches_with_status(limit=100):
-        return {"items": [], "status": "Unavailable"}
-
-    def fetch_scheduled_etfcom_launches_with_status(limit=100):
-        return {"items": [], "status": "Unavailable"}
 from sec_filings import fetch_filings
 from sec_parsers import sanitize_ticker
 from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
@@ -390,95 +366,6 @@ def load_etfcom_news(_version):
     return fetch_etf_news(limit=600)
 
 
-@st.cache_data(ttl=1800)
-def load_etfcom_launches(_version):
-    scheduled_payload = fetch_scheduled_etfcom_launches_with_status(limit=1000)
-    scheduled_metadata = scheduled_payload.get("metadata", {}) if isinstance(scheduled_payload, dict) else {}
-    if scheduled_metadata.get("stale"):
-        live_payload = fetch_etfcom_launches_with_status(limit=1000)
-        live_items = live_payload.get("items", []) if isinstance(live_payload, dict) else []
-        if live_items:
-            return live_payload
-    return scheduled_payload
-
-
-@st.cache_data(ttl=43200)
-def load_etfdb_fund_flows(_version):
-    return fetch_etfdb_fund_flows(limit=250)
-
-
-FLOW_FACTOR_OPTIONS = ("Flows", "AUM")
-
-
-def _render_launch_cards(items):
-    return "".join(
-        f"""
-        <div class="etf-news-item">
-            <div class="etf-news-source">{escape(item.get("date", ""))}</div>
-            <a class="etf-news-title" href="{escape(item.get("link", "#"))}" target="_blank">{escape(item.get("ticker", ""))}</a>
-            <div class="etf-news-kicker">{escape(item.get("fund_name", ""))}</div>
-        </div>
-        """
-        for item in items
-    )
-
-
-def _render_fund_flow_cards(items, factor="Flows"):
-    rendered_items = []
-    for item in items:
-        issuer_title = escape(item.get("issuer", "Issuer"))
-        issuer_link = escape(item.get("link", ""))
-        flow_category = escape(item.get("flow_category", "All"))
-        rank_value = item.get("aum_rank") if factor == "AUM" else item.get("rank", "")
-        rank = escape(str(rank_value))
-        issuer_markup = (
-            f'<a class="etf-news-title" href="{issuer_link}" target="_blank">{issuer_title}</a>'
-            if issuer_link else f'<div class="etf-news-title">{issuer_title}</div>'
-        )
-        meta_label = "AUM" if factor == "AUM" else "3M Fund Flow"
-        meta_value = escape(str(item.get("aum", "N/A"))) if factor == "AUM" else escape(str(item.get("flow", "")))
-        rendered_items.append(
-            f"""
-            <div class="etf-news-item">
-                <div class="etf-news-source">{flow_category} | Rank {rank}</div>
-                {issuer_markup}
-                <div class="etf-news-meta">{meta_label}: {meta_value}</div>
-                <div class="etf-news-kicker">Listed ETFs: {escape(str(item.get("etf_count", "")))}</div>
-            </div>
-            """
-        )
-    return "".join(rendered_items)
-
-
-def _sort_fund_flow_items(items, factor):
-    ranked_items = list(items)
-    if factor == "AUM":
-        ranked_items.sort(
-            key=lambda item: (
-                item.get("aum_rank") is None,
-                item.get("aum_rank", 10**9),
-                item.get("issuer", ""),
-            )
-        )
-    else:
-        ranked_items.sort(key=lambda item: (item.get("rank", 10**9), item.get("issuer", "")))
-    return ranked_items
-
-
-def _prepare_fund_flow_items(items):
-    prepared_items = []
-    for item in items:
-        issuer_group = normalize_flow_issuer_group(item.get("issuer", ""))
-        prepared_items.append(
-            {
-                **item,
-                "issuer_group": issuer_group,
-                "flow_category": classify_flow_group(issuer_group),
-            }
-        )
-    return prepared_items
-
-
 def _issuer_groups_for_segment(segment):
     if segment == "All":
         return list(CIK_GROUP_OPTIONS)
@@ -506,25 +393,15 @@ if "search_refresh_token" not in st.session_state:
     st.session_state.search_refresh_token = 0
 if "search_requested" not in st.session_state:
     st.session_state.search_requested = False
-if "launches_visible_count" not in st.session_state:
-    st.session_state.launches_visible_count = LAUNCHES_PAGE_SIZE
-if "fund_flows_visible_count" not in st.session_state:
-    st.session_state.fund_flows_visible_count = FUND_FLOWS_PAGE_SIZE
-if "fund_flow_view" not in st.session_state:
-    st.session_state.fund_flow_view = "All"
-if "fund_flow_factor" not in st.session_state:
-    st.session_state.fund_flow_factor = "Flows"
-
 st.markdown(
     """
     <div class="etf-brand">ETF Dash</div>
-    <div class="etf-tagline">Tracking new ETF launches, registration filings, and the surrounding market conversation.</div>
+    <div class="etf-tagline">Tracking ETF registration filings and the surrounding market conversation.</div>
     """,
     unsafe_allow_html=True,
 )
 
 news_items = load_etfcom_news(ETFCOM_DATA_VERSION)
-fund_flow_items = _prepare_fund_flow_items(load_etfdb_fund_flows(ETFCOM_DATA_VERSION))
 
 if news_items:
     ticker_items_html = "".join(
@@ -774,40 +651,7 @@ if news_items:
 
 search_submitted = False
 with st.container():
-    launches_col, center_col, flows_col = st.columns([0.85, 2.0, 1.05], gap="large")
-
-    with launches_col:
-        st.markdown('<div class="etf-section-title">Launches</div>', unsafe_allow_html=True)
-        launches_payload = load_etfcom_launches(ETFCOM_DATA_VERSION)
-        launches_items = launches_payload.get("items", []) if isinstance(launches_payload, dict) else launches_payload
-        launches_metadata = launches_payload.get("metadata", {}) if isinstance(launches_payload, dict) else {}
-        refreshed_display = launches_metadata.get("refreshed_display", "")
-        if refreshed_display:
-            st.caption(f"Updated: {refreshed_display}")
-        if launches_items:
-            launches_container = st.container(height=760)
-            visible_launch_count = min(st.session_state.launches_visible_count, len(launches_items))
-            launches_container.markdown(
-                _render_launch_cards(launches_items[:visible_launch_count]),
-                unsafe_allow_html=True,
-            )
-            launch_controls = st.columns(2)
-            if visible_launch_count < len(launches_items):
-                if launch_controls[0].button(
-                    f"Load {LAUNCHES_PAGE_SIZE} more",
-                    key="launches_load_more",
-                    use_container_width=True,
-                ):
-                    st.session_state.launches_visible_count += LAUNCHES_PAGE_SIZE
-            elif visible_launch_count > LAUNCHES_PAGE_SIZE:
-                if launch_controls[0].button(
-                    "Show fewer",
-                    key="launches_show_fewer",
-                    use_container_width=True,
-                ):
-                    st.session_state.launches_visible_count = LAUNCHES_PAGE_SIZE
-        else:
-            st.caption("ETF.com launches were not available right now.")
+    center_col = st.container()
 
     with center_col:
         st.markdown('<div class="etf-section-title">Filings</div>', unsafe_allow_html=True)
@@ -827,7 +671,7 @@ with st.container():
                 "Segment",
                 options=FLOW_VIEW_OPTIONS,
                 key="search_issuer_segment",
-                help="Use the same issuer buckets as the Issuer Pulse rail.",
+                help="Filter SEC filing searches by broad issuer buckets.",
             )
             filter_cols[1].multiselect(
                 "Issuers",
@@ -985,51 +829,3 @@ with st.container():
                 else:
                     st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
 
-    with flows_col:
-        st.markdown('<div class="etf-section-title">Issuer Pulse</div>', unsafe_allow_html=True)
-        flow_view = st.radio(
-            "Fund flow view",
-            FLOW_VIEW_OPTIONS,
-            horizontal=True,
-            key="fund_flow_view",
-            label_visibility="collapsed",
-        )
-        flow_factor = st.radio(
-            "Fund flow factor",
-            FLOW_FACTOR_OPTIONS,
-            horizontal=True,
-            key="fund_flow_factor",
-            label_visibility="collapsed",
-        )
-
-        filtered_fund_flow_items = (
-            fund_flow_items
-            if flow_view == "All"
-            else [item for item in fund_flow_items if item.get("flow_category") == flow_view]
-        )
-        filtered_fund_flow_items = _sort_fund_flow_items(filtered_fund_flow_items, flow_factor)
-
-        if filtered_fund_flow_items:
-            flows_container = st.container(height=760)
-            visible_flow_count = min(st.session_state.fund_flows_visible_count, len(filtered_fund_flow_items))
-            flows_container.markdown(
-                _render_fund_flow_cards(filtered_fund_flow_items[:visible_flow_count], factor=flow_factor),
-                unsafe_allow_html=True,
-            )
-            flow_controls = st.columns(2)
-            if visible_flow_count < len(filtered_fund_flow_items):
-                if flow_controls[0].button(
-                    f"Load {FUND_FLOWS_PAGE_SIZE} more",
-                    key="fund_flows_load_more",
-                    use_container_width=True,
-                ):
-                    st.session_state.fund_flows_visible_count += FUND_FLOWS_PAGE_SIZE
-            elif visible_flow_count > FUND_FLOWS_PAGE_SIZE:
-                if flow_controls[0].button(
-                    "Show fewer",
-                    key="fund_flows_show_fewer",
-                    use_container_width=True,
-                ):
-                    st.session_state.fund_flows_visible_count = FUND_FLOWS_PAGE_SIZE
-        else:
-            st.caption("No issuer rows matched that flow view right now.")
