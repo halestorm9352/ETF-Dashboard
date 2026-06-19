@@ -965,6 +965,19 @@ with st.container():
                         f"{st.session_state.search_end_date.isoformat()}"
                     )
 
+                    description_cols = st.columns(4)
+                    description_cols[0].caption(
+                        "One latest row per ETF in the selected period."
+                    )
+                    description_cols[1].caption(
+                        "Snapshot funds with a ticker whose detected effective date has arrived."
+                    )
+                    description_cols[2].caption(
+                        "Latest snapshot rows filed as 485APOS or 485BPOS amendments."
+                    )
+                    description_cols[3].caption(
+                        "Every filing occurrence, including repeated amendments for the same fund."
+                    )
                     export_cols = st.columns(4)
                     export_cols[0].download_button(
                         "Latest snapshot",
@@ -1005,12 +1018,18 @@ with st.container():
                     )
                     snapshot_tab, events_tab = st.tabs(["Latest snapshot", "Filing events"])
                     with snapshot_tab:
+                        st.caption(
+                            "Current view: one row per ETF, using its most recent filing in the selected period."
+                        )
                         st.dataframe(
                             export_df,
                             use_container_width=True,
                             hide_index=True,
                         )
                     with events_tab:
+                        st.caption(
+                            "History view: every filing event is retained, so the same ETF may appear more than once."
+                        )
                         st.dataframe(
                             event_export_df,
                             use_container_width=True,
