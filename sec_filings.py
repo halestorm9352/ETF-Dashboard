@@ -19,6 +19,7 @@ from sec_parsers import (
     extract_etf_name,
     extract_filer_name,
     extract_named_ticker_pairs,
+    extract_rule_485_effectiveness,
     extract_series_entries,
     extract_supporting_document_urls,
     extract_ticker,
@@ -34,9 +35,17 @@ def extract_text(url: str, max_chars: int = INDEX_PAGE_MAX_CHARS) -> str:
 def fetch_supporting_document_texts(
     index_text: str,
     max_documents: int = MAX_SUPPORTING_DOCUMENTS,
+    excluded_urls: set[str] | None = None,
 ) -> list[str]:
     documents: list[str] = []
-    for url in extract_supporting_document_urls(index_text)[:max_documents]:
+    excluded = excluded_urls or set()
+    candidate_urls = [
+        url
+        for url in extract_supporting_document_urls(index_text)
+        if url not in excluded
+        and url.lower().split("?", 1)[0].endswith((".htm", ".html", ".xml", ".txt"))
+    ]
+    for url in candidate_urls[:max_documents]:
         max_chars = 300000
         if url.lower().endswith("_htm.xml"):
             max_chars = 120000
@@ -205,6 +214,10 @@ def _dedupe_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]
     return deduped_rows
 
 
+def derive_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return _dedupe_latest_fund_rows([dict(row) for row in rows])
+
+
 def _is_placeholder_share_class_name(name: str) -> bool:
     return bool(re.fullmatch(r"Class\s+[A-Z0-9]+", str(name or "").strip(), re.IGNORECASE))
 
@@ -213,6 +226,7 @@ def _fetch_filings_for_cik(
     cik: str,
     start_bound: datetime,
     end_bound: datetime,
+    primary_document_workers: int = 1,
 ) -> list[dict[str, str]]:
     results: list[dict[str, str]] = []
     seen_links: set[str] = set()
@@ -227,6 +241,47 @@ def _fetch_filings_for_cik(
     accepted_times = recent.get("acceptanceDateTime", [])
     accession_numbers = recent.get("accessionNumber", [])
     primary_documents = recent.get("primaryDocument", [])
+
+    primary_document_urls: set[str] = set()
+    for index, form in enumerate(forms):
+        if form not in {"485APOS", "485BPOS"}:
+            continue
+        if (
+            index >= len(filing_dates)
+            or index >= len(accession_numbers)
+            or index >= len(primary_documents)
+        ):
+            continue
+        date = datetime.strptime(filing_dates[index], "%Y-%m-%d")
+        primary_document = primary_documents[index]
+        if date < start_bound or date > end_bound or not primary_document:
+            continue
+        accession_clean = accession_numbers[index].replace("-", "")
+        primary_document_urls.add(
+            f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/"
+            f"{accession_clean}/{primary_document}"
+        )
+
+    prefetched_primary_text: dict[str, str] = {}
+    primary_worker_count = max(
+        1,
+        min(primary_document_workers, len(primary_document_urls)),
+    )
+    if primary_worker_count == 1:
+        for url in primary_document_urls:
+            prefetched_primary_text[url] = extract_text(url, max_chars=300000)
+    elif primary_document_urls:
+        with ThreadPoolExecutor(max_workers=primary_worker_count) as executor:
+            future_map = {
+                executor.submit(extract_text, url, 300000): url
+                for url in primary_document_urls
+            }
+            for future in as_completed(future_map):
+                url = future_map[future]
+                try:
+                    prefetched_primary_text[url] = future.result()
+                except Exception:
+                    prefetched_primary_text[url] = ""
 
     for index, form in enumerate(forms):
         if form not in FORMS:
@@ -261,19 +316,27 @@ def _fetch_filings_for_cik(
         index_text = extract_text(filing_link, max_chars=INDEX_PAGE_MAX_CHARS)
         filing_filer_name = extract_filer_name(index_text) or filer_name
         series_entries = extract_series_entries(index_text)
+        primary_text = ""
         primary_ticker = ""
         primary_etf_name = "N/A"
         primary_named_pairs: list[dict[str, str]] = []
 
-        if primary_document_url and _needs_primary_document(series_entries, filing_filer_name):
-            primary_text = extract_text(primary_document_url, max_chars=300000)
-            if primary_text:
-                primary_ticker = extract_ticker(primary_text)
-                primary_etf_name = extract_etf_name(primary_text)
+        needs_primary_text = _needs_primary_document(series_entries, filing_filer_name)
+        needs_effectiveness_context = form in {"485APOS", "485BPOS"}
+        if primary_document_url and (needs_primary_text or needs_effectiveness_context):
+            if primary_document_url in prefetched_primary_text:
+                primary_text = prefetched_primary_text[primary_document_url]
+            else:
+                primary_text = extract_text(primary_document_url, max_chars=300000)
+            if primary_text and needs_primary_text:
                 primary_named_pairs = extract_named_ticker_pairs(primary_text)
-                parsed_filer_name = extract_filer_name(primary_text)
-                if parsed_filer_name:
-                    filing_filer_name = parsed_filer_name
+                primary_ticker = extract_ticker(
+                    primary_text,
+                    named_ticker_pairs=primary_named_pairs,
+                )
+                primary_etf_name = extract_etf_name(primary_text)
+                if not filing_filer_name:
+                    filing_filer_name = extract_filer_name(primary_text)
 
         supporting_named_pairs: list[dict[str, str]] = []
         if index_text and _needs_supporting_documents(
@@ -282,17 +345,26 @@ def _fetch_filings_for_cik(
             primary_etf_name,
             filing_filer_name,
         ):
-            for supporting_text in fetch_supporting_document_texts(index_text):
+            excluded_urls = {primary_document_url} if primary_document_url else set()
+            for supporting_text in fetch_supporting_document_texts(
+                index_text,
+                excluded_urls=excluded_urls,
+            ):
+                supporting_pairs = extract_named_ticker_pairs(supporting_text)
                 if not primary_ticker:
-                    primary_ticker = extract_ticker(supporting_text)
+                    primary_ticker = extract_ticker(
+                        supporting_text,
+                        named_ticker_pairs=supporting_pairs,
+                    )
                 if primary_etf_name == "N/A":
                     primary_etf_name = extract_etf_name(supporting_text)
-                supporting_named_pairs.extend(extract_named_ticker_pairs(supporting_text))
+                supporting_named_pairs.extend(supporting_pairs)
                 if not filing_filer_name:
                     filing_filer_name = extract_filer_name(supporting_text)
                 if primary_ticker and primary_etf_name != "N/A" and filing_filer_name:
                     break
 
+        effectiveness = extract_rule_485_effectiveness(primary_text or index_text)
         all_named_pairs = primary_named_pairs + supporting_named_pairs
         if series_entries:
             series_entries = _merge_series_entries_with_pairs(series_entries, all_named_pairs)
@@ -314,8 +386,10 @@ def _fetch_filings_for_cik(
                         "form": form,
                         "date": date_str,
                         "accepted_at": accepted_at,
+                        "accession_number": accession_number,
                         "cik": cik,
                         "link": filing_link,
+                        **effectiveness,
                         "_source": "series",
                     }
                 )
@@ -330,8 +404,10 @@ def _fetch_filings_for_cik(
                             "form": form,
                             "date": date_str,
                             "accepted_at": accepted_at,
+                            "accession_number": accession_number,
                             "cik": cik,
                             "link": filing_link,
+                            **effectiveness,
                             "_source": "named_pair",
                         }
                     )
@@ -346,8 +422,10 @@ def _fetch_filings_for_cik(
                         "form": form,
                         "date": date_str,
                         "accepted_at": accepted_at,
+                        "accession_number": accession_number,
                         "cik": cik,
                         "link": filing_link,
+                        **effectiveness,
                         "_source": "fallback",
                     }
                 )
@@ -361,12 +439,14 @@ def _fetch_filings_for_cik(
                 continue
             if source != "series" and "ETF" not in row_name.upper() and "FUND" not in row_name.upper():
                 continue
+            row["ticker_at_filing"] = row["ticker"]
+            row["event_id"] = f"{accession_number}:{normalize_etf_name(row_name)}"
             results.append(row)
 
     return results
 
 
-def fetch_filings(start_date=None, end_date=None, ciks=None) -> list[dict[str, str]]:
+def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> list[dict[str, str]]:
     results: list[dict[str, str]] = []
     start_bound = datetime.combine(start_date, datetime.min.time()) if start_date else datetime.today() - timedelta(days=DAYS_BACK)
     end_bound = datetime.combine(end_date, datetime.max.time()) if end_date else datetime.today()
@@ -378,14 +458,27 @@ def fetch_filings(start_date=None, end_date=None, ciks=None) -> list[dict[str, s
     worker_count = max(1, min(SEC_MAX_WORKERS, len(selected_ciks)))
     if worker_count == 1:
         for cik in selected_ciks:
-            results.extend(_fetch_filings_for_cik(cik, start_bound, enrichment_end_bound))
+            results.extend(
+                _fetch_filings_for_cik(
+                    cik,
+                    start_bound,
+                    enrichment_end_bound,
+                    primary_document_workers=4,
+                )
+            )
         enriched_results = _enrich_missing_tickers_from_later_filings(results)
         bounded_results = _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
-        return _dedupe_latest_fund_rows(bounded_results)
+        return sorted(bounded_results, key=_row_timestamp, reverse=True)
 
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         future_map = {
-            executor.submit(_fetch_filings_for_cik, cik, start_bound, enrichment_end_bound): cik
+            executor.submit(
+                _fetch_filings_for_cik,
+                cik,
+                start_bound,
+                enrichment_end_bound,
+                1,
+            ): cik
             for cik in selected_ciks
         }
         for future in as_completed(future_map):
@@ -396,4 +489,9 @@ def fetch_filings(start_date=None, end_date=None, ciks=None) -> list[dict[str, s
 
     enriched_results = _enrich_missing_tickers_from_later_filings(results)
     bounded_results = _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
-    return _dedupe_latest_fund_rows(bounded_results)
+    return sorted(bounded_results, key=_row_timestamp, reverse=True)
+
+
+def fetch_filings(start_date=None, end_date=None, ciks=None) -> list[dict[str, str]]:
+    events = fetch_filing_events(start_date=start_date, end_date=end_date, ciks=ciks)
+    return derive_latest_fund_rows(events)

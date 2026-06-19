@@ -140,10 +140,17 @@ def extract_etf_name(text: str) -> str:
     return fallback.group(1).strip() if fallback else "N/A"
 
 
-def extract_ticker(text: str) -> str:
+def extract_ticker(
+    text: str,
+    named_ticker_pairs: list[dict[str, str]] | None = None,
+) -> str:
     cleaned_text = clean_html_text(text)
 
-    named_pairs = extract_named_ticker_pairs(text)
+    named_pairs = (
+        named_ticker_pairs
+        if named_ticker_pairs is not None
+        else extract_named_ticker_pairs(text)
+    )
     if len(named_pairs) == 1:
         single_ticker = named_pairs[0].get("ticker", "")
         if single_ticker and single_ticker != "Not Listed":
@@ -306,6 +313,106 @@ def extract_filer_name(text: str) -> str:
         return " ".join(exact_name_match.group(1).split()).upper()
 
     return ""
+
+
+def _is_checked_effectiveness_marker(value: str) -> bool:
+    marker = clean_html_text(value).upper()
+    compact = re.sub(r"[\s\[\]\(\)]+", "", marker)
+    return compact in {"X", "☒", "☑", "■", "●"}
+
+
+def extract_rule_485_effectiveness(text: str) -> dict[str, Any]:
+    default = {
+        "effectiveness_basis": "",
+        "effectiveness_days": None,
+        "designated_effective_date": "",
+        "effectiveness_label": "",
+    }
+    if not text:
+        return default
+
+    cover_page_text = text[:120000]
+    soup = BeautifulSoup(cover_page_text, "html.parser")
+    options = (
+        (
+            "immediately upon filing",
+            "rule_485_b_immediate",
+            0,
+            "Immediately upon filing (Rule 485(b))",
+        ),
+        (
+            "60 days after filing",
+            "rule_485_a1_60_days",
+            60,
+            "60 days after filing (Rule 485(a)(1))",
+        ),
+        (
+            "75 days after filing",
+            "rule_485_a2_75_days",
+            75,
+            "75 days after filing (Rule 485(a)(2))",
+        ),
+    )
+
+    for row in soup.find_all("tr"):
+        cells = row.find_all(["td", "th"])
+        if not cells:
+            continue
+        cell_texts = [clean_html_text(cell.get_text(" ", strip=True)) for cell in cells]
+        row_text = " ".join(cell_texts)
+        row_html = str(row)
+        is_checked = any(_is_checked_effectiveness_marker(value) for value in cell_texts)
+        is_checked = is_checked or bool(
+            re.search(r"<input[^>]+checked", row_html, re.IGNORECASE)
+        )
+        if not is_checked:
+            continue
+
+        lower_row_text = row_text.lower()
+        for phrase, basis, days, label in options:
+            if phrase in lower_row_text:
+                return {
+                    "effectiveness_basis": basis,
+                    "effectiveness_days": days,
+                    "designated_effective_date": "",
+                    "effectiveness_label": label,
+                }
+
+        designated_match = re.search(
+            r"\bon\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4}|\d{1,2}/\d{1,2}/\d{4})\s+"
+            r"pursuant\s+to\s+paragraph\s+\((a|b)\)",
+            row_text,
+            re.IGNORECASE,
+        )
+        if designated_match:
+            paragraph = designated_match.group(2).lower()
+            basis = f"rule_485_{paragraph}_designated_date"
+            return {
+                "effectiveness_basis": basis,
+                "effectiveness_days": None,
+                "designated_effective_date": designated_match.group(1),
+                "effectiveness_label": (
+                    f"Designated date {designated_match.group(1)} "
+                    f"(Rule 485({paragraph}))"
+                ),
+            }
+
+    cleaned_text = clean_html_text(cover_page_text)
+    for phrase, basis, days, label in options:
+        fallback_match = re.search(
+            rf"(?:\[\s*X\s*\]|☒|☑|■|●|\bX\b)\s*.{{0,80}}{re.escape(phrase)}",
+            cleaned_text,
+            re.IGNORECASE,
+        )
+        if fallback_match:
+            return {
+                "effectiveness_basis": basis,
+                "effectiveness_days": days,
+                "designated_effective_date": "",
+                "effectiveness_label": label,
+            }
+
+    return default
 
 
 def extract_series_entries(text: str) -> list[dict[str, str]]:

@@ -10,7 +10,6 @@ try:
         CIK_GROUP_LOOKUP,
         CIK_GROUP_OPTIONS,
         DATA_VERSION,
-        ETFCOM_DATA_VERSION,
         FLOW_VIEW_OPTIONS,
     )
 except ImportError:
@@ -18,7 +17,6 @@ except ImportError:
         CIK_GROUP_LOOKUP,
         CIK_GROUP_OPTIONS,
         DATA_VERSION,
-        ETFCOM_DATA_VERSION,
         infer_cik_group_name,
     )
 
@@ -42,11 +40,7 @@ except ImportError:
         if group_name in _SERIES_TRUST_FLOW_GROUPS:
             return "Series Trusts"
         return "The Field"
-try:
-    from etfcom import fetch_etf_news
-except ImportError:
-    from etfcom import fetch_etf_news
-from sec_filings import fetch_filings
+from sec_filings import derive_latest_fund_rows, fetch_filing_events
 from sec_parsers import sanitize_ticker
 from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
 
@@ -357,13 +351,8 @@ st.markdown(
 
 
 @st.cache_data(ttl=1800)
-def load_filings(data_version, refresh_token, start_date, end_date, selected_ciks):
-    return fetch_filings(start_date, end_date, ciks=selected_ciks)
-
-
-@st.cache_data(ttl=3600)
-def load_etfcom_news(_version):
-    return fetch_etf_news(limit=600)
+def load_filing_events(data_version, refresh_token, start_date, end_date, selected_ciks):
+    return fetch_filing_events(start_date, end_date, ciks=selected_ciks)
 
 
 def _issuer_groups_for_segment(segment):
@@ -374,6 +363,63 @@ def _issuer_groups_for_segment(segment):
         for group_name in CIK_GROUP_OPTIONS
         if classify_flow_group(group_name) == segment
     ]
+
+
+def _classify_filing_stage(form):
+    form_value = str(form or "").upper()
+    if form_value in {"S-1", "N-1A"}:
+        return "Initial filing"
+    if form_value == "485APOS":
+        return "Rule 485(a) amendment"
+    if form_value == "485BPOS":
+        return "Rule 485(b) amendment"
+    return "Filing"
+
+
+def _earliest_auto_effective_date(row):
+    filing_date = row.get("date")
+    if pd.isna(filing_date):
+        return pd.NaT
+
+    designated_date = str(row.get("designated_effective_date", "") or "").strip()
+    if designated_date:
+        parsed_date = pd.to_datetime(designated_date, errors="coerce")
+        if not pd.isna(parsed_date):
+            return parsed_date
+
+    effectiveness_days = row.get("effectiveness_days")
+    parsed_days = pd.to_numeric(effectiveness_days, errors="coerce")
+    if not pd.isna(parsed_days):
+        return filing_date + pd.Timedelta(days=int(parsed_days))
+    return pd.NaT
+
+
+def _readiness_status(row, today):
+    ticker = sanitize_ticker(row.get("ticker", ""))
+    readiness_date = row.get("earliest_auto_effective_date")
+    form_value = str(row.get("form", "")).upper()
+
+    if form_value in {"S-1", "N-1A"}:
+        return "Initial review"
+    if pd.isna(readiness_date):
+        return "Timing not detected"
+    if ticker == "Not Listed":
+        return "Needs ticker"
+    if readiness_date.date() <= today:
+        return "Launch candidate"
+    return "Waiting on effectiveness"
+
+
+def _add_launch_readiness_columns(df):
+    enriched_df = df.copy()
+    today = datetime.today().date()
+    enriched_df["filing_stage"] = enriched_df["form"].apply(_classify_filing_stage)
+    enriched_df["earliest_auto_effective_date"] = enriched_df.apply(_earliest_auto_effective_date, axis=1)
+    enriched_df["launch_readiness"] = enriched_df.apply(lambda row: _readiness_status(row, today), axis=1)
+    enriched_df["days_to_readiness"] = enriched_df["earliest_auto_effective_date"].apply(
+        lambda value: "" if pd.isna(value) else (value.date() - today).days
+    )
+    return enriched_df
 
 
 default_end = datetime.today().date()
@@ -396,12 +442,12 @@ if "search_requested" not in st.session_state:
 st.markdown(
     """
     <div class="etf-brand">ETF Dash</div>
-    <div class="etf-tagline">Tracking ETF registration filings and the surrounding market conversation.</div>
+    <div class="etf-tagline">Tracking ETF registration filing activity.</div>
     """,
     unsafe_allow_html=True,
 )
 
-news_items = load_etfcom_news(ETFCOM_DATA_VERSION)
+news_items = []
 
 if news_items:
     ticker_items_html = "".join(
@@ -723,7 +769,7 @@ with st.container():
 
             try:
                 with st.spinner("Searching SEC filings for the selected date range..."):
-                    data = load_filings(
+                    filing_events = load_filing_events(
                         DATA_VERSION,
                         st.session_state.search_refresh_token,
                         st.session_state.search_start_date,
@@ -737,11 +783,31 @@ with st.container():
                 )
                 st.caption(f"Temporary data source issue: {type(exc).__name__}")
             else:
-                df = pd.DataFrame(data)
+                event_df = pd.DataFrame(filing_events)
+                snapshot_df = pd.DataFrame(derive_latest_fund_rows(filing_events))
+                df = snapshot_df
                 if not df.empty:
-                    for column in ["ticker", "etf_name", "filer", "form", "date", "link"]:
+                    required_columns = [
+                        "ticker",
+                        "ticker_at_filing",
+                        "etf_name",
+                        "filer",
+                        "form",
+                        "date",
+                        "accepted_at",
+                        "link",
+                        "accession_number",
+                        "effectiveness_basis",
+                        "effectiveness_days",
+                        "designated_effective_date",
+                        "effectiveness_label",
+                        "event_id",
+                    ]
+                    for column in required_columns:
                         if column not in df.columns:
                             df[column] = ""
+                        if column not in event_df.columns:
+                            event_df[column] = ""
 
                     df["date"] = pd.to_datetime(df["date"], errors="coerce")
                     df = df.dropna(subset=["date"])
@@ -756,11 +822,41 @@ with st.container():
                     )
                     filtered_df["ticker"] = filtered_df["ticker"].apply(sanitize_ticker)
                     filtered_df["themes"] = filtered_df["etf_name"].apply(classify_primary_theme)
+                    filtered_df = _add_launch_readiness_columns(filtered_df)
+
+                    event_df["date"] = pd.to_datetime(event_df["date"], errors="coerce")
+                    event_df = event_df.dropna(subset=["date"]).copy()
+                    event_df["ticker"] = event_df["ticker"].apply(sanitize_ticker)
+                    event_df["ticker_at_filing"] = event_df["ticker_at_filing"].apply(sanitize_ticker)
+                    event_df["themes"] = event_df["etf_name"].apply(classify_primary_theme)
+                    event_df = _add_launch_readiness_columns(event_df)
+                    event_df = event_df.sort_values(
+                        by=["date", "accepted_at", "link", "ticker", "etf_name"],
+                        ascending=[False, False, True, True, True],
+                        kind="stable",
+                    )
+
                     display_df = filtered_df.copy()
                     display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
+                    display_df["earliest_auto_effective_date"] = display_df[
+                        "earliest_auto_effective_date"
+                    ].dt.strftime("%Y-%m-%d")
+                    display_df["earliest_auto_effective_date"] = display_df[
+                        "earliest_auto_effective_date"
+                    ].fillna("")
+                    event_display_df = event_df.copy()
+                    event_display_df["date"] = event_display_df["date"].dt.strftime("%Y-%m-%d")
+                    event_display_df["earliest_auto_effective_date"] = event_display_df[
+                        "earliest_auto_effective_date"
+                    ].dt.strftime("%Y-%m-%d")
+                    event_display_df["earliest_auto_effective_date"] = event_display_df[
+                        "earliest_auto_effective_date"
+                    ].fillna("")
                     filings_count = len(display_df)
+                    filing_event_count = len(event_display_df)
                     listed_tickers = int((filtered_df["ticker"] != "Not Listed").sum())
                     distinct_filers = int(filtered_df["filer"].nunique())
+                    launch_candidates = int((filtered_df["launch_readiness"] == "Launch candidate").sum())
                     latest_dt = filtered_df.iloc[0]["date"] if not filtered_df.empty else None
                     latest_date = (
                         f"{latest_dt.month}/{latest_dt.day}/{latest_dt.year % 100:02d}"
@@ -780,8 +876,13 @@ with st.container():
                         unsafe_allow_html=True,
                     )
                     stat_cols[3].markdown(
-                        f'<div class="etf-card"><div class="etf-card-label">Latest Filing</div><div class="etf-card-value">{latest_date}</div></div>',
+                        f'<div class="etf-card"><div class="etf-card-label">Launch Candidates</div><div class="etf-card-value">{launch_candidates}</div></div>',
                         unsafe_allow_html=True,
+                    )
+                    st.caption(
+                        f"Latest filing: {latest_date}. Snapshot contains {filings_count} funds derived from "
+                        f"{filing_event_count} filing events. Readiness timing follows the checked Rule 485 "
+                        "option in each filing when detected."
                     )
 
                     theme_counts = summarize_themes(filtered_df["etf_name"])
@@ -802,30 +903,102 @@ with st.container():
                         unsafe_allow_html=True,
                     )
 
-                    export_df = display_df[["ticker", "etf_name", "themes", "filer", "date", "link"]].copy()
-                    export_csv = export_df.to_csv(index=False).encode("utf-8")
-                    export_file_name = (
+                    export_columns = [
+                        "ticker",
+                        "etf_name",
+                        "themes",
+                        "filer",
+                        "form",
+                        "filing_stage",
+                        "date",
+                        "effectiveness_label",
+                        "earliest_auto_effective_date",
+                        "days_to_readiness",
+                        "launch_readiness",
+                        "link",
+                    ]
+                    export_df = display_df[export_columns].copy()
+                    launch_candidate_df = export_df[
+                        export_df["launch_readiness"] == "Launch candidate"
+                    ].copy()
+                    amendment_df = export_df[
+                        export_df["form"].isin(["485APOS", "485BPOS"])
+                    ].copy()
+                    event_export_columns = [
+                        "event_id",
+                        "accession_number",
+                        "ticker_at_filing",
+                        "ticker",
+                        "etf_name",
+                        "themes",
+                        "filer",
+                        "form",
+                        "filing_stage",
+                        "date",
+                        "effectiveness_label",
+                        "earliest_auto_effective_date",
+                        "days_to_readiness",
+                        "launch_readiness",
+                        "link",
+                    ]
+                    event_export_df = event_display_df[event_export_columns].copy()
+                    export_file_prefix = (
                         f"etf_dash_filings_"
                         f"{st.session_state.search_start_date.isoformat()}_to_"
-                        f"{st.session_state.search_end_date.isoformat()}.csv"
+                        f"{st.session_state.search_end_date.isoformat()}"
                     )
 
-                    export_cols = st.columns([1, 1.15, 1])
-                    export_cols[1].download_button(
-                        "Download",
-                        data=export_csv,
-                        file_name=export_file_name,
+                    export_cols = st.columns(4)
+                    export_cols[0].download_button(
+                        "Latest snapshot",
+                        data=export_df.to_csv(index=False).encode("utf-8"),
+                        file_name=f"{export_file_prefix}.csv",
                         mime="text/csv",
                         key="download_filings_csv",
                         use_container_width=True,
                     )
-
-                    st.success(f"Loaded {filings_count} filing(s) in the selected date range.")
-                    st.dataframe(
-                        export_df,
+                    export_cols[1].download_button(
+                        "Launch candidates",
+                        data=launch_candidate_df.to_csv(index=False).encode("utf-8"),
+                        file_name=f"{export_file_prefix}_launch_candidates.csv",
+                        mime="text/csv",
+                        key="download_launch_candidates_csv",
                         use_container_width=True,
-                        hide_index=True,
                     )
+                    export_cols[2].download_button(
+                        "Amendments",
+                        data=amendment_df.to_csv(index=False).encode("utf-8"),
+                        file_name=f"{export_file_prefix}_amendments.csv",
+                        mime="text/csv",
+                        key="download_amendments_csv",
+                        use_container_width=True,
+                    )
+                    export_cols[3].download_button(
+                        "Filing events",
+                        data=event_export_df.to_csv(index=False).encode("utf-8"),
+                        file_name=f"{export_file_prefix}_filing_events.csv",
+                        mime="text/csv",
+                        key="download_filing_events_csv",
+                        use_container_width=True,
+                    )
+
+                    st.success(
+                        f"Loaded {filings_count} latest fund snapshot row(s) from "
+                        f"{filing_event_count} filing event(s)."
+                    )
+                    snapshot_tab, events_tab = st.tabs(["Latest snapshot", "Filing events"])
+                    with snapshot_tab:
+                        st.dataframe(
+                            export_df,
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+                    with events_tab:
+                        st.dataframe(
+                            event_export_df,
+                            use_container_width=True,
+                            hide_index=True,
+                        )
                 else:
                     st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
 
