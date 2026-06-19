@@ -1,3 +1,5 @@
+import importlib
+
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -40,8 +42,23 @@ except ImportError:
         if group_name in _SERIES_TRUST_FLOW_GROUPS:
             return "Series Trusts"
         return "The Field"
-from sec_filings import derive_latest_fund_rows, fetch_filing_events
-from sec_parsers import sanitize_ticker
+
+import sec_parsers as sec_parsers_module
+
+if not hasattr(sec_parsers_module, "extract_rule_485_effectiveness"):
+    sec_parsers_module = importlib.reload(sec_parsers_module)
+
+import sec_filings as sec_filings_module
+
+if not all(
+    hasattr(sec_filings_module, name)
+    for name in ("derive_latest_fund_rows", "fetch_filing_events")
+):
+    sec_filings_module = importlib.reload(sec_filings_module)
+
+derive_latest_fund_rows = sec_filings_module.derive_latest_fund_rows
+fetch_filing_events = sec_filings_module.fetch_filing_events
+sanitize_ticker = sec_parsers_module.sanitize_ticker
 from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
 
 
