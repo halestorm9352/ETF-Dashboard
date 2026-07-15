@@ -215,7 +215,28 @@ def _dedupe_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]
 
 
 def derive_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    return _dedupe_latest_fund_rows([dict(row) for row in rows])
+    copied_rows = [dict(row) for row in rows]
+    history_by_fund: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in sorted(copied_rows, key=_row_timestamp):
+        normalized_name = normalize_etf_name(row.get("etf_name", ""))
+        if not normalized_name:
+            continue
+        key = (row.get("cik", ""), normalized_name)
+        history_by_fund.setdefault(key, []).append(row)
+
+    latest_rows = _dedupe_latest_fund_rows(copied_rows)
+    for row in latest_rows:
+        normalized_name = normalize_etf_name(row.get("etf_name", ""))
+        history = history_by_fund.get((row.get("cik", ""), normalized_name), [row])
+        forms = [str(event.get("form", "") or "").upper() for event in history]
+        forms = [form for form in forms if form]
+        row["filing_event_count"] = len(history)
+        row["amendment_count"] = sum(
+            form in {"485APOS", "485BPOS"} for form in forms
+        )
+        row["filing_form_history"] = " -> ".join(forms)
+
+    return latest_rows
 
 
 def _is_placeholder_share_class_name(name: str) -> bool:

@@ -1,4 +1,5 @@
 import importlib
+from io import BytesIO
 
 import pandas as pd
 import streamlit as st
@@ -439,6 +440,22 @@ def _add_launch_readiness_columns(df):
     return enriched_df
 
 
+def _latest_snapshot_workbook(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Latest Snapshot")
+        worksheet = writer.sheets["Latest Snapshot"]
+        worksheet.freeze_panes = "A2"
+        worksheet.auto_filter.ref = worksheet.dimensions
+        for column_cells in worksheet.columns:
+            max_length = max(len(str(cell.value or "")) for cell in column_cells)
+            worksheet.column_dimensions[column_cells[0].column_letter].width = min(
+                max(max_length + 2, 12),
+                48,
+            )
+    return output.getvalue()
+
+
 default_end = datetime.today().date()
 year_start = datetime(default_end.year, 1, 1).date()
 default_start = max(year_start, default_end - timedelta(days=14))
@@ -459,7 +476,7 @@ if "search_requested" not in st.session_state:
 st.markdown(
     """
     <div class="etf-brand">ETF Dash</div>
-    <div class="etf-tagline">Tracking ETF registration filing activity.</div>
+    <div class="etf-tagline">A live snapshot of ETF registration activity from SEC filings.</div>
     """,
     unsafe_allow_html=True,
 )
@@ -800,7 +817,6 @@ with st.container():
                 )
                 st.caption(f"Temporary data source issue: {type(exc).__name__}")
             else:
-                event_df = pd.DataFrame(filing_events)
                 snapshot_df = pd.DataFrame(derive_latest_fund_rows(filing_events))
                 df = snapshot_df
                 if not df.empty:
@@ -819,12 +835,13 @@ with st.container():
                         "designated_effective_date",
                         "effectiveness_label",
                         "event_id",
+                        "filing_event_count",
+                        "amendment_count",
+                        "filing_form_history",
                     ]
                     for column in required_columns:
                         if column not in df.columns:
                             df[column] = ""
-                        if column not in event_df.columns:
-                            event_df[column] = ""
 
                     df["date"] = pd.to_datetime(df["date"], errors="coerce")
                     df = df.dropna(subset=["date"])
@@ -841,18 +858,6 @@ with st.container():
                     filtered_df["themes"] = filtered_df["etf_name"].apply(classify_primary_theme)
                     filtered_df = _add_launch_readiness_columns(filtered_df)
 
-                    event_df["date"] = pd.to_datetime(event_df["date"], errors="coerce")
-                    event_df = event_df.dropna(subset=["date"]).copy()
-                    event_df["ticker"] = event_df["ticker"].apply(sanitize_ticker)
-                    event_df["ticker_at_filing"] = event_df["ticker_at_filing"].apply(sanitize_ticker)
-                    event_df["themes"] = event_df["etf_name"].apply(classify_primary_theme)
-                    event_df = _add_launch_readiness_columns(event_df)
-                    event_df = event_df.sort_values(
-                        by=["date", "accepted_at", "link", "ticker", "etf_name"],
-                        ascending=[False, False, True, True, True],
-                        kind="stable",
-                    )
-
                     display_df = filtered_df.copy()
                     display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
                     display_df["earliest_auto_effective_date"] = display_df[
@@ -861,16 +866,8 @@ with st.container():
                     display_df["earliest_auto_effective_date"] = display_df[
                         "earliest_auto_effective_date"
                     ].fillna("")
-                    event_display_df = event_df.copy()
-                    event_display_df["date"] = event_display_df["date"].dt.strftime("%Y-%m-%d")
-                    event_display_df["earliest_auto_effective_date"] = event_display_df[
-                        "earliest_auto_effective_date"
-                    ].dt.strftime("%Y-%m-%d")
-                    event_display_df["earliest_auto_effective_date"] = event_display_df[
-                        "earliest_auto_effective_date"
-                    ].fillna("")
                     filings_count = len(display_df)
-                    filing_event_count = len(event_display_df)
+                    filing_event_count = len(filing_events)
                     listed_tickers = int((filtered_df["ticker"] != "Not Listed").sum())
                     distinct_filers = int(filtered_df["filer"].nunique())
                     launch_candidates = int((filtered_df["launch_readiness"] == "Launch candidate").sum())
@@ -927,6 +924,9 @@ with st.container():
                         "filer",
                         "form",
                         "filing_stage",
+                        "filing_event_count",
+                        "amendment_count",
+                        "filing_form_history",
                         "date",
                         "effectiveness_label",
                         "earliest_auto_effective_date",
@@ -935,106 +935,37 @@ with st.container():
                         "link",
                     ]
                     export_df = display_df[export_columns].copy()
-                    launch_candidate_df = export_df[
-                        export_df["launch_readiness"] == "Launch candidate"
-                    ].copy()
-                    amendment_df = export_df[
-                        export_df["form"].isin(["485APOS", "485BPOS"])
-                    ].copy()
-                    event_export_columns = [
-                        "event_id",
-                        "accession_number",
-                        "ticker_at_filing",
-                        "ticker",
-                        "etf_name",
-                        "themes",
-                        "filer",
-                        "form",
-                        "filing_stage",
-                        "date",
-                        "effectiveness_label",
-                        "earliest_auto_effective_date",
-                        "days_to_readiness",
-                        "launch_readiness",
-                        "link",
-                    ]
-                    event_export_df = event_display_df[event_export_columns].copy()
                     export_file_prefix = (
-                        f"etf_dash_filings_"
+                        f"etf_dash_latest_snapshot_"
                         f"{st.session_state.search_start_date.isoformat()}_to_"
                         f"{st.session_state.search_end_date.isoformat()}"
                     )
 
-                    description_cols = st.columns(4)
-                    description_cols[0].caption(
-                        "One latest row per ETF in the selected period."
-                    )
-                    description_cols[1].caption(
-                        "Snapshot funds with a ticker whose detected effective date has arrived."
-                    )
-                    description_cols[2].caption(
-                        "Latest snapshot rows filed as 485APOS or 485BPOS amendments."
-                    )
-                    description_cols[3].caption(
-                        "Every filing occurrence, including repeated amendments for the same fund."
-                    )
-                    export_cols = st.columns(4)
+                    export_cols = st.columns([1.2, 2.8])
                     export_cols[0].download_button(
-                        "Latest snapshot",
-                        data=export_df.to_csv(index=False).encode("utf-8"),
-                        file_name=f"{export_file_prefix}.csv",
-                        mime="text/csv",
-                        key="download_filings_csv",
+                        "Download latest snapshot",
+                        data=_latest_snapshot_workbook(export_df),
+                        file_name=f"{export_file_prefix}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="download_latest_snapshot_xlsx",
                         use_container_width=True,
                     )
-                    export_cols[1].download_button(
-                        "Launch candidates",
-                        data=launch_candidate_df.to_csv(index=False).encode("utf-8"),
-                        file_name=f"{export_file_prefix}_launch_candidates.csv",
-                        mime="text/csv",
-                        key="download_launch_candidates_csv",
-                        use_container_width=True,
-                    )
-                    export_cols[2].download_button(
-                        "Amendments",
-                        data=amendment_df.to_csv(index=False).encode("utf-8"),
-                        file_name=f"{export_file_prefix}_amendments.csv",
-                        mime="text/csv",
-                        key="download_amendments_csv",
-                        use_container_width=True,
-                    )
-                    export_cols[3].download_button(
-                        "Filing events",
-                        data=event_export_df.to_csv(index=False).encode("utf-8"),
-                        file_name=f"{export_file_prefix}_filing_events.csv",
-                        mime="text/csv",
-                        key="download_filing_events_csv",
-                        use_container_width=True,
+                    export_cols[1].caption(
+                        "One latest row per ETF. Amendment counts and filing-form history are included in the workbook."
                     )
 
                     st.success(
                         f"Loaded {filings_count} latest fund snapshot row(s) from "
                         f"{filing_event_count} filing event(s)."
                     )
-                    snapshot_tab, events_tab = st.tabs(["Latest snapshot", "Filing events"])
-                    with snapshot_tab:
-                        st.caption(
-                            "Current view: one row per ETF, using its most recent filing in the selected period."
-                        )
-                        st.dataframe(
-                            export_df,
-                            use_container_width=True,
-                            hide_index=True,
-                        )
-                    with events_tab:
-                        st.caption(
-                            "History view: every filing event is retained, so the same ETF may appear more than once."
-                        )
-                        st.dataframe(
-                            event_export_df,
-                            use_container_width=True,
-                            hide_index=True,
-                        )
+                    st.caption(
+                        "Latest snapshot: one row per ETF, using its most recent filing in the selected period."
+                    )
+                    st.dataframe(
+                        export_df,
+                        use_container_width=True,
+                        hide_index=True,
+                    )
                 else:
                     st.warning("No recent filings were loaded right now. The SEC may be rate-limiting some requests, so please try again shortly.")
 

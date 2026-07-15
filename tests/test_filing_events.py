@@ -98,6 +98,43 @@ class FilingHistoryTests(unittest.TestCase):
         self.assertEqual(len(snapshot), 1)
         self.assertEqual(snapshot[0]["date"], "2026-06-10")
 
+    def test_latest_snapshot_summarizes_amendment_history(self):
+        events = [
+            {
+                "cik": "0000000001",
+                "etf_name": "Example ETF",
+                "ticker": "Not Listed",
+                "form": "N-1A",
+                "date": "2026-01-10",
+                "accepted_at": "2026-01-10T12:00:00Z",
+            },
+            {
+                "cik": "0000000001",
+                "etf_name": "Example ETF",
+                "ticker": "EXAM",
+                "form": "485APOS",
+                "date": "2026-03-10",
+                "accepted_at": "2026-03-10T12:00:00Z",
+            },
+            {
+                "cik": "0000000001",
+                "etf_name": "Example ETF",
+                "ticker": "EXAM",
+                "form": "485BPOS",
+                "date": "2026-04-10",
+                "accepted_at": "2026-04-10T12:00:00Z",
+            },
+        ]
+
+        snapshot = derive_latest_fund_rows(events)
+
+        self.assertEqual(snapshot[0]["filing_event_count"], 3)
+        self.assertEqual(snapshot[0]["amendment_count"], 2)
+        self.assertEqual(
+            snapshot[0]["filing_form_history"],
+            "N-1A -> 485APOS -> 485BPOS",
+        )
+
     def test_later_ticker_enrichment_preserves_ticker_at_filing(self):
         events = [
             {
