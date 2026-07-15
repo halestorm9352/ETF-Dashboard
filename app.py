@@ -370,7 +370,8 @@ st.markdown(
 
 @st.cache_data(ttl=1800)
 def load_filing_events(data_version, refresh_token, start_date, end_date, selected_ciks):
-    return fetch_filing_events(start_date, end_date, ciks=selected_ciks)
+    events = fetch_filing_events(start_date, end_date, ciks=selected_ciks)
+    return events, datetime.now()
 
 
 def _issuer_groups_for_segment(segment):
@@ -473,6 +474,21 @@ if "search_refresh_token" not in st.session_state:
     st.session_state.search_refresh_token = 0
 if "search_requested" not in st.session_state:
     st.session_state.search_requested = False
+if "search_force_refresh" not in st.session_state:
+    st.session_state.search_force_refresh = False
+
+
+def _submit_filing_search():
+    if st.session_state.search_start_date < year_start:
+        st.session_state.search_start_date = year_start
+    if st.session_state.search_end_date < year_start:
+        st.session_state.search_end_date = year_start
+    st.session_state.search_requested = True
+    if st.session_state.search_force_refresh:
+        st.session_state.search_refresh_token += 1
+    st.session_state.search_force_refresh = False
+
+
 st.markdown(
     """
     <div class="etf-brand">ETF Dash</div>
@@ -729,7 +745,6 @@ if news_items:
         scrolling=False,
     )
 
-search_submitted = False
 with st.container():
     center_col = st.container()
 
@@ -746,7 +761,7 @@ with st.container():
             if group_name in issuer_group_options
         ]
         with st.form("date_filter_form"):
-            filter_cols = st.columns([0.95, 1.35, 0.8, 0.8, 0.65])
+            filter_cols = st.columns([0.9, 1.3, 0.75, 0.75, 0.7, 0.55])
             filter_cols[0].selectbox(
                 "Segment",
                 options=FLOW_VIEW_OPTIONS,
@@ -773,16 +788,17 @@ with st.container():
                 key="search_end_date",
                 format="MM/DD/YYYY",
             )
-            search_submitted = filter_cols[4].form_submit_button("Search", use_container_width=True)
+            filter_cols[4].checkbox(
+                "Force refresh",
+                key="search_force_refresh",
+                help="Bypass the 30-minute cache for this search only.",
+            )
+            filter_cols[5].form_submit_button(
+                "Search",
+                use_container_width=True,
+                on_click=_submit_filing_search,
+            )
         st.caption("Leave issuers blank to search all issuers in the selected segment.")
-
-        if search_submitted:
-            if st.session_state.search_start_date < year_start:
-                st.session_state.search_start_date = year_start
-            if st.session_state.search_end_date < year_start:
-                st.session_state.search_end_date = year_start
-            st.session_state.search_requested = True
-            st.session_state.search_refresh_token += 1
 
         if not st.session_state.search_requested:
             st.info("Choose a date range and click Search to run the SEC scrape.")
@@ -803,7 +819,7 @@ with st.container():
 
             try:
                 with st.spinner("Searching SEC filings for the selected date range..."):
-                    filing_events = load_filing_events(
+                    filing_events, fetched_at = load_filing_events(
                         DATA_VERSION,
                         st.session_state.search_refresh_token,
                         st.session_state.search_start_date,
@@ -897,6 +913,10 @@ with st.container():
                         f"Latest filing: {latest_date}. Snapshot contains {filings_count} funds derived from "
                         f"{filing_event_count} filing events. Readiness timing follows the checked Rule 485 "
                         "option in each filing when detected."
+                    )
+                    st.caption(
+                        f"Data as of {fetched_at.strftime('%I:%M %p').lstrip('0')} "
+                        "(cached up to 30 min; use Force refresh for live data)."
                     )
 
                     theme_counts = summarize_themes(filtered_df["etf_name"])
