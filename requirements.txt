@@ -1,3 +1,6 @@
-requests
-beautifulsoup4
-openpyxl
+# Runtime: Python 3.14 locally and on Streamlit Community Cloud.
+requests>=2.34.2,<3
+beautifulsoup4>=4.15.0,<5
+openpyxl>=3.1.5,<4
+streamlit>=1.59.2,<2
+pandas>=3.0.3,<4
