@@ -77,6 +77,52 @@ class Rule485EffectivenessTests(unittest.TestCase):
 
 
 class FilingHistoryTests(unittest.TestCase):
+    def test_two_cik_search_retains_healthy_events_and_reports_failure(self):
+        healthy_cik = "0000000001"
+        failed_cik = "0000000002"
+        healthy_filings = {
+            "filer_name": "Healthy Trust",
+            "recent": {
+                "form": ["N-1A"],
+                "filingDate": ["2025-01-15"],
+                "acceptanceDateTime": ["2025-01-15T12:00:00Z"],
+                "accessionNumber": ["0000000001-25-000001"],
+                "primaryDocument": [""],
+            },
+        }
+
+        def fake_recent_filings(cik):
+            if cik == failed_cik:
+                raise RuntimeError("SEC submissions unavailable")
+            return healthy_filings
+
+        with patch(
+            "sec_filings.fetch_recent_filings_for_cik",
+            side_effect=fake_recent_filings,
+        ), patch(
+            "sec_filings.get_response_text",
+            return_value="""
+            <table><tr class="contractRow">
+              <td></td><td></td><td>Healthy ETF</td><td>HLTH</td>
+            </tr></table>
+            """,
+        ):
+            events = fetch_filing_events(
+                date(2025, 1, 1),
+                date(2025, 1, 31),
+                ciks=[healthy_cik, failed_cik],
+            )
+
+        statuses = {status["cik"]: status for status in events.statuses}
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["cik"], healthy_cik)
+        self.assertTrue(statuses[healthy_cik]["success"])
+        self.assertFalse(statuses[failed_cik]["success"])
+        self.assertIn(
+            "SEC submissions unavailable",
+            statuses[failed_cik]["error_summary"],
+        )
+
     def test_historical_search_does_not_fetch_beyond_enrichment_window(self):
         requested_urls = []
         recent_filings = {

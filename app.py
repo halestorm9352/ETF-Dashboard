@@ -370,8 +370,8 @@ st.markdown(
 
 @st.cache_data(ttl=1800)
 def load_filing_events(data_version, refresh_token, start_date, end_date, selected_ciks):
-    events = fetch_filing_events(start_date, end_date, ciks=selected_ciks)
-    return events, datetime.now()
+    event_results = fetch_filing_events(start_date, end_date, ciks=selected_ciks)
+    return list(event_results), list(event_results.statuses), datetime.now()
 
 
 def _issuer_groups_for_segment(segment):
@@ -819,7 +819,7 @@ with st.container():
 
             try:
                 with st.spinner("Searching SEC filings for the selected date range..."):
-                    filing_events, fetched_at = load_filing_events(
+                    filing_events, filing_statuses, fetched_at = load_filing_events(
                         DATA_VERSION,
                         st.session_state.search_refresh_token,
                         st.session_state.search_start_date,
@@ -833,6 +833,25 @@ with st.container():
                 )
                 st.caption(f"Temporary data source issue: {type(exc).__name__}")
             else:
+                failed_statuses = [
+                    status for status in filing_statuses if not status.get("success", False)
+                ]
+                succeeded_count = len(filing_statuses) - len(failed_statuses)
+                st.caption(
+                    f"Searched {len(filing_statuses)} filers; {succeeded_count} succeeded, "
+                    f"{len(failed_statuses)} failed."
+                )
+                if failed_statuses:
+                    failed_filers = ", ".join(
+                        sorted(
+                            {
+                                str(status.get("filer") or status.get("cik") or "Unknown")
+                                for status in failed_statuses
+                            }
+                        )
+                    )
+                    st.warning(f"Partial SEC coverage. Failed filers: {failed_filers}.")
+
                 snapshot_df = pd.DataFrame(derive_latest_fund_rows(filing_events))
                 df = snapshot_df
                 if not df.empty:
@@ -974,10 +993,14 @@ with st.container():
                         "One latest row per ETF. Amendment counts and filing-form history are included in the workbook."
                     )
 
-                    st.success(
+                    result_message = (
                         f"Loaded {filings_count} latest fund snapshot row(s) from "
                         f"{filing_event_count} filing event(s)."
                     )
+                    if failed_statuses:
+                        st.info(f"{result_message} Results are incomplete because some filers failed.")
+                    else:
+                        st.success(result_message)
                     st.caption(
                         "Latest snapshot: one row per ETF, using its most recent filing in the selected period."
                     )

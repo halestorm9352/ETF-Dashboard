@@ -28,6 +28,16 @@ from sec_parsers import (
 )
 
 
+class FilingEventResults(list[dict[str, str]]):
+    def __init__(
+        self,
+        events: list[dict[str, str]] | None = None,
+        statuses: list[dict[str, Any]] | None = None,
+    ) -> None:
+        super().__init__(events or [])
+        self.statuses = statuses or []
+
+
 def extract_text(url: str, max_chars: int = INDEX_PAGE_MAX_CHARS) -> str:
     return get_response_text(url, max_chars)
 
@@ -60,6 +70,7 @@ def fetch_supporting_document_texts(
 def fetch_recent_filings_for_cik(cik: str) -> dict[str, Any]:
     url = f"https://data.sec.gov/submissions/CIK{cik}.json"
     session = get_http_session()
+    last_error = ""
     for attempt in range(3):
         try:
             response = session.get(url, timeout=20)
@@ -69,16 +80,19 @@ def fetch_recent_filings_for_cik(cik: str) -> dict[str, Any]:
                 "filer_name": data.get("name", CIK_LOOKUP.get(cik, cik)),
                 "recent": data.get("filings", {}).get("recent", {}),
             }
-        except requests.RequestException:
+        except requests.RequestException as exc:
+            last_error = f"{type(exc).__name__}: {exc}"
             if attempt == 2:
                 return {
                     "filer_name": CIK_LOOKUP.get(cik, cik),
                     "recent": {},
+                    "_error": last_error,
                 }
 
     return {
         "filer_name": CIK_LOOKUP.get(cik, cik),
         "recent": {},
+        "_error": last_error or "SEC submissions request failed",
     }
 
 
@@ -243,15 +257,15 @@ def _is_placeholder_share_class_name(name: str) -> bool:
     return bool(re.fullmatch(r"Class\s+[A-Z0-9]+", str(name or "").strip(), re.IGNORECASE))
 
 
-def _fetch_filings_for_cik(
+def _fetch_filing_rows_for_cik(
     cik: str,
     start_bound: datetime,
     end_bound: datetime,
+    cik_data: dict[str, Any],
     primary_document_workers: int = 1,
 ) -> list[dict[str, str]]:
     results: list[dict[str, str]] = []
     seen_links: set[str] = set()
-    cik_data = fetch_recent_filings_for_cik(cik)
     filer_name = str(cik_data.get("filer_name", CIK_LOOKUP.get(cik, cik))).upper()
     recent = cik_data.get("recent", {})
     if not recent:
@@ -467,29 +481,77 @@ def _fetch_filings_for_cik(
     return results
 
 
-def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> list[dict[str, str]]:
+def _fetch_filings_for_cik(
+    cik: str,
+    start_bound: datetime,
+    end_bound: datetime,
+    primary_document_workers: int = 1,
+) -> tuple[list[dict[str, str]], dict[str, Any]]:
+    filer_name = _display_filer_name(cik, CIK_LOOKUP.get(cik, cik))
+    try:
+        cik_data = fetch_recent_filings_for_cik(cik)
+        filer_name = _display_filer_name(
+            cik,
+            str(cik_data.get("filer_name", CIK_LOOKUP.get(cik, cik))),
+        )
+        if cik_data.get("_error"):
+            raise RuntimeError(str(cik_data["_error"]))
+        rows = _fetch_filing_rows_for_cik(
+            cik,
+            start_bound,
+            end_bound,
+            cik_data,
+            primary_document_workers,
+        )
+    except Exception as exc:
+        return [], {
+            "cik": cik,
+            "filer": filer_name,
+            "status": "failed",
+            "success": False,
+            "failed": True,
+            "row_count": 0,
+            "error_summary": f"{type(exc).__name__}: {exc}",
+        }
+
+    return rows, {
+        "cik": cik,
+        "filer": filer_name,
+        "status": "success",
+        "success": True,
+        "failed": False,
+        "row_count": len(rows),
+        "error_summary": "",
+    }
+
+
+def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEventResults:
     results: list[dict[str, str]] = []
+    statuses_by_cik: dict[str, dict[str, Any]] = {}
     start_bound = datetime.combine(start_date, datetime.min.time()) if start_date else datetime.today() - timedelta(days=DAYS_BACK)
     end_bound = datetime.combine(end_date, datetime.max.time()) if end_date else datetime.today()
     enrichment_end_bound = min(datetime.today(), end_bound + timedelta(days=90))
     selected_ciks = list(ciks) if ciks else CIKS
     if not selected_ciks:
-        return results
+        return FilingEventResults()
 
     worker_count = max(1, min(SEC_MAX_WORKERS, len(selected_ciks)))
     if worker_count == 1:
         for cik in selected_ciks:
-            results.extend(
-                _fetch_filings_for_cik(
-                    cik,
-                    start_bound,
-                    enrichment_end_bound,
-                    primary_document_workers=4,
-                )
+            cik_rows, status = _fetch_filings_for_cik(
+                cik,
+                start_bound,
+                enrichment_end_bound,
+                primary_document_workers=4,
             )
+            results.extend(cik_rows)
+            statuses_by_cik[cik] = status
         enriched_results = _enrich_missing_tickers_from_later_filings(results)
         bounded_results = _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
-        return sorted(bounded_results, key=_row_timestamp, reverse=True)
+        return FilingEventResults(
+            sorted(bounded_results, key=_row_timestamp, reverse=True),
+            [statuses_by_cik[cik] for cik in selected_ciks],
+        )
 
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         future_map = {
@@ -503,14 +565,28 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> list[dict[
             for cik in selected_ciks
         }
         for future in as_completed(future_map):
+            cik = future_map[future]
             try:
-                results.extend(future.result())
-            except Exception:
-                continue
+                cik_rows, status = future.result()
+                results.extend(cik_rows)
+                statuses_by_cik[cik] = status
+            except Exception as exc:
+                statuses_by_cik[cik] = {
+                    "cik": cik,
+                    "filer": _display_filer_name(cik, CIK_LOOKUP.get(cik, cik)),
+                    "status": "failed",
+                    "success": False,
+                    "failed": True,
+                    "row_count": 0,
+                    "error_summary": f"{type(exc).__name__}: {exc}",
+                }
 
     enriched_results = _enrich_missing_tickers_from_later_filings(results)
     bounded_results = _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
-    return sorted(bounded_results, key=_row_timestamp, reverse=True)
+    return FilingEventResults(
+        sorted(bounded_results, key=_row_timestamp, reverse=True),
+        [statuses_by_cik[cik] for cik in selected_ciks],
+    )
 
 
 def fetch_filings(start_date=None, end_date=None, ciks=None) -> list[dict[str, str]]:
