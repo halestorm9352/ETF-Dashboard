@@ -471,7 +471,7 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> list[dict[
     results: list[dict[str, str]] = []
     start_bound = datetime.combine(start_date, datetime.min.time()) if start_date else datetime.today() - timedelta(days=DAYS_BACK)
     end_bound = datetime.combine(end_date, datetime.max.time()) if end_date else datetime.today()
-    enrichment_end_bound = max(end_bound, datetime.today())
+    enrichment_end_bound = min(datetime.today(), end_bound + timedelta(days=90))
     selected_ciks = list(ciks) if ciks else CIKS
     if not selected_ciks:
         return results

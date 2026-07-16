@@ -1,8 +1,11 @@
 import unittest
+from datetime import date
+from unittest.mock import patch
 
 from sec_filings import (
     _enrich_missing_tickers_from_later_filings,
     derive_latest_fund_rows,
+    fetch_filing_events,
 )
 from sec_parsers import extract_rule_485_effectiveness
 
@@ -74,6 +77,51 @@ class Rule485EffectivenessTests(unittest.TestCase):
 
 
 class FilingHistoryTests(unittest.TestCase):
+    def test_historical_search_does_not_fetch_beyond_enrichment_window(self):
+        requested_urls = []
+        recent_filings = {
+            "filer_name": "Example Trust",
+            "recent": {
+                "form": ["N-1A", "N-1A", "N-1A"],
+                "filingDate": ["2025-01-15", "2025-03-15", "2025-05-02"],
+                "acceptanceDateTime": [
+                    "2025-01-15T12:00:00Z",
+                    "2025-03-15T12:00:00Z",
+                    "2025-05-02T12:00:00Z",
+                ],
+                "accessionNumber": [
+                    "0000000001-25-000001",
+                    "0000000001-25-000002",
+                    "0000000001-25-000003",
+                ],
+                "primaryDocument": ["", "", ""],
+            },
+        }
+
+        def fake_get_response_text(url, max_chars):
+            requested_urls.append(url)
+            return """
+            <table><tr class="contractRow">
+              <td></td><td></td><td>Example ETF</td><td>EXAM</td>
+            </tr></table>
+            """
+
+        with patch(
+            "sec_filings.fetch_recent_filings_for_cik",
+            return_value=recent_filings,
+        ), patch("sec_filings.get_response_text", side_effect=fake_get_response_text):
+            events = fetch_filing_events(
+                date(2025, 1, 1),
+                date(2025, 1, 31),
+                ciks=["0000000001"],
+            )
+
+        requested = "\n".join(requested_urls)
+        self.assertIn("000000000125000001", requested)
+        self.assertIn("000000000125000002", requested)
+        self.assertNotIn("000000000125000003", requested)
+        self.assertEqual([event["date"] for event in events], ["2025-01-15"])
+
     def test_latest_snapshot_does_not_remove_events_from_source_list(self):
         events = [
             {
