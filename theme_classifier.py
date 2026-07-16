@@ -50,6 +50,7 @@ OPTIONS_INCOME_TERMS = (
     "defined outcome",
     "downside protection",
     "income premium",
+    "option income",
     "options income",
     "premium income",
     "putwrite",
@@ -116,6 +117,8 @@ DIVIDEND_TERMS = (
 TARGET_MATURITY_TERMS = (
     "target maturity",
     "defined maturity",
+    "ibonds",
+    "ladder",
     "maturity bond",
 )
 
@@ -155,7 +158,7 @@ THEMATIC_EQUITY_TERMS = (
 
 def _normalized_name(name: str) -> str:
     text = str(name or "").lower()
-    text = text.replace("/", " ")
+    text = re.sub(r"[-/]", " ", text)
     return " ".join(text.split())
 
 
@@ -179,7 +182,7 @@ def _is_leveraged_or_inverse(name: str) -> bool:
     if re.search(r"\b[+-]?\d+(?:\.\d+)?x\b", text, re.IGNORECASE):
         return True
 
-    if re.search(r"\b(leveraged|inverse|ultra|ultrapro|ultrashort|geared)\b", text):
+    if re.search(r"\b(leveraged|inverse|ultra|ultrapro|quadpro|ultrashort|geared)\b", text):
         return True
 
     if re.search(r"\b(bull|bear)\b", text):

@@ -223,13 +223,18 @@ DATA_VERSION = "2026-06-18-filing-events-v2"
 ETFCOM_DATA_VERSION = "2026-05-29-launch-flow-stale-audit-v1"
 INVALID_TICKERS = {
     "AND",
+    "ARCA",
+    "BATS",
+    "CBOE",
     "CIK",
     "DATE",
     "EACH",
+    "EDGX",
     "ETF",
     "EXCH",
     "FREE",
     "FUND",
+    "LONG",
     "MID",
     "NAME",
     "NONE",

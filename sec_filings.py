@@ -129,23 +129,37 @@ def _merge_series_entries_with_pairs(
     pair_lookup: dict[str, str] = {}
     for pair in named_ticker_pairs:
         normalized_name = normalize_etf_name(pair.get("etf_name", ""))
-        ticker = pair.get("ticker", "")
-        if normalized_name and ticker:
+        ticker = sanitize_ticker(pair.get("ticker", ""))
+        if normalized_name and ticker != "Not Listed":
             pair_lookup[normalized_name] = ticker
 
-    for entry in merged_entries:
+    proposed_tickers: dict[int, str] = {}
+    for index, entry in enumerate(merged_entries):
         if entry.get("ticker"):
             continue
         normalized_entry_name = normalize_etf_name(entry.get("etf_name", ""))
         if normalized_entry_name in pair_lookup:
-            entry["ticker"] = pair_lookup[normalized_entry_name]
+            proposed_tickers[index] = pair_lookup[normalized_entry_name]
             continue
         for pair_name, pair_ticker in pair_lookup.items():
             if normalized_entry_name and (
                 normalized_entry_name in pair_name or pair_name in normalized_entry_name
             ):
-                entry["ticker"] = pair_ticker
+                proposed_tickers[index] = pair_ticker
                 break
+
+    proposal_counts: dict[str, int] = {}
+    for ticker in proposed_tickers.values():
+        proposal_counts[ticker] = proposal_counts.get(ticker, 0) + 1
+    table_tickers: set[str] = set()
+    for entry in merged_entries:
+        table_ticker = sanitize_ticker(entry.get("ticker", ""))
+        if table_ticker != "Not Listed":
+            table_tickers.add(table_ticker)
+
+    for index, ticker in proposed_tickers.items():
+        if proposal_counts[ticker] == 1 and ticker not in table_tickers:
+            merged_entries[index]["ticker"] = ticker
 
     return merged_entries
 
@@ -254,7 +268,13 @@ def derive_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
 
 
 def _is_placeholder_share_class_name(name: str) -> bool:
-    return bool(re.fullmatch(r"Class\s+[A-Z0-9]+", str(name or "").strip(), re.IGNORECASE))
+    value = str(name or "").strip()
+    class_label = r"Class\s+[A-Z0-9]+(?:-[A-Z0-9]+)?(?:\s+Shares)?"
+    named_class = r"(?:Institutional|Investor|Retail)\s+Class(?:\s+Shares)?"
+    return bool(
+        re.fullmatch(rf"(?:{class_label}|{named_class})", value, re.IGNORECASE)
+        or re.search(rf":\s*{class_label}$", value, re.IGNORECASE)
+    )
 
 
 def _fetch_filing_rows_for_cik(
