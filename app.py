@@ -61,6 +61,7 @@ derive_latest_fund_rows = sec_filings_module.derive_latest_fund_rows
 fetch_filing_events = sec_filings_module.fetch_filing_events
 sanitize_ticker = sec_parsers_module.sanitize_ticker
 from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
+from readiness import add_launch_readiness_columns
 
 
 st.set_page_config(page_title="ETF Dash", layout="wide")
@@ -382,63 +383,6 @@ def _issuer_groups_for_segment(segment):
         for group_name in CIK_GROUP_OPTIONS
         if classify_flow_group(group_name) == segment
     ]
-
-
-def _classify_filing_stage(form):
-    form_value = str(form or "").upper()
-    if form_value in {"S-1", "N-1A"}:
-        return "Initial filing"
-    if form_value == "485APOS":
-        return "Rule 485(a) amendment"
-    if form_value == "485BPOS":
-        return "Rule 485(b) amendment"
-    return "Filing"
-
-
-def _earliest_auto_effective_date(row):
-    filing_date = row.get("date")
-    if pd.isna(filing_date):
-        return pd.NaT
-
-    designated_date = str(row.get("designated_effective_date", "") or "").strip()
-    if designated_date:
-        parsed_date = pd.to_datetime(designated_date, errors="coerce")
-        if not pd.isna(parsed_date):
-            return parsed_date
-
-    effectiveness_days = row.get("effectiveness_days")
-    parsed_days = pd.to_numeric(effectiveness_days, errors="coerce")
-    if not pd.isna(parsed_days):
-        return filing_date + pd.Timedelta(days=int(parsed_days))
-    return pd.NaT
-
-
-def _readiness_status(row, today):
-    ticker = sanitize_ticker(row.get("ticker", ""))
-    readiness_date = row.get("earliest_auto_effective_date")
-    form_value = str(row.get("form", "")).upper()
-
-    if form_value in {"S-1", "N-1A"}:
-        return "Initial review"
-    if pd.isna(readiness_date):
-        return "Timing not detected"
-    if ticker == "Not Listed":
-        return "Needs ticker"
-    if readiness_date.date() <= today:
-        return "Launch candidate"
-    return "Waiting on effectiveness"
-
-
-def _add_launch_readiness_columns(df):
-    enriched_df = df.copy()
-    today = datetime.today().date()
-    enriched_df["filing_stage"] = enriched_df["form"].apply(_classify_filing_stage)
-    enriched_df["earliest_auto_effective_date"] = enriched_df.apply(_earliest_auto_effective_date, axis=1)
-    enriched_df["launch_readiness"] = enriched_df.apply(lambda row: _readiness_status(row, today), axis=1)
-    enriched_df["days_to_readiness"] = enriched_df["earliest_auto_effective_date"].apply(
-        lambda value: "" if pd.isna(value) else (value.date() - today).days
-    )
-    return enriched_df
 
 
 def _latest_snapshot_workbook(df):
@@ -891,7 +835,7 @@ with st.container():
                     )
                     filtered_df["ticker"] = filtered_df["ticker"].apply(sanitize_ticker)
                     filtered_df["themes"] = filtered_df["etf_name"].apply(classify_primary_theme)
-                    filtered_df = _add_launch_readiness_columns(filtered_df)
+                    filtered_df = add_launch_readiness_columns(filtered_df)
 
                     display_df = filtered_df.copy()
                     display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
