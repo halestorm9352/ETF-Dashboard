@@ -5,6 +5,13 @@ from typing import Any
 from bs4 import BeautifulSoup
 
 from config import INVALID_TICKERS
+from vehicle_classifier import (
+    UNKNOWN_VEHICLE,
+    classify_vehicle,
+    is_mutual_fund_ticker,
+    is_share_class_name,
+    uses_parent_series_identity,
+)
 
 
 def clean_html_text(value: str) -> str:
@@ -445,21 +452,32 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
 
         class_match = re.search(r"\b(C\d{9})\b", cells[0].get_text(" ", strip=True))
         class_id = class_match.group(1) if class_match else ""
-        name = clean_html_text(cells[2].get_text(" ", strip=True))
+        class_name = clean_html_text(cells[2].get_text(" ", strip=True))
         ticker = clean_html_text(cells[3].get_text(" ", strip=True)).upper()
-        if not name:
+        if not class_name:
             continue
-        if ticker and not re.fullmatch(r"[A-Z]{3,4}", ticker):
+        if ticker and not (
+            re.fullmatch(r"[A-Z]{3,4}", ticker)
+            or is_mutual_fund_ticker(ticker)
+        ):
             ticker = ""
-        parsed_entries.append(
-            {
-                "etf_name": name,
-                "ticker": ticker if ticker not in INVALID_TICKERS else "",
-                "series_id": current_series_id,
-                "series_name": current_series_name,
-                "class_id": class_id,
-            }
+        entry = {
+            "etf_name": (
+                current_series_name
+                if current_series_name and is_share_class_name(class_name)
+                else class_name
+            ),
+            "class_name": class_name,
+            "ticker": ticker if ticker not in INVALID_TICKERS else "",
+            "series_id": current_series_id,
+            "series_name": current_series_name,
+            "class_id": class_id,
+        }
+        entry["vehicle"] = classify_vehicle(entry)
+        entry["identity_scope"] = (
+            "series" if uses_parent_series_identity(entry) else "class"
         )
+        parsed_entries.append(entry)
 
     if parsed_entries:
         return parsed_entries
@@ -480,10 +498,13 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
         entries.append(
             {
                 "etf_name": name,
+                "class_name": name,
                 "ticker": ticker if ticker not in INVALID_TICKERS else "",
                 "series_id": "",
                 "series_name": "",
                 "class_id": "",
+                "vehicle": UNKNOWN_VEHICLE,
+                "identity_scope": "name",
             }
         )
 
@@ -504,10 +525,13 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
         entries.append(
             {
                 "etf_name": contract_name.strip(),
+                "class_name": contract_name.strip(),
                 "ticker": ticker.upper() if ticker and ticker.upper() not in INVALID_TICKERS else "",
                 "series_id": "",
                 "series_name": "",
                 "class_id": "",
+                "vehicle": UNKNOWN_VEHICLE,
+                "identity_scope": "name",
             }
         )
     generic_text_matches = re.finditer(
@@ -537,10 +561,13 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
         entries.append(
             {
                 "etf_name": name,
+                "class_name": name,
                 "ticker": ticker if ticker and ticker.upper() not in INVALID_TICKERS else "",
                 "series_id": "",
                 "series_name": "",
                 "class_id": "",
+                "vehicle": UNKNOWN_VEHICLE,
+                "identity_scope": "name",
             }
         )
     return entries

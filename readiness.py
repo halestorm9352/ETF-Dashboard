@@ -3,6 +3,7 @@ from datetime import datetime
 import pandas as pd
 
 from sec_parsers import sanitize_ticker
+from vehicle_classifier import ETF_VEHICLE, is_vehicle_ticker_present
 
 
 def classify_filing_stage(form):
@@ -45,7 +46,9 @@ def filing_form_history(row) -> list[str]:
 
 
 def readiness_status(row, today):
-    ticker = sanitize_ticker(row.get("ticker", ""))
+    ticker_present = is_vehicle_ticker_present(row) or (
+        sanitize_ticker(row.get("ticker", "")) != "Not Listed"
+    )
     readiness_date = row.get("earliest_auto_effective_date")
     form_value = str(row.get("form", "")).upper()
 
@@ -53,11 +56,15 @@ def readiness_status(row, today):
         return "Initial review"
     if pd.isna(readiness_date):
         return "Timing not detected"
-    if ticker == "Not Listed":
+    if not ticker_present:
         return "Needs ticker"
     if readiness_date.date() <= today:
         history = filing_form_history(row)
-        if history and history[0] in {"S-1", "N-1A", "485APOS"}:
+        if (
+            history
+            and history[0] in {"S-1", "N-1A", "485APOS"}
+            and row.get("vehicle") == ETF_VEHICLE
+        ):
             return "Launch candidate"
         if history and all(form == "485BPOS" for form in history):
             return "Effective (485(b) update)"

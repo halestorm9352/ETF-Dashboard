@@ -8,6 +8,7 @@ from sec_parsers import (
     extract_series_entries,
     extract_ticker,
 )
+from vehicle_classifier import MUTUAL_FUND_SHARE_CLASS
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "sec"
@@ -81,7 +82,7 @@ class SecParserFixtureTests(unittest.TestCase):
         self.assertEqual({pair["ticker"] for pair in pairs}, {"XXXX"})
         self.assertTrue(all(entry["ticker"] == "" for entry in merged))
 
-    def test_485apos_placeholder_classes_are_current_parser_identities(self):
+    def test_485apos_placeholder_classes_display_under_parent_series(self):
         text = load_fixture("american_funds_485apos_index.html")
 
         entries = extract_series_entries(text)
@@ -89,48 +90,76 @@ class SecParserFixtureTests(unittest.TestCase):
         self.assertEqual(
             [entry["etf_name"] for entry in entries],
             [
-                "Class 1",
-                "Class 2",
-                "Class 4",
-                "Class 1A",
-                "Class 1",
-                "Class 2",
-                "Class 3",
-                "Class 4",
-                "Class 1A",
-                "Class P1",
-                "Class P2",
+                "Global Small Capitalization Fund",
+                "Global Small Capitalization Fund",
+                "Global Small Capitalization Fund",
+                "Global Small Capitalization Fund",
+                "International Fund",
+                "International Fund",
+                "International Fund",
+                "International Fund",
+                "International Fund",
+                "Managed Risk International Fund",
+                "Managed Risk International Fund",
             ],
         )
+        self.assertEqual(entries[0]["class_name"], "Class 1")
+        self.assertEqual(entries[-1]["class_name"], "Class P2")
+        self.assertTrue(
+            all(entry["vehicle"] == MUTUAL_FUND_SHARE_CLASS for entry in entries)
+        )
+        self.assertTrue(all(entry["identity_scope"] == "series" for entry in entries))
         self.assertEqual(entries[0]["series_id"], "S000008790")
         self.assertEqual(entries[0]["series_name"], "Global Small Capitalization Fund")
         self.assertEqual(entries[4]["series_id"], "S000008792")
         self.assertEqual(entries[-1]["series_id"], "S000040666")
 
-    # Increment 8.5 associates classes with their parent series and prevents
-    # class-only names from becoming standalone snapshot identities.
-    @unittest.expectedFailure
-    def test_485apos_placeholder_classes_eventually_include_parent_series(self):
+    def test_485apos_placeholder_classes_include_parent_series(self):
         text = load_fixture("american_funds_485apos_index.html")
 
         entries = extract_series_entries(text)
 
-        self.assertTrue(all(not entry["etf_name"].startswith("Class ") for entry in entries))
+        self.assertTrue(all(entry["etf_name"] == entry["series_name"] for entry in entries))
+        self.assertTrue(all(entry["class_name"].startswith("Class ") for entry in entries))
 
-    def test_485bpos_mutual_fund_classes_currently_drop_five_letter_tickers(self):
+    def test_485bpos_mutual_fund_classes_keep_five_letter_tickers(self):
         text = load_fixture("fidelity_485bpos_index.html")
 
         entries = extract_series_entries(text)
 
         self.assertEqual(len(entries), 13)
-        self.assertEqual(entries[1]["etf_name"], "Fidelity Advisor Large Cap Stock Fund: Class C")
+        self.assertEqual(entries[1]["etf_name"], "Fidelity Large Cap Stock Fund")
+        self.assertEqual(
+            entries[1]["class_name"],
+            "Fidelity Advisor Large Cap Stock Fund: Class C",
+        )
         self.assertEqual(entries[0]["series_id"], "S000055364")
         self.assertEqual(entries[0]["class_id"], "C000174182")
         self.assertEqual(entries[5]["class_id"], "C000259433")
-        self.assertEqual(entries[5]["ticker"], "")
+        self.assertEqual(entries[5]["ticker"], "FLAFX")
         self.assertEqual(entries[6]["series_id"], "S000055365")
         self.assertEqual(entries[7]["class_id"], "C000174184")
-        self.assertTrue(all(entry["ticker"] == "" for entry in entries))
+        self.assertEqual(
+            [entry["ticker"] for entry in entries],
+            [
+                "FLCSX",
+                "FLAJX",
+                "FLAHX",
+                "FHZTX",
+                "FLAZX",
+                "FLAFX",
+                "FMCSX",
+                "FKMCX",
+                "FMCNX",
+                "FMCWX",
+                "FMCHX",
+                "FMCJX",
+                "FMCQX",
+            ],
+        )
+        self.assertTrue(
+            all(entry["vehicle"] == MUTUAL_FUND_SHARE_CLASS for entry in entries)
+        )
 
     def test_tags_intact_edgar_table_preserves_real_cell_offsets(self):
         text = load_fixture("fidelity_485bpos_index.html")
@@ -139,7 +168,11 @@ class SecParserFixtureTests(unittest.TestCase):
 
         self.assertIn('<td class="seriesName" scope="row">', text)
         self.assertEqual(
-            (entries[5]["series_id"], entries[5]["class_id"], entries[5]["etf_name"]),
+            (
+                entries[5]["series_id"],
+                entries[5]["class_id"],
+                entries[5]["class_name"],
+            ),
             (
                 "S000055364",
                 "C000259433",
@@ -147,10 +180,7 @@ class SecParserFixtureTests(unittest.TestCase):
             ),
         )
 
-    # Increment 8.5 captures class-level C-numbers and five-letter mutual-fund
-    # tickers as evidence for vehicle classification.
-    @unittest.expectedFailure
-    def test_485bpos_mutual_fund_classes_eventually_keep_five_letter_tickers(self):
+    def test_485bpos_mutual_fund_class_tickers_are_classification_evidence(self):
         text = load_fixture("fidelity_485bpos_index.html")
 
         entries = extract_series_entries(text)

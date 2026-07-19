@@ -12,6 +12,7 @@ from sec_filings import (
     normalize_event_ticker,
 )
 from sec_parsers import extract_rule_485_effectiveness
+from vehicle_classifier import ETF_VEHICLE
 
 
 class Rule485EffectivenessTests(unittest.TestCase):
@@ -162,6 +163,7 @@ class FilingHistoryTests(unittest.TestCase):
         self.assertEqual(events[0]["class_id"], "C000233738")
         self.assertEqual(events[0]["ticker"], "SELV")
         self.assertEqual(events[0]["ticker_at_filing"], "Not Listed")
+        self.assertEqual(events[0]["vehicle"], ETF_VEHICLE)
 
     def test_later_filing_fallback_skips_rows_with_sec_identity(self):
         events = [

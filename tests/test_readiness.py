@@ -1,9 +1,10 @@
 import unittest
-from datetime import date
+from datetime import date, datetime
 
 import pandas as pd
 
-from readiness import readiness_status
+from readiness import add_launch_readiness_columns, readiness_status
+from vehicle_classifier import ETF_VEHICLE, MUTUAL_FUND_SHARE_CLASS
 
 
 class LaunchReadinessTests(unittest.TestCase):
@@ -16,6 +17,7 @@ class LaunchReadinessTests(unittest.TestCase):
             "form": "485BPOS",
             "filing_form_history": "485BPOS",
             "ticker": "EXAM",
+            "vehicle": ETF_VEHICLE,
             "earliest_auto_effective_date": self.EFFECTIVE_DATE,
         }
         row.update(overrides)
@@ -46,6 +48,49 @@ class LaunchReadinessTests(unittest.TestCase):
             self.readiness(filing_form_history="485BPOS -> 485APOS"),
             "Effective (amendment)",
         )
+
+    def test_authoritative_mapped_mutual_fund_ticker_is_ticker_bearing(self):
+        self.assertEqual(
+            self.readiness(
+                ticker="FLCSX",
+                ticker_source="sec_fund_ticker_map",
+                vehicle=MUTUAL_FUND_SHARE_CLASS,
+            ),
+            "Effective (485(b) update)",
+        )
+
+    def test_mutual_fund_share_class_is_not_a_launch_candidate(self):
+        self.assertEqual(
+            self.readiness(
+                form="485APOS",
+                filing_form_history="485APOS",
+                ticker="FLCSX",
+                ticker_source="sec_fund_ticker_map",
+                vehicle=MUTUAL_FUND_SHARE_CLASS,
+            ),
+            "Effective (amendment)",
+        )
+
+    def test_readiness_columns_retain_mutual_fund_rows(self):
+        rows = pd.DataFrame(
+            [
+                {
+                    "form": "485BPOS",
+                    "filing_form_history": "485BPOS",
+                    "ticker": "FLCSX",
+                    "ticker_source": "sec_fund_ticker_map",
+                    "vehicle": MUTUAL_FUND_SHARE_CLASS,
+                    "date": pd.Timestamp(datetime.today().date()),
+                    "effectiveness_days": 0,
+                }
+            ]
+        )
+
+        result = add_launch_readiness_columns(rows)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.iloc[0]["vehicle"], MUTUAL_FUND_SHARE_CLASS)
+        self.assertEqual(result.iloc[0]["launch_readiness"], "Effective (485(b) update)")
 
     def test_existing_readiness_states_are_unchanged(self):
         cases = (

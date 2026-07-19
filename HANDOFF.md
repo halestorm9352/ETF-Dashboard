@@ -18,8 +18,9 @@ Last updated: 2026-07-19
 - The local `origin/main` tracking ref still shows `40c100d` because no fetch
   was performed during Increment 8; do not treat that stale ref as permission
   to push.
-- Increment 8 is implemented locally for independent review.
-- Do not push or deploy Increment 8 until explicitly authorized.
+- User-confirmed approved Increment 8 commit: `bcf9427`.
+- Increment 8.5 is implemented locally for independent review.
+- Do not push or deploy Increment 8.5 until explicitly authorized.
 
 ## Completed Increments
 
@@ -32,6 +33,8 @@ Last updated: 2026-07-19
 - Increment 5.5: tightened ticker, placeholder-name, and theme data hygiene.
 - Increment 6: gated launch candidates by filing history.
 - Increment 7: added accession-sourced parser fixtures and baseline tests.
+- Increment 8: established SEC series/class identity and exact fund-ticker
+  mapping enrichment.
 
 ## Increment 8
 
@@ -123,25 +126,80 @@ New coverage includes:
 - Name-only history bridging to a unique SEC identity without duplicates.
 - Genuine EDGAR table cell offsets and corrected fixture relationships.
 
-## Expected Failures
+## Increment 8.5
 
-All three Increment 7 expected failures remain deliberate:
+### Vehicle Classification
 
-- S-1/A quoted-prose `IBIT` extraction remains assigned to Increment 9.
-- Placeholder class rows still appear as class names in raw parser output;
-  Increment 8 now supplies parent context, while Increment 8.5 will implement
-  vehicle-aware display and reintroduction.
-- Raw heuristic parsing still rejects five-letter mutual-fund tickers;
-  Increment 8 enriches them at the event layer through exact SEC IDs, while
-  Increment 8.5 will use class tickers for vehicle classification.
+Events and snapshot rows now include `class_name`, `vehicle`, and an internal
+`identity_scope`. The user-facing vehicle values are:
 
-## Increment 8.5 Notes
+- `ETF`
+- `Mutual fund share class`
+- `Other / unknown`
 
-- Do not exclude mutual-fund-looking rows generally.
-- Add vehicle classification and conversion-candidate detection.
-- Use the series/class relationships added in Increment 8.
-- Reintroduce relevant ETF classes keyed appropriately to their parent series.
-- Stop and ask if required index pages do not contain class-level ticker data.
+Classification precedence is:
+
+1. A five-letter ticker ending in `X`, or an explicit class-only/class-suffix
+   name, identifies a mutual-fund share class.
+2. `ETF` in the series or class name identifies an ETF.
+3. Bull/Bear `nX Shares` naming identifies an ETF.
+4. An otherwise valid one-to-four-letter ticker identifies an ETF.
+5. Rows without a high-confidence signal remain `Other / unknown`.
+
+Classification labels rows; it does not filter mutual-fund-looking rows out of
+the result table. Parent-backed class rows retain their class ID, class name,
+and ticker in source history, but display the parent series name and use the
+parent `(CIK, series_id)` for snapshot identity. Orphan class-only rows remain
+excluded, so a class label cannot become a standalone snapshot row. Multiple
+class events from one accession remain in source history but count as one
+filing occurrence in their parent-series snapshot history. Where more than one
+class is available for a series snapshot, the representative preference is ETF,
+then mutual-fund share class, then unknown, followed by ticker availability.
+
+### Readiness Changes
+
+Readiness precedence is unchanged except for the two authorized changes:
+
+1. A ticker from the exact SEC fund-ticker mapping is ticker-bearing even when
+   the legacy heuristic sanitizer would reject it. A classified mutual-fund
+   five-letter `X` ticker is also ticker-bearing. This prevents authoritative
+   symbols such as `FLCSX` from displaying `Needs ticker`.
+2. `Launch candidate` now additionally requires `vehicle == ETF`. An effective
+   mutual-fund share class with initial/amendment history falls through to
+   `Effective (amendment)`; an all-485BPOS history remains
+   `Effective (485(b) update)`.
+
+Initial review, timing detection, needs-ticker, effective-update/amendment, and
+waiting precedence were otherwise left intact. `ticker_at_filing` remains
+immutable; raw five-letter class tickers present in an SEC index table are now
+preserved as filing values.
+
+### UI And Workbook
+
+- The latest snapshot table and workbook include `class_name` and `vehicle`.
+- Copy now describes fund/parent-series snapshot rows rather than ETF-only rows.
+- The first summary card is labeled `Snapshot Rows`, and theme copy refers to
+  classified fund names.
+- Filer/date filters and the filer success/failure coverage caption are
+  unchanged because vehicle classification does not alter the search set.
+- `DATA_VERSION` was bumped to invalidate pre-classification cached shapes.
+
+### Verification
+
+- Python: fresh 3.14 virtual environment installed from `requirements.txt`.
+- Full suite: `Ran 50 tests`.
+- Result: `OK (expected failures=1)`.
+- `py_compile` passed for all changed active modules.
+- Both Increment 8.5 expected failures now pass:
+  parent-series display for class-only names, and preservation/classification
+  of five-letter mutual-fund class tickers.
+- The sole remaining expected failure is S-1/A quoted-prose `IBIT` extraction,
+  still assigned to Increment 9. Its parser regex and test were not changed.
+
+New coverage includes classification precedence, ambiguous-row handling,
+parent-series snapshot association without source-event loss, authoritative
+mapped-ticker readiness, mutual-fund launch-candidate exclusion without table
+exclusion, and the two converted fixture cases.
 
 ## Unrelated Files
 

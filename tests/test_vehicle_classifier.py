@@ -1,0 +1,77 @@
+import unittest
+
+from sec_filings import derive_latest_fund_rows
+from vehicle_classifier import (
+    ETF_VEHICLE,
+    MUTUAL_FUND_SHARE_CLASS,
+    UNKNOWN_VEHICLE,
+    classify_vehicle,
+)
+
+
+class VehicleClassifierTests(unittest.TestCase):
+    def test_class_name_and_five_letter_ticker_identify_mutual_share_classes(self):
+        cases = (
+            {"class_name": "Institutional Class", "ticker": ""},
+            {"class_name": "Fidelity Large Cap Stock Fund", "ticker": "FLCSX"},
+        )
+
+        for row in cases:
+            with self.subTest(row=row):
+                self.assertEqual(classify_vehicle(row), MUTUAL_FUND_SHARE_CLASS)
+
+    def test_etf_name_or_short_ticker_identifies_etf(self):
+        cases = (
+            {"class_name": "SEI Large Cap Factor ETF", "ticker": ""},
+            {"class_name": "Example Fund", "ticker": "EXAM"},
+        )
+
+        for row in cases:
+            with self.subTest(row=row):
+                self.assertEqual(classify_vehicle(row), ETF_VEHICLE)
+
+    def test_ambiguous_row_is_unknown(self):
+        self.assertEqual(
+            classify_vehicle({"class_name": "Example Fund", "ticker": ""}),
+            UNKNOWN_VEHICLE,
+        )
+
+    def test_parented_class_events_form_one_series_snapshot_row(self):
+        base = {
+            "cik": "819118",
+            "series_id": "S000055364",
+            "series_name": "Fidelity Large Cap Stock Fund",
+            "etf_name": "Fidelity Large Cap Stock Fund",
+            "vehicle": MUTUAL_FUND_SHARE_CLASS,
+            "identity_scope": "series",
+            "form": "485BPOS",
+            "date": "2026-07-01",
+            "timestamp": "2026-07-01T12:00:00",
+            "accession_number": "0000819118-26-000136",
+        }
+        events = [
+            {
+                **base,
+                "class_id": "C000174182",
+                "class_name": "Fidelity Large Cap Stock Fund",
+                "ticker": "FLCSX",
+            },
+            {
+                **base,
+                "class_id": "C000259429",
+                "class_name": "Fidelity Advisor Large Cap Stock Fund: Class C",
+                "ticker": "FLAJX",
+            },
+        ]
+
+        snapshot = derive_latest_fund_rows(events)
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(len(snapshot), 1)
+        self.assertEqual(snapshot[0]["etf_name"], base["series_name"])
+        self.assertEqual(snapshot[0]["series_id"], base["series_id"])
+        self.assertEqual(snapshot[0]["filing_event_count"], 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

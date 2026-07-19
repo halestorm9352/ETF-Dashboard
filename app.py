@@ -808,9 +808,11 @@ with st.container():
                         "ticker_at_filing",
                         "ticker_source",
                         "etf_name",
+                        "class_name",
                         "series_id",
                         "series_name",
                         "class_id",
+                        "vehicle",
                         "filer",
                         "form",
                         "date",
@@ -868,7 +870,7 @@ with st.container():
                     )
                     stat_cols = st.columns(4)
                     stat_cols[0].markdown(
-                        f'<div class="etf-card"><div class="etf-card-label">Filings Loaded</div><div class="etf-card-value">{filings_count}</div></div>',
+                        f'<div class="etf-card"><div class="etf-card-label">Snapshot Rows</div><div class="etf-card-value">{filings_count}</div></div>',
                         unsafe_allow_html=True,
                     )
                     stat_cols[1].markdown(
@@ -884,7 +886,7 @@ with st.container():
                         unsafe_allow_html=True,
                     )
                     st.caption(
-                        f"Latest filing: {latest_date}. Snapshot contains {filings_count} funds derived from "
+                        f"Latest filing: {latest_date}. Snapshot contains {filings_count} fund or series rows derived from "
                         f"{filing_event_count} filing events. Readiness timing follows the checked Rule 485 "
                         "option in each filing when detected."
                     )
@@ -905,7 +907,7 @@ with st.container():
                     )
                     st.markdown(
                         f"""
-                        <div class="etf-section-copy">Top filing themes from ETF names.</div>
+                        <div class="etf-section-copy">Top filing themes from classified fund names.</div>
                         <div class="etf-theme-strip">{theme_cards}</div>
                         """,
                         unsafe_allow_html=True,
@@ -914,6 +916,8 @@ with st.container():
                     export_columns = [
                         "ticker",
                         "etf_name",
+                        "class_name",
+                        "vehicle",
                         "series_id",
                         "class_id",
                         "themes",
@@ -947,7 +951,7 @@ with st.container():
                         use_container_width=True,
                     )
                     export_cols[1].caption(
-                        "One latest row per ETF. Amendment counts and filing-form history are included in the workbook."
+                        "One latest row per fund or parent series. Vehicle, amendment counts, and filing-form history are included."
                     )
 
                     result_message = (
@@ -959,7 +963,7 @@ with st.container():
                     else:
                         st.success(result_message)
                     st.caption(
-                        "Latest snapshot: one row per ETF, using its most recent filing in the selected period."
+                        "Latest snapshot: one row per fund or parent series, using its most recent filing in the selected period."
                     )
                     st.dataframe(
                         export_df,

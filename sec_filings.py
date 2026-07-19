@@ -30,6 +30,15 @@ from sec_parsers import (
     normalize_etf_name,
     sanitize_ticker,
 )
+from vehicle_classifier import (
+    ETF_VEHICLE,
+    MUTUAL_FUND_SHARE_CLASS,
+    UNKNOWN_VEHICLE,
+    classify_vehicle,
+    is_mutual_fund_ticker,
+    is_share_class_name,
+    uses_parent_series_identity,
+)
 
 
 class FilingEventResults(list[dict[str, str]]):
@@ -141,6 +150,11 @@ def normalize_event_ticker(row: dict[str, Any]) -> str:
         ticker = _official_ticker(row.get("ticker", ""))
         if ticker:
             return ticker
+    if (
+        row.get("vehicle") == MUTUAL_FUND_SHARE_CLASS
+        and is_mutual_fund_ticker(row.get("ticker", ""))
+    ):
+        return str(row.get("ticker", "")).strip().upper()
     return sanitize_ticker(row.get("ticker", ""))
 
 
@@ -261,6 +275,8 @@ def _sec_identity(row: dict[str, Any]) -> tuple[str, str, str, str] | None:
     cik = _normalized_cik(row.get("cik", ""))
     series_id = str(row.get("series_id", "") or "").strip().upper()
     class_id = str(row.get("class_id", "") or "").strip().upper()
+    if cik and series_id and row.get("identity_scope") == "series":
+        return ("sec_series", cik, series_id, "")
     if cik and series_id and class_id:
         return ("sec_class", cik, series_id, class_id)
     if cik and series_id:
@@ -330,23 +346,29 @@ def _enrich_series_entries_from_sec_mapping(
     mapping: dict[tuple[str, str, str], str],
 ) -> list[dict[str, str]]:
     for entry in entries:
-        filing_ticker = sanitize_ticker(entry.get("ticker", ""))
+        raw_ticker = str(entry.get("ticker", "") or "").strip().upper()
+        filing_ticker = (
+            raw_ticker if is_mutual_fund_ticker(raw_ticker) else sanitize_ticker(raw_ticker)
+        )
         entry["ticker_at_filing"] = filing_ticker
         entry["ticker_source"] = (
             "filing" if filing_ticker != "Not Listed" else "not_listed"
         )
-        if filing_ticker != "Not Listed":
-            continue
+        if filing_ticker == "Not Listed":
+            key = (
+                _normalized_cik(cik),
+                str(entry.get("series_id", "") or "").strip().upper(),
+                str(entry.get("class_id", "") or "").strip().upper(),
+            )
+            ticker = mapping.get(key, "")
+            if ticker:
+                entry["ticker"] = ticker
+                entry["ticker_source"] = "sec_fund_ticker_map"
 
-        key = (
-            _normalized_cik(cik),
-            str(entry.get("series_id", "") or "").strip().upper(),
-            str(entry.get("class_id", "") or "").strip().upper(),
+        entry["vehicle"] = classify_vehicle(entry)
+        entry["identity_scope"] = (
+            "series" if uses_parent_series_identity(entry) else "class"
         )
-        ticker = mapping.get(key, "")
-        if ticker:
-            entry["ticker"] = ticker
-            entry["ticker_source"] = "sec_fund_ticker_map"
     return entries
 
 
@@ -379,7 +401,23 @@ def _dedupe_latest_fund_rows(
     deduped_rows: list[dict[str, str]] = []
     seen_funds: set[tuple[str, str, str, str]] = set()
 
-    for row in sorted(rows, key=_row_timestamp, reverse=True):
+    vehicle_priority = {
+        ETF_VEHICLE: 3,
+        MUTUAL_FUND_SHARE_CLASS: 2,
+        UNKNOWN_VEHICLE: 1,
+    }
+
+    def snapshot_sort_key(row: dict[str, str]) -> tuple[datetime, int, int, int]:
+        class_name = normalize_etf_name(row.get("class_name", ""))
+        series_name = normalize_etf_name(row.get("series_name", ""))
+        return (
+            _row_timestamp(row),
+            vehicle_priority.get(row.get("vehicle", ""), 0),
+            int(normalize_event_ticker(row) != "Not Listed"),
+            int(bool(class_name and class_name == series_name)),
+        )
+
+    for row in sorted(rows, key=snapshot_sort_key, reverse=True):
         normalized_name = normalize_etf_name(row.get("etf_name", ""))
         key = _fund_identity(row, aliases)
         if not normalized_name:
@@ -407,9 +445,22 @@ def derive_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     latest_rows = _dedupe_latest_fund_rows(copied_rows, aliases)
     for row in latest_rows:
         history = history_by_fund.get(_fund_identity(row, aliases), [row])
-        forms = [str(event.get("form", "") or "").upper() for event in history]
+        unique_history: list[dict[str, str]] = []
+        seen_accessions: set[str] = set()
+        for event in history:
+            accession = str(event.get("accession_number", "") or "").strip()
+            if accession and accession in seen_accessions:
+                continue
+            if accession:
+                seen_accessions.add(accession)
+            unique_history.append(event)
+
+        forms = [
+            str(event.get("form", "") or "").upper()
+            for event in unique_history
+        ]
         forms = [form for form in forms if form]
-        row["filing_event_count"] = len(history)
+        row["filing_event_count"] = len(unique_history)
         row["amendment_count"] = sum(
             form in {"485APOS", "485BPOS"} for form in forms
         )
@@ -419,13 +470,7 @@ def derive_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
 
 
 def _is_placeholder_share_class_name(name: str) -> bool:
-    value = str(name or "").strip()
-    class_label = r"Class\s+[A-Z0-9]+(?:-[A-Z0-9]+)?(?:\s+Shares)?"
-    named_class = r"(?:Institutional|Investor|Retail)\s+Class(?:\s+Shares)?"
-    return bool(
-        re.fullmatch(rf"(?:{class_label}|{named_class})", value, re.IGNORECASE)
-        or re.search(rf":\s*{class_label}$", value, re.IGNORECASE)
-    )
+    return is_share_class_name(name)
 
 
 def _fetch_filing_rows_for_cik(
@@ -611,9 +656,12 @@ def _fetch_filing_rows_for_cik(
                         "ticker_at_filing": entry.get("ticker_at_filing", "Not Listed"),
                         "ticker_source": entry.get("ticker_source", "not_listed"),
                         "etf_name": row_name,
+                        "class_name": entry.get("class_name", row_name),
                         "series_id": entry.get("series_id", ""),
                         "series_name": entry.get("series_name", ""),
                         "class_id": entry.get("class_id", ""),
+                        "vehicle": entry.get("vehicle", UNKNOWN_VEHICLE),
+                        "identity_scope": entry.get("identity_scope", "class"),
                         "filer": resolved_filer_name,
                         "form": form,
                         "date": date_str,
@@ -633,9 +681,12 @@ def _fetch_filing_rows_for_cik(
                             "ticker": sanitize_ticker(pair.get("ticker", "")),
                             "ticker_source": "filing" if sanitize_ticker(pair.get("ticker", "")) != "Not Listed" else "not_listed",
                             "etf_name": pair.get("etf_name", "N/A"),
+                            "class_name": pair.get("etf_name", "N/A"),
                             "series_id": "",
                             "series_name": "",
                             "class_id": "",
+                            "vehicle": UNKNOWN_VEHICLE,
+                            "identity_scope": "name",
                             "filer": resolved_filer_name,
                             "form": form,
                             "date": date_str,
@@ -655,9 +706,12 @@ def _fetch_filing_rows_for_cik(
                         "ticker": sanitize_ticker(fallback_ticker),
                         "ticker_source": "filing" if sanitize_ticker(fallback_ticker) != "Not Listed" else "not_listed",
                         "etf_name": fallback_name,
+                        "class_name": fallback_name,
                         "series_id": "",
                         "series_name": "",
                         "class_id": "",
+                        "vehicle": UNKNOWN_VEHICLE,
+                        "identity_scope": "name",
                         "filer": resolved_filer_name,
                         "form": form,
                         "date": date_str,
@@ -675,10 +729,15 @@ def _fetch_filing_rows_for_cik(
             row_name = str(row["etf_name"] or "").strip()
             if not row_name or row_name.upper() == "N/A":
                 continue
-            if _is_placeholder_share_class_name(row_name):
+            class_name = str(row.get("class_name", "") or "").strip()
+            if is_share_class_name(class_name) and not row.get("series_id"):
                 continue
             if source != "series" and "ETF" not in row_name.upper() and "FUND" not in row_name.upper():
                 continue
+            row["vehicle"] = classify_vehicle(row)
+            row["identity_scope"] = (
+                "series" if uses_parent_series_identity(row) else row["identity_scope"]
+            )
             row.setdefault("ticker_at_filing", row["ticker"])
             identity_token = row.get("class_id") or row.get("series_id") or normalize_etf_name(row_name)
             row["event_id"] = f"{accession_number}:{identity_token}"
