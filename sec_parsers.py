@@ -421,11 +421,30 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
 
     soup = BeautifulSoup(text, "html.parser")
     parsed_entries: list[dict[str, str]] = []
-    for row in soup.select("tr.contractRow"):
+    current_series_id = ""
+    current_series_name = ""
+    for row in soup.find_all("tr"):
+        series_cell = row.find("td", class_="seriesName")
+        if series_cell:
+            series_match = re.search(r"\b(S\d{9})\b", series_cell.get_text(" ", strip=True))
+            current_series_id = series_match.group(1) if series_match else ""
+            series_name_cells = row.find_all("td", class_="seriesCell")
+            current_series_name = (
+                clean_html_text(series_name_cells[-1].get_text(" ", strip=True))
+                if series_name_cells
+                else ""
+            )
+            continue
+
+        row_classes = row.get("class", [])
+        if "contractRow" not in row_classes:
+            continue
         cells = row.find_all("td")
         if len(cells) < 4:
             continue
 
+        class_match = re.search(r"\b(C\d{9})\b", cells[0].get_text(" ", strip=True))
+        class_id = class_match.group(1) if class_match else ""
         name = clean_html_text(cells[2].get_text(" ", strip=True))
         ticker = clean_html_text(cells[3].get_text(" ", strip=True)).upper()
         if not name:
@@ -436,6 +455,9 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
             {
                 "etf_name": name,
                 "ticker": ticker if ticker not in INVALID_TICKERS else "",
+                "series_id": current_series_id,
+                "series_name": current_series_name,
+                "class_id": class_id,
             }
         )
 
@@ -459,6 +481,9 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
             {
                 "etf_name": name,
                 "ticker": ticker if ticker not in INVALID_TICKERS else "",
+                "series_id": "",
+                "series_name": "",
+                "class_id": "",
             }
         )
 
@@ -480,6 +505,9 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
             {
                 "etf_name": contract_name.strip(),
                 "ticker": ticker.upper() if ticker and ticker.upper() not in INVALID_TICKERS else "",
+                "series_id": "",
+                "series_name": "",
+                "class_id": "",
             }
         )
     generic_text_matches = re.finditer(
@@ -510,6 +538,9 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
             {
                 "etf_name": name,
                 "ticker": ticker if ticker and ticker.upper() not in INVALID_TICKERS else "",
+                "series_id": "",
+                "series_name": "",
+                "class_id": "",
             }
         )
     return entries

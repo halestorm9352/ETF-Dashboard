@@ -43,6 +43,9 @@ class SecParserFixtureTests(unittest.TestCase):
 
         self.assertEqual(len(entries), 4)
         self.assertEqual(entries[0]["etf_name"], "SEI Large Cap Low Volatility Factor ETF")
+        self.assertEqual(entries[0]["series_id"], "S000075036")
+        self.assertEqual(entries[0]["class_id"], "C000233738")
+        self.assertEqual(entries[-1]["series_id"], "S000075039")
         self.assertTrue(all(entry["ticker"] == "" for entry in entries))
 
     def test_485apos_multi_fund_index_does_not_promote_underlying_ticker(self):
@@ -60,6 +63,9 @@ class SecParserFixtureTests(unittest.TestCase):
                 "Direxion Daily PYPL Bear 1X Shares",
             ],
         )
+        self.assertEqual(entries[0]["series_id"], "S000092897")
+        self.assertEqual(entries[0]["class_id"], "C000260947")
+        self.assertEqual(entries[2]["etf_name"], "Direxion Daily RBLX Bull 2X Shares")
 
     def test_485apos_repeated_ticker_proposals_are_rejected_as_ambiguous(self):
         text = load_fixture("xtrackers_485apos_primary.html")
@@ -82,8 +88,24 @@ class SecParserFixtureTests(unittest.TestCase):
 
         self.assertEqual(
             [entry["etf_name"] for entry in entries],
-            ["Class 1", "Class 2", "Class 4", "Class 1A", "Class P1", "Class P2"],
+            [
+                "Class 1",
+                "Class 2",
+                "Class 4",
+                "Class 1A",
+                "Class 1",
+                "Class 2",
+                "Class 3",
+                "Class 4",
+                "Class 1A",
+                "Class P1",
+                "Class P2",
+            ],
         )
+        self.assertEqual(entries[0]["series_id"], "S000008790")
+        self.assertEqual(entries[0]["series_name"], "Global Small Capitalization Fund")
+        self.assertEqual(entries[4]["series_id"], "S000008792")
+        self.assertEqual(entries[-1]["series_id"], "S000040666")
 
     # Increment 8.5 associates classes with their parent series and prevents
     # class-only names from becoming standalone snapshot identities.
@@ -100,9 +122,30 @@ class SecParserFixtureTests(unittest.TestCase):
 
         entries = extract_series_entries(text)
 
-        self.assertEqual(len(entries), 7)
+        self.assertEqual(len(entries), 13)
         self.assertEqual(entries[1]["etf_name"], "Fidelity Advisor Large Cap Stock Fund: Class C")
+        self.assertEqual(entries[0]["series_id"], "S000055364")
+        self.assertEqual(entries[0]["class_id"], "C000174182")
+        self.assertEqual(entries[5]["class_id"], "C000259433")
+        self.assertEqual(entries[5]["ticker"], "")
+        self.assertEqual(entries[6]["series_id"], "S000055365")
+        self.assertEqual(entries[7]["class_id"], "C000174184")
         self.assertTrue(all(entry["ticker"] == "" for entry in entries))
+
+    def test_tags_intact_edgar_table_preserves_real_cell_offsets(self):
+        text = load_fixture("fidelity_485bpos_index.html")
+
+        entries = extract_series_entries(text)
+
+        self.assertIn('<td class="seriesName" scope="row">', text)
+        self.assertEqual(
+            (entries[5]["series_id"], entries[5]["class_id"], entries[5]["etf_name"]),
+            (
+                "S000055364",
+                "C000259433",
+                "Fidelity Advisor Large Cap Stock Fund: Class A",
+            ),
+        )
 
     # Increment 8.5 captures class-level C-numbers and five-letter mutual-fund
     # tickers as evidence for vehicle classification.

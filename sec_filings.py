@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
+import json
 import re
 from typing import Any
 
@@ -14,6 +15,9 @@ from config import (
     MAX_SUPPORTING_DOCUMENTS,
     SEC_MAX_WORKERS,
 )
+
+SEC_FUND_TICKER_URL = "https://www.sec.gov/files/company_tickers_mf.json"
+SEC_FUND_TICKER_MAX_CHARS = 20_000_000
 from http_utils import get_http_session, get_response_text
 from sec_parsers import (
     extract_etf_name,
@@ -94,6 +98,50 @@ def fetch_recent_filings_for_cik(cik: str) -> dict[str, Any]:
         "recent": {},
         "_error": last_error or "SEC submissions request failed",
     }
+
+
+def _normalized_cik(value: Any) -> str:
+    digits = re.sub(r"\D", "", str(value or ""))
+    return digits.zfill(10) if digits else ""
+
+
+def _official_ticker(value: Any) -> str:
+    ticker = str(value or "").strip().upper()
+    return ticker if re.fullmatch(r"[A-Z0-9.\-]{1,10}", ticker) else ""
+
+
+def fetch_sec_fund_ticker_mapping() -> dict[tuple[str, str, str], str]:
+    text = get_response_text(SEC_FUND_TICKER_URL, SEC_FUND_TICKER_MAX_CHARS)
+    if not text:
+        return {}
+
+    try:
+        payload = json.loads(text)
+        fields = list(payload.get("fields", []))
+        positions = {field: index for index, field in enumerate(fields)}
+        required = {"cik", "seriesId", "classId", "symbol"}
+        if not required.issubset(positions):
+            return {}
+
+        mapping: dict[tuple[str, str, str], str] = {}
+        for values in payload.get("data", []):
+            cik = _normalized_cik(values[positions["cik"]])
+            series_id = str(values[positions["seriesId"]] or "").strip().upper()
+            class_id = str(values[positions["classId"]] or "").strip().upper()
+            ticker = _official_ticker(values[positions["symbol"]])
+            if cik and series_id and class_id and ticker:
+                mapping[(cik, series_id, class_id)] = ticker
+        return mapping
+    except (IndexError, TypeError, ValueError, json.JSONDecodeError):
+        return {}
+
+
+def normalize_event_ticker(row: dict[str, Any]) -> str:
+    if row.get("ticker_source") == "sec_fund_ticker_map":
+        ticker = _official_ticker(row.get("ticker", ""))
+        if ticker:
+            return ticker
+    return sanitize_ticker(row.get("ticker", ""))
 
 
 def _needs_primary_document(
@@ -205,11 +253,110 @@ def _filter_rows_to_bounds(
     ]
 
 
+def _has_sec_identity(row: dict[str, Any]) -> bool:
+    return bool(str(row.get("series_id", "")).strip() or str(row.get("class_id", "")).strip())
+
+
+def _sec_identity(row: dict[str, Any]) -> tuple[str, str, str, str] | None:
+    cik = _normalized_cik(row.get("cik", ""))
+    series_id = str(row.get("series_id", "") or "").strip().upper()
+    class_id = str(row.get("class_id", "") or "").strip().upper()
+    if cik and series_id and class_id:
+        return ("sec_class", cik, series_id, class_id)
+    if cik and series_id:
+        return ("sec_series", cik, series_id, "")
+    return None
+
+
+def _identity_aliases(
+    rows: list[dict[str, str]],
+) -> dict[tuple[str, str], tuple[str, str, str, str]]:
+    identities_by_name: dict[
+        tuple[str, str], set[tuple[str, str, str, str]]
+    ] = {}
+    for row in rows:
+        identity = _sec_identity(row)
+        normalized_name = normalize_etf_name(row.get("etf_name", ""))
+        if not identity or not normalized_name:
+            continue
+        name_key = (_normalized_cik(row.get("cik", "")), normalized_name)
+        identities_by_name.setdefault(name_key, set()).add(identity)
+
+    return {
+        name_key: next(iter(identities))
+        for name_key, identities in identities_by_name.items()
+        if len(identities) == 1
+    }
+
+
+def _fund_identity(
+    row: dict[str, Any],
+    aliases: dict[tuple[str, str], tuple[str, str, str, str]] | None = None,
+) -> tuple[str, str, str, str]:
+    identity = _sec_identity(row)
+    if identity:
+        return identity
+
+    cik = _normalized_cik(row.get("cik", ""))
+    normalized_name = normalize_etf_name(row.get("etf_name", ""))
+    if aliases and (cik, normalized_name) in aliases:
+        return aliases[(cik, normalized_name)]
+    return ("name", cik, normalized_name, "")
+
+
+def _enrich_tickers_from_sec_mapping(
+    rows: list[dict[str, str]],
+    mapping: dict[tuple[str, str, str], str],
+) -> list[dict[str, str]]:
+    for row in rows:
+        if sanitize_ticker(row.get("ticker", "")) != "Not Listed":
+            continue
+
+        key = (
+            _normalized_cik(row.get("cik", "")),
+            str(row.get("series_id", "") or "").strip().upper(),
+            str(row.get("class_id", "") or "").strip().upper(),
+        )
+        ticker = mapping.get(key, "")
+        if ticker:
+            row["ticker"] = ticker
+            row["ticker_source"] = "sec_fund_ticker_map"
+    return rows
+
+
+def _enrich_series_entries_from_sec_mapping(
+    cik: str,
+    entries: list[dict[str, str]],
+    mapping: dict[tuple[str, str, str], str],
+) -> list[dict[str, str]]:
+    for entry in entries:
+        filing_ticker = sanitize_ticker(entry.get("ticker", ""))
+        entry["ticker_at_filing"] = filing_ticker
+        entry["ticker_source"] = (
+            "filing" if filing_ticker != "Not Listed" else "not_listed"
+        )
+        if filing_ticker != "Not Listed":
+            continue
+
+        key = (
+            _normalized_cik(cik),
+            str(entry.get("series_id", "") or "").strip().upper(),
+            str(entry.get("class_id", "") or "").strip().upper(),
+        )
+        ticker = mapping.get(key, "")
+        if ticker:
+            entry["ticker"] = ticker
+            entry["ticker_source"] = "sec_fund_ticker_map"
+    return entries
+
+
 def _enrich_missing_tickers_from_later_filings(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     latest_ticker_by_fund: dict[tuple[str, str], str] = {}
     enriched_rows = sorted(rows, key=_row_timestamp, reverse=True)
 
     for row in enriched_rows:
+        if _has_sec_identity(row):
+            continue
         normalized_name = normalize_etf_name(row.get("etf_name", ""))
         if not normalized_name:
             continue
@@ -220,17 +367,21 @@ def _enrich_missing_tickers_from_later_filings(rows: list[dict[str, str]]) -> li
             latest_ticker_by_fund.setdefault(key, ticker)
         elif key in latest_ticker_by_fund:
             row["ticker"] = latest_ticker_by_fund[key]
+            row["ticker_source"] = "later_filing_fallback"
 
     return rows
 
 
-def _dedupe_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+def _dedupe_latest_fund_rows(
+    rows: list[dict[str, str]],
+    aliases: dict[tuple[str, str], tuple[str, str, str, str]] | None = None,
+) -> list[dict[str, str]]:
     deduped_rows: list[dict[str, str]] = []
-    seen_funds: set[tuple[str, str]] = set()
+    seen_funds: set[tuple[str, str, str, str]] = set()
 
     for row in sorted(rows, key=_row_timestamp, reverse=True):
         normalized_name = normalize_etf_name(row.get("etf_name", ""))
-        key = (row.get("cik", ""), normalized_name)
+        key = _fund_identity(row, aliases)
         if not normalized_name:
             deduped_rows.append(row)
             continue
@@ -244,18 +395,18 @@ def _dedupe_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]
 
 def derive_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     copied_rows = [dict(row) for row in rows]
-    history_by_fund: dict[tuple[str, str], list[dict[str, str]]] = {}
+    aliases = _identity_aliases(copied_rows)
+    history_by_fund: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
     for row in sorted(copied_rows, key=_row_timestamp):
         normalized_name = normalize_etf_name(row.get("etf_name", ""))
         if not normalized_name:
             continue
-        key = (row.get("cik", ""), normalized_name)
+        key = _fund_identity(row, aliases)
         history_by_fund.setdefault(key, []).append(row)
 
-    latest_rows = _dedupe_latest_fund_rows(copied_rows)
+    latest_rows = _dedupe_latest_fund_rows(copied_rows, aliases)
     for row in latest_rows:
-        normalized_name = normalize_etf_name(row.get("etf_name", ""))
-        history = history_by_fund.get((row.get("cik", ""), normalized_name), [row])
+        history = history_by_fund.get(_fund_identity(row, aliases), [row])
         forms = [str(event.get("form", "") or "").upper() for event in history]
         forms = [form for form in forms if form]
         row["filing_event_count"] = len(history)
@@ -283,6 +434,7 @@ def _fetch_filing_rows_for_cik(
     end_bound: datetime,
     cik_data: dict[str, Any],
     primary_document_workers: int = 1,
+    ticker_mapping: dict[tuple[str, str, str], str] | None = None,
 ) -> list[dict[str, str]]:
     results: list[dict[str, str]] = []
     seen_links: set[str] = set()
@@ -371,6 +523,11 @@ def _fetch_filing_rows_for_cik(
         index_text = extract_text(filing_link, max_chars=INDEX_PAGE_MAX_CHARS)
         filing_filer_name = extract_filer_name(index_text) or filer_name
         series_entries = extract_series_entries(index_text)
+        series_entries = _enrich_series_entries_from_sec_mapping(
+            cik,
+            series_entries,
+            ticker_mapping or {},
+        )
         primary_text = ""
         primary_ticker = ""
         primary_etf_name = "N/A"
@@ -423,6 +580,13 @@ def _fetch_filing_rows_for_cik(
         all_named_pairs = primary_named_pairs + supporting_named_pairs
         if series_entries:
             series_entries = _merge_series_entries_with_pairs(series_entries, all_named_pairs)
+            for entry in series_entries:
+                if entry.get("ticker_source") == "sec_fund_ticker_map":
+                    continue
+                filing_ticker = sanitize_ticker(entry.get("ticker", ""))
+                if filing_ticker != "Not Listed":
+                    entry["ticker_at_filing"] = filing_ticker
+                    entry["ticker_source"] = "filing"
 
         resolved_filer_name = _display_filer_name(cik, filing_filer_name or filer_name)
         rows_to_append: list[dict[str, str]] = []
@@ -433,10 +597,23 @@ def _fetch_filing_rows_for_cik(
                 row_ticker = entry["ticker"]
                 if len(series_entries) == 1 and not row_ticker:
                     row_ticker = primary_ticker
+                    primary_filing_ticker = sanitize_ticker(primary_ticker)
+                    if primary_filing_ticker != "Not Listed":
+                        entry["ticker_at_filing"] = primary_filing_ticker
+                        entry["ticker_source"] = "filing"
                 rows_to_append.append(
                     {
-                        "ticker": sanitize_ticker(row_ticker),
+                        "ticker": (
+                            _official_ticker(row_ticker)
+                            if entry.get("ticker_source") == "sec_fund_ticker_map"
+                            else sanitize_ticker(row_ticker)
+                        ),
+                        "ticker_at_filing": entry.get("ticker_at_filing", "Not Listed"),
+                        "ticker_source": entry.get("ticker_source", "not_listed"),
                         "etf_name": row_name,
+                        "series_id": entry.get("series_id", ""),
+                        "series_name": entry.get("series_name", ""),
+                        "class_id": entry.get("class_id", ""),
                         "filer": resolved_filer_name,
                         "form": form,
                         "date": date_str,
@@ -454,7 +631,11 @@ def _fetch_filing_rows_for_cik(
                     rows_to_append.append(
                         {
                             "ticker": sanitize_ticker(pair.get("ticker", "")),
+                            "ticker_source": "filing" if sanitize_ticker(pair.get("ticker", "")) != "Not Listed" else "not_listed",
                             "etf_name": pair.get("etf_name", "N/A"),
+                            "series_id": "",
+                            "series_name": "",
+                            "class_id": "",
                             "filer": resolved_filer_name,
                             "form": form,
                             "date": date_str,
@@ -472,7 +653,11 @@ def _fetch_filing_rows_for_cik(
                 rows_to_append.append(
                     {
                         "ticker": sanitize_ticker(fallback_ticker),
+                        "ticker_source": "filing" if sanitize_ticker(fallback_ticker) != "Not Listed" else "not_listed",
                         "etf_name": fallback_name,
+                        "series_id": "",
+                        "series_name": "",
+                        "class_id": "",
                         "filer": resolved_filer_name,
                         "form": form,
                         "date": date_str,
@@ -494,8 +679,9 @@ def _fetch_filing_rows_for_cik(
                 continue
             if source != "series" and "ETF" not in row_name.upper() and "FUND" not in row_name.upper():
                 continue
-            row["ticker_at_filing"] = row["ticker"]
-            row["event_id"] = f"{accession_number}:{normalize_etf_name(row_name)}"
+            row.setdefault("ticker_at_filing", row["ticker"])
+            identity_token = row.get("class_id") or row.get("series_id") or normalize_etf_name(row_name)
+            row["event_id"] = f"{accession_number}:{identity_token}"
             results.append(row)
 
     return results
@@ -506,6 +692,7 @@ def _fetch_filings_for_cik(
     start_bound: datetime,
     end_bound: datetime,
     primary_document_workers: int = 1,
+    ticker_mapping: dict[tuple[str, str, str], str] | None = None,
 ) -> tuple[list[dict[str, str]], dict[str, Any]]:
     filer_name = _display_filer_name(cik, CIK_LOOKUP.get(cik, cik))
     try:
@@ -522,6 +709,7 @@ def _fetch_filings_for_cik(
             end_bound,
             cik_data,
             primary_document_workers,
+            ticker_mapping,
         )
     except Exception as exc:
         return [], {
@@ -554,6 +742,7 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEven
     selected_ciks = list(ciks) if ciks else CIKS
     if not selected_ciks:
         return FilingEventResults()
+    ticker_mapping = fetch_sec_fund_ticker_mapping()
 
     worker_count = max(1, min(SEC_MAX_WORKERS, len(selected_ciks)))
     if worker_count == 1:
@@ -563,10 +752,12 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEven
                 start_bound,
                 enrichment_end_bound,
                 primary_document_workers=4,
+                ticker_mapping=ticker_mapping,
             )
             results.extend(cik_rows)
             statuses_by_cik[cik] = status
-        enriched_results = _enrich_missing_tickers_from_later_filings(results)
+        mapped_results = _enrich_tickers_from_sec_mapping(results, ticker_mapping)
+        enriched_results = _enrich_missing_tickers_from_later_filings(mapped_results)
         bounded_results = _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
         return FilingEventResults(
             sorted(bounded_results, key=_row_timestamp, reverse=True),
@@ -581,6 +772,7 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEven
                 start_bound,
                 enrichment_end_bound,
                 1,
+                ticker_mapping,
             ): cik
             for cik in selected_ciks
         }
@@ -601,7 +793,8 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEven
                     "error_summary": f"{type(exc).__name__}: {exc}",
                 }
 
-    enriched_results = _enrich_missing_tickers_from_later_filings(results)
+    mapped_results = _enrich_tickers_from_sec_mapping(results, ticker_mapping)
+    enriched_results = _enrich_missing_tickers_from_later_filings(mapped_results)
     bounded_results = _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
     return FilingEventResults(
         sorted(bounded_results, key=_row_timestamp, reverse=True),

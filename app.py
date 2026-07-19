@@ -53,13 +53,17 @@ import sec_filings as sec_filings_module
 
 if not all(
     hasattr(sec_filings_module, name)
-    for name in ("derive_latest_fund_rows", "fetch_filing_events")
+    for name in (
+        "derive_latest_fund_rows",
+        "fetch_filing_events",
+        "normalize_event_ticker",
+    )
 ):
     sec_filings_module = importlib.reload(sec_filings_module)
 
 derive_latest_fund_rows = sec_filings_module.derive_latest_fund_rows
 fetch_filing_events = sec_filings_module.fetch_filing_events
-sanitize_ticker = sec_parsers_module.sanitize_ticker
+normalize_event_ticker = sec_filings_module.normalize_event_ticker
 from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
 from readiness import add_launch_readiness_columns
 
@@ -802,7 +806,11 @@ with st.container():
                     required_columns = [
                         "ticker",
                         "ticker_at_filing",
+                        "ticker_source",
                         "etf_name",
+                        "series_id",
+                        "series_name",
+                        "class_id",
                         "filer",
                         "form",
                         "date",
@@ -833,7 +841,10 @@ with st.container():
                         ascending=[False, True, True, True],
                         kind="stable",
                     )
-                    filtered_df["ticker"] = filtered_df["ticker"].apply(sanitize_ticker)
+                    filtered_df["ticker"] = filtered_df.apply(
+                        lambda row: normalize_event_ticker(row.to_dict()),
+                        axis=1,
+                    )
                     filtered_df["themes"] = filtered_df["etf_name"].apply(classify_primary_theme)
                     filtered_df = add_launch_readiness_columns(filtered_df)
 
@@ -903,6 +914,8 @@ with st.container():
                     export_columns = [
                         "ticker",
                         "etf_name",
+                        "series_id",
+                        "class_id",
                         "themes",
                         "filer",
                         "form",
