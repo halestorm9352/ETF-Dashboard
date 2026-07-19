@@ -24,15 +24,12 @@ class SecParserFixtureTests(unittest.TestCase):
 
         self.assertEqual(extract_ticker(text), "")
 
-    def test_s1_amendment_currently_misses_ticker_in_quoted_prose(self):
+    def test_s1_amendment_extracts_ticker_in_quoted_prose(self):
         text = load_fixture("ishares_bitcoin_s1a_primary.html")
 
-        self.assertEqual(extract_ticker(text), "")
+        self.assertEqual(extract_ticker(text), "IBIT")
 
-    # Increment 9's post-fixture parser follow-up handles quoted S-1 tickers;
-    # Increment 8's mutual-fund series/class map does not cover commodity trusts.
-    @unittest.expectedFailure
-    def test_s1_amendment_eventually_extracts_final_ibit_ticker(self):
+    def test_s1_amendment_extracts_final_ibit_ticker(self):
         text = load_fixture("ishares_bitcoin_s1a_primary.html")
 
         self.assertEqual(extract_ticker(text), "IBIT")

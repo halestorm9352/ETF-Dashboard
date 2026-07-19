@@ -74,6 +74,15 @@ def readiness_status(row, today):
 
 def add_launch_readiness_columns(df):
     enriched_df = df.copy()
+    if enriched_df.empty:
+        enriched_df["filing_stage"] = pd.Series(dtype="object")
+        enriched_df["earliest_auto_effective_date"] = pd.Series(
+            dtype="datetime64[ns]"
+        )
+        enriched_df["launch_readiness"] = pd.Series(dtype="object")
+        enriched_df["days_to_readiness"] = pd.Series(dtype="object")
+        return enriched_df
+
     today = datetime.today().date()
     enriched_df["filing_stage"] = enriched_df["form"].apply(classify_filing_stage)
     enriched_df["earliest_auto_effective_date"] = enriched_df.apply(

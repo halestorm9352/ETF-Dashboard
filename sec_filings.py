@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import re
 from typing import Any
@@ -46,9 +46,27 @@ class FilingEventResults(list[dict[str, str]]):
         self,
         events: list[dict[str, str]] | None = None,
         statuses: list[dict[str, Any]] | None = None,
+        mapping_status: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(events or [])
         self.statuses = statuses or []
+        self.mapping_status = mapping_status or {
+            "available": True,
+            "error_summary": "",
+        }
+
+
+class SecFundTickerMapping(dict[tuple[str, str, str], str]):
+    def __init__(
+        self,
+        values: dict[tuple[str, str, str], str] | None = None,
+        *,
+        available: bool,
+        error_summary: str = "",
+    ) -> None:
+        super().__init__(values or {})
+        self.available = available
+        self.error_summary = error_summary
 
 
 def extract_text(url: str, max_chars: int = INDEX_PAGE_MAX_CHARS) -> str:
@@ -119,10 +137,19 @@ def _official_ticker(value: Any) -> str:
     return ticker if re.fullmatch(r"[A-Z0-9.\-]{1,10}", ticker) else ""
 
 
-def fetch_sec_fund_ticker_mapping() -> dict[tuple[str, str, str], str]:
-    text = get_response_text(SEC_FUND_TICKER_URL, SEC_FUND_TICKER_MAX_CHARS)
+def fetch_sec_fund_ticker_mapping() -> SecFundTickerMapping:
+    try:
+        text = get_response_text(SEC_FUND_TICKER_URL, SEC_FUND_TICKER_MAX_CHARS)
+    except Exception as exc:
+        return SecFundTickerMapping(
+            available=False,
+            error_summary=f"{type(exc).__name__}: {exc}",
+        )
     if not text:
-        return {}
+        return SecFundTickerMapping(
+            available=False,
+            error_summary="SEC fund-ticker mapping returned no data",
+        )
 
     try:
         payload = json.loads(text)
@@ -130,7 +157,10 @@ def fetch_sec_fund_ticker_mapping() -> dict[tuple[str, str, str], str]:
         positions = {field: index for index, field in enumerate(fields)}
         required = {"cik", "seriesId", "classId", "symbol"}
         if not required.issubset(positions):
-            return {}
+            return SecFundTickerMapping(
+                available=False,
+                error_summary="SEC fund-ticker mapping fields are incomplete",
+            )
 
         mapping: dict[tuple[str, str, str], str] = {}
         for values in payload.get("data", []):
@@ -140,9 +170,12 @@ def fetch_sec_fund_ticker_mapping() -> dict[tuple[str, str, str], str]:
             ticker = _official_ticker(values[positions["symbol"]])
             if cik and series_id and class_id and ticker:
                 mapping[(cik, series_id, class_id)] = ticker
-        return mapping
-    except (IndexError, TypeError, ValueError, json.JSONDecodeError):
-        return {}
+        return SecFundTickerMapping(mapping, available=True)
+    except (IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return SecFundTickerMapping(
+            available=False,
+            error_summary=f"{type(exc).__name__}: {exc}",
+        )
 
 
 def normalize_event_ticker(row: dict[str, Any]) -> str:
@@ -238,7 +271,10 @@ def _row_timestamp(row: dict[str, str]) -> datetime:
     accepted_at = str(row.get("accepted_at", "")).strip()
     if accepted_at:
         try:
-            return datetime.fromisoformat(accepted_at.replace("Z", "+00:00")).replace(tzinfo=None)
+            parsed = datetime.fromisoformat(accepted_at.replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            return parsed
         except ValueError:
             pass
 
@@ -391,6 +427,38 @@ def _enrich_missing_tickers_from_later_filings(rows: list[dict[str, str]]) -> li
             row["ticker"] = latest_ticker_by_fund[key]
             row["ticker_source"] = "later_filing_fallback"
 
+    return _normalize_vehicle_identity_metadata(rows)
+
+
+def _normalize_vehicle_identity_metadata(
+    rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    series_scoped_classes: set[tuple[str, str, str]] = set()
+    for row in rows:
+        row["vehicle"] = classify_vehicle(row)
+        series_id = str(row.get("series_id", "") or "").strip().upper()
+        class_id = str(row.get("class_id", "") or "").strip().upper()
+        if series_id and class_id:
+            row["identity_scope"] = (
+                "series" if uses_parent_series_identity(row) else "class"
+            )
+            if row["identity_scope"] == "series":
+                series_scoped_classes.add(
+                    (_normalized_cik(row.get("cik", "")), series_id, class_id)
+                )
+        elif series_id:
+            row["identity_scope"] = "series"
+        else:
+            row["identity_scope"] = "name"
+
+    for row in rows:
+        identity = (
+            _normalized_cik(row.get("cik", "")),
+            str(row.get("series_id", "") or "").strip().upper(),
+            str(row.get("class_id", "") or "").strip().upper(),
+        )
+        if identity in series_scoped_classes:
+            row["identity_scope"] = "series"
     return rows
 
 
@@ -432,7 +500,7 @@ def _dedupe_latest_fund_rows(
 
 
 def derive_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    copied_rows = [dict(row) for row in rows]
+    copied_rows = _normalize_vehicle_identity_metadata([dict(row) for row in rows])
     aliases = _identity_aliases(copied_rows)
     history_by_fund: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
     for row in sorted(copied_rows, key=_row_timestamp):
@@ -802,6 +870,10 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEven
     if not selected_ciks:
         return FilingEventResults()
     ticker_mapping = fetch_sec_fund_ticker_mapping()
+    mapping_status = {
+        "available": getattr(ticker_mapping, "available", True),
+        "error_summary": getattr(ticker_mapping, "error_summary", ""),
+    }
 
     worker_count = max(1, min(SEC_MAX_WORKERS, len(selected_ciks)))
     if worker_count == 1:
@@ -821,6 +893,7 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEven
         return FilingEventResults(
             sorted(bounded_results, key=_row_timestamp, reverse=True),
             [statuses_by_cik[cik] for cik in selected_ciks],
+            mapping_status,
         )
 
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
@@ -858,6 +931,7 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEven
     return FilingEventResults(
         sorted(bounded_results, key=_row_timestamp, reverse=True),
         [statuses_by_cik[cik] for cik in selected_ciks],
+        mapping_status,
     )
 
 

@@ -72,6 +72,53 @@ class VehicleClassifierTests(unittest.TestCase):
         self.assertEqual(snapshot[0]["series_id"], base["series_id"])
         self.assertEqual(snapshot[0]["filing_event_count"], 1)
 
+    def test_dual_vehicle_series_yields_etf_and_parent_mutual_rows(self):
+        base = {
+            "cik": "0000000001",
+            "series_id": "S000000001",
+            "series_name": "Example Fund",
+            "etf_name": "Example Fund",
+            "form": "485BPOS",
+            "date": "2026-07-01",
+            "accession_number": "0000000001-26-000001",
+        }
+        events = [
+            {
+                **base,
+                "class_id": "C000000001",
+                "class_name": "Example ETF",
+                "etf_name": "Example ETF",
+                "ticker": "EXMP",
+            },
+            {
+                **base,
+                "class_id": "C000000002",
+                "class_name": "Example Fund: Class A",
+                "ticker": "EXMPX",
+            },
+            {
+                **base,
+                "class_id": "C000000003",
+                "class_name": "Example Fund: Class C",
+                "ticker": "EXMCX",
+            },
+        ]
+
+        snapshot = derive_latest_fund_rows(events)
+
+        self.assertEqual(len(snapshot), 2)
+        self.assertEqual(
+            {row["vehicle"] for row in snapshot},
+            {ETF_VEHICLE, MUTUAL_FUND_SHARE_CLASS},
+        )
+        etf_row = next(row for row in snapshot if row["vehicle"] == ETF_VEHICLE)
+        mutual_row = next(
+            row for row in snapshot if row["vehicle"] == MUTUAL_FUND_SHARE_CLASS
+        )
+        self.assertEqual(etf_row["identity_scope"], "class")
+        self.assertEqual(mutual_row["identity_scope"], "series")
+        self.assertEqual(mutual_row["etf_name"], base["series_name"])
+
 
 if __name__ == "__main__":
     unittest.main()

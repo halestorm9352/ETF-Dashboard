@@ -1,17 +1,19 @@
 import unittest
-from datetime import date
+from datetime import date, datetime
 import json
 from unittest.mock import patch
 
 from sec_filings import (
     _enrich_missing_tickers_from_later_filings,
     _enrich_tickers_from_sec_mapping,
+    _row_timestamp,
     derive_latest_fund_rows,
     fetch_sec_fund_ticker_mapping,
     fetch_filing_events,
     normalize_event_ticker,
 )
 from sec_parsers import extract_rule_485_effectiveness
+from readiness import readiness_status
 from vehicle_classifier import ETF_VEHICLE
 
 
@@ -95,6 +97,43 @@ class FilingHistoryTests(unittest.TestCase):
             mapping[("0001888997", "S000075036", "C000233738")],
             "SELV",
         )
+        self.assertTrue(mapping.available)
+
+    def test_mapping_fetch_failure_is_visible_without_failing_filer_coverage(self):
+        recent_filings = {
+            "filer_name": "Example Trust",
+            "recent": {
+                "form": ["N-1A"],
+                "filingDate": ["2026-01-15"],
+                "acceptanceDateTime": ["2026-01-15T12:00:00Z"],
+                "accessionNumber": ["0000000001-26-000001"],
+                "primaryDocument": [""],
+            },
+        }
+
+        def response_text(url, _max_chars):
+            if url.endswith("company_tickers_mf.json"):
+                return ""
+            return """
+            <table><tr class="contractRow">
+              <td></td><td></td><td>Example ETF</td><td></td>
+            </tr></table>
+            """
+
+        with patch(
+            "sec_filings.fetch_recent_filings_for_cik",
+            return_value=recent_filings,
+        ), patch("sec_filings.get_response_text", side_effect=response_text):
+            events = fetch_filing_events(
+                date(2026, 1, 1),
+                date(2026, 1, 31),
+                ciks=["0000000001"],
+            )
+
+        self.assertEqual(len(events), 1)
+        self.assertTrue(events.statuses[0]["success"])
+        self.assertFalse(events.mapping_status["available"])
+        self.assertIn("no data", events.mapping_status["error_summary"])
 
     def test_exact_sec_identity_join_backfills_ticker_and_preserves_filing_value(self):
         event = {
@@ -415,6 +454,99 @@ class FilingHistoryTests(unittest.TestCase):
 
         self.assertEqual(older_event["ticker"], "EXAM")
         self.assertEqual(older_event["ticker_at_filing"], "Not Listed")
+
+    def test_later_ticker_enrichment_reclassifies_row_for_launch_readiness(self):
+        events = [
+            {
+                "cik": "0000000001",
+                "etf_name": "Example Fund",
+                "ticker": "EXAM",
+                "date": "2026-06-10",
+                "accepted_at": "2026-06-10T12:00:00Z",
+            },
+            {
+                "cik": "0000000001",
+                "etf_name": "Example Fund",
+                "ticker": "Not Listed",
+                "ticker_at_filing": "Not Listed",
+                "vehicle": "Other / unknown",
+                "form": "485APOS",
+                "filing_form_history": "485APOS",
+                "earliest_auto_effective_date": datetime(2026, 5, 1),
+                "date": "2026-05-01",
+                "accepted_at": "2026-05-01T12:00:00Z",
+            },
+        ]
+
+        enriched = _enrich_missing_tickers_from_later_filings(events)
+        older_event = next(row for row in enriched if row["date"] == "2026-05-01")
+
+        self.assertEqual(older_event["ticker"], "EXAM")
+        self.assertEqual(older_event["ticker_at_filing"], "Not Listed")
+        self.assertEqual(older_event["vehicle"], ETF_VEHICLE)
+        self.assertEqual(
+            readiness_status(older_event, date(2026, 7, 16)),
+            "Launch candidate",
+        )
+
+    def test_identity_scope_flip_resolves_to_one_series_snapshot(self):
+        events = [
+            {
+                "cik": "0000000001",
+                "series_id": "S000000001",
+                "class_id": "C000000001",
+                "series_name": "Example Fund",
+                "class_name": "Example Fund",
+                "etf_name": "Example Fund",
+                "ticker": "Not Listed",
+                "identity_scope": "class",
+                "form": "N-1A",
+                "date": "2026-01-10",
+            },
+            {
+                "cik": "0000000001",
+                "series_id": "S000000001",
+                "class_id": "C000000001",
+                "series_name": "Example Fund",
+                "class_name": "Example Fund: Class A",
+                "etf_name": "Example Fund",
+                "ticker": "FLCSX",
+                "identity_scope": "series",
+                "form": "485BPOS",
+                "date": "2026-04-10",
+            },
+        ]
+
+        snapshot = derive_latest_fund_rows(events)
+
+        self.assertEqual(len(snapshot), 1)
+        self.assertEqual(snapshot[0]["filing_event_count"], 2)
+        self.assertEqual(snapshot[0]["identity_scope"], "series")
+        self.assertEqual(events[0]["identity_scope"], "class")
+
+    def test_same_day_timestamp_order_uses_naive_utc_for_both_paths(self):
+        accepted_event = {
+            "cik": "0000000001",
+            "etf_name": "Example ETF",
+            "ticker": "EXAM",
+            "form": "485BPOS",
+            "date": "2026-07-01",
+            "accepted_at": "2026-07-01T00:30:00+05:00",
+        }
+        date_only_event = {
+            "cik": "0000000001",
+            "etf_name": "Example ETF",
+            "ticker": "EXAM",
+            "form": "485APOS",
+            "date": "2026-07-01",
+        }
+
+        snapshot = derive_latest_fund_rows([accepted_event, date_only_event])
+
+        self.assertEqual(_row_timestamp(accepted_event), datetime(2026, 6, 30, 19, 30))
+        self.assertEqual(_row_timestamp(date_only_event), datetime(2026, 7, 1))
+        self.assertEqual(snapshot[0]["form"], "485APOS")
+        self.assertEqual(snapshot[0]["filing_form_history"], "485BPOS -> 485APOS")
 
 
 if __name__ == "__main__":

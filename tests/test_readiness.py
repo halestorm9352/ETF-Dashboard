@@ -92,6 +92,20 @@ class LaunchReadinessTests(unittest.TestCase):
         self.assertEqual(result.iloc[0]["vehicle"], MUTUAL_FUND_SHARE_CLASS)
         self.assertEqual(result.iloc[0]["launch_readiness"], "Effective (485(b) update)")
 
+    def test_readiness_columns_preserve_empty_dataframe_shape(self):
+        result = add_launch_readiness_columns(pd.DataFrame())
+
+        self.assertTrue(result.empty)
+        self.assertIn("filing_stage", result.columns)
+        self.assertIn("earliest_auto_effective_date", result.columns)
+        self.assertIn("launch_readiness", result.columns)
+        self.assertIn("days_to_readiness", result.columns)
+        self.assertTrue(
+            pd.api.types.is_datetime64_any_dtype(
+                result["earliest_auto_effective_date"]
+            )
+        )
+
     def test_existing_readiness_states_are_unchanged(self):
         cases = (
             ({"form": "N-1A", "filing_form_history": "N-1A"}, "Initial review"),

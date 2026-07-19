@@ -209,6 +209,16 @@ def extract_ticker(
         if ticker not in INVALID_TICKERS:
             return ticker
 
+    quoted_prose_match = re.search(
+        r'\bunder\s+the\s+ticker\s+symbol\s+"([A-Z]{3,4})\.?"',
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if quoted_prose_match:
+        ticker = quoted_prose_match.group(1).upper()
+        if ticker not in INVALID_TICKERS:
+            return ticker
+
     name_ticker_pipe_match = re.search(
         r'[A-Z][A-Za-z0-9&\-\.\(\)/,\s]{3,180}?(ETF|Fund)\s*\|\s*([A-Z]{3,4})\s*\|',
         cleaned_text,

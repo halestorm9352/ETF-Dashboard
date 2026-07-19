@@ -14,13 +14,12 @@ Last updated: 2026-07-19
 ## Git State
 
 - Branch: `sync-main`.
-- User-confirmed published Increment 7 commit: `970380d`.
+- User-confirmed Increments 1 through 8.5 are approved and pushed.
+- Published Increment 8.5 commit: `6ce3c3f`.
 - The local `origin/main` tracking ref still shows `40c100d` because no fetch
-  was performed during Increment 8; do not treat that stale ref as permission
-  to push.
-- User-confirmed approved Increment 8 commit: `bcf9427`.
-- Increment 8.5 is implemented locally for independent review.
-- Do not push or deploy Increment 8.5 until explicitly authorized.
+  was performed; do not treat that stale ref as the published-state authority.
+- Increment 9 is implemented locally for independent review.
+- Do not push or deploy Increment 9 until explicitly authorized.
 
 ## Completed Increments
 
@@ -35,6 +34,8 @@ Last updated: 2026-07-19
 - Increment 7: added accession-sourced parser fixtures and baseline tests.
 - Increment 8: established SEC series/class identity and exact fund-ticker
   mapping enrichment.
+- Increment 8.5: classified ETF and mutual-fund vehicles and associated
+  mutual-fund classes with their parent series.
 
 ## Increment 8
 
@@ -84,9 +85,9 @@ the same CIK and normalized name map unambiguously. This prevents duplicate
 snapshot rows while preserving the complete event list. Event IDs use the
 class ID, then series ID, then normalized name as their accession-local token.
 
-Placeholder class-only rows now carry parent-series context in parser output,
-but remain excluded from standalone events. Increment 8.5 will decide how to
-reintroduce relevant classes in a vehicle-aware series view.
+Placeholder class-only rows carry parent-series context in parser output.
+Increment 8.5 reintroduced parent-backed classes as series-scoped events while
+continuing to reject orphan class-only standalone identities.
 
 ### Ticker Enrichment
 
@@ -201,7 +202,56 @@ parent-series snapshot association without source-event loss, authoritative
 mapped-ticker readiness, mutual-fund launch-candidate exclusion without table
 exclusion, and the two converted fixture cases.
 
+## Increment 9
+
+### Smaller Fixes
+
+1. **IBIT quoted prose:** `extract_ticker()` now recognizes the narrow phrase
+   `under the ticker symbol "XXXX."` in the accession-backed iShares Bitcoin
+   Trust S-1/A fixture. The exact added regex is
+   `\bunder\s+the\s+ticker\s+symbol\s+"([A-Z]{3,4})\.?"`. The final expected
+   failure is now a passing fixture test; no other parser regex changed.
+2. **Mapping visibility:** `SecFundTickerMapping` carries availability and an
+   error summary, and `FilingEventResults.mapping_status` passes that metadata
+   through the cached Streamlit loader. The UI captions unavailable mapping
+   data as potentially incomplete. Force refresh retries naturally because the
+   mapping fetch remains inside the refresh-token-keyed cached function.
+3. **Post-enrichment classification:** all rows are reclassified after exact
+   and fallback ticker enrichment. An ID-less row enriched to a valid ETF
+   ticker can now pass the existing ETF launch-candidate gate. No readiness
+   precedence changed, and `ticker_at_filing` remains immutable.
+4. **Identity-scope stabilization:** after classification, any class ID that is
+   series-scoped in one filing remains series-scoped throughout that class's
+   history. Snapshot derivation repeats this normalization on copied rows, so
+   callers cannot split one class into class- and series-identity rows while
+   source events remain untouched.
+5. **Empty snapshots:** readiness enrichment returns a typed empty result with
+   all derived columns. The app shows a friendly no-matches message and avoids
+   datetime formatting on empty display data.
+6. **Timestamp normalization:** timezone-aware `accepted_at` values convert to
+   UTC before their timezone is removed; date-only fallbacks remain naive
+   midnight and therefore share one naive-UTC comparison basis.
+7. **Documentation:** README and this handoff now record the accepted
+   dual-vehicle behavior. A series with an ETF class and mutual-fund classes
+   intentionally yields two rows: the standalone ETF class and one parent
+   series row for the mutual-fund classes.
+
+### Verification
+
+- Fresh Python 3.14 virtual environment installed from `requirements.txt`.
+- Full suite: `Ran 56 tests`.
+- Result: `OK` with zero expected failures.
+- All SEC fixture tests pass after the one sanctioned parser regex addition.
+- `py_compile` passed for all active modules and tests.
+- `git diff --check` passed.
+
+New regression coverage includes unavailable mapping metadata, post-fallback
+ETF readiness, class identity-scope flips, empty readiness dataframes,
+same-day UTC timestamp ordering, quoted-prose IBIT extraction, and explicit
+dual-vehicle two-row snapshots.
+
 ## Unrelated Files
 
-- `README.md` remains untracked and was not modified.
+- `README.md` was previously untracked and is intentionally included in
+  Increment 9 because documentation alignment is part of the approved scope.
 - Ignore `.claude/worktrees/peaceful-bartik-994ff6`.

@@ -376,7 +376,12 @@ st.markdown(
 @st.cache_data(ttl=1800)
 def load_filing_events(data_version, refresh_token, start_date, end_date, selected_ciks):
     event_results = fetch_filing_events(start_date, end_date, ciks=selected_ciks)
-    return list(event_results), list(event_results.statuses), datetime.now()
+    return (
+        list(event_results),
+        list(event_results.statuses),
+        dict(event_results.mapping_status),
+        datetime.now(),
+    )
 
 
 def _issuer_groups_for_segment(segment):
@@ -767,7 +772,12 @@ with st.container():
 
             try:
                 with st.spinner("Searching SEC filings for the selected date range..."):
-                    filing_events, filing_statuses, fetched_at = load_filing_events(
+                    (
+                        filing_events,
+                        filing_statuses,
+                        mapping_status,
+                        fetched_at,
+                    ) = load_filing_events(
                         DATA_VERSION,
                         st.session_state.search_refresh_token,
                         st.session_state.search_start_date,
@@ -799,6 +809,10 @@ with st.container():
                         )
                     )
                     st.warning(f"Partial SEC coverage. Failed filers: {failed_filers}.")
+                if not mapping_status.get("available", False):
+                    st.caption(
+                        "SEC ticker mapping unavailable; tickers may be incomplete."
+                    )
 
                 snapshot_df = pd.DataFrame(derive_latest_fund_rows(filing_events))
                 df = snapshot_df
@@ -849,12 +863,20 @@ with st.container():
                     )
                     filtered_df["themes"] = filtered_df["etf_name"].apply(classify_primary_theme)
                     filtered_df = add_launch_readiness_columns(filtered_df)
+                    if filtered_df.empty:
+                        st.info("No filing snapshot rows matched the selected date range.")
 
                     display_df = filtered_df.copy()
-                    display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
-                    display_df["earliest_auto_effective_date"] = display_df[
-                        "earliest_auto_effective_date"
-                    ].dt.strftime("%Y-%m-%d")
+                    if display_df.empty:
+                        display_df["date"] = pd.Series(dtype="object")
+                        display_df["earliest_auto_effective_date"] = pd.Series(
+                            dtype="object"
+                        )
+                    else:
+                        display_df["date"] = display_df["date"].dt.strftime("%Y-%m-%d")
+                        display_df["earliest_auto_effective_date"] = display_df[
+                            "earliest_auto_effective_date"
+                        ].dt.strftime("%Y-%m-%d")
                     display_df["earliest_auto_effective_date"] = display_df[
                         "earliest_auto_effective_date"
                     ].fillna("")
