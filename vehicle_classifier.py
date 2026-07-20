@@ -10,7 +10,7 @@ VEHICLE_TYPES = (ETF_VEHICLE, MUTUAL_FUND_SHARE_CLASS, UNKNOWN_VEHICLE)
 
 def is_share_class_name(value: Any) -> bool:
     name = str(value or "").strip()
-    class_label = r"Class\s+[A-Z0-9]+(?:-[A-Z0-9]+)?(?:\s+Shares)?"
+    class_label = r"Class\s+[A-Z0-9]+(?:-[A-Z0-9]+)*(?:\s+Shares)?"
     named_class = r"(?:Institutional|Investor|Retail)\s+Class(?:\s+Shares)?"
     return bool(
         re.fullmatch(rf"(?:{class_label}|{named_class})", name, re.IGNORECASE)

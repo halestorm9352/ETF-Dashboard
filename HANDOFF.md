@@ -16,7 +16,8 @@ Last updated: 2026-07-19
 - Branch: `sync-main`.
 - User-confirmed Increments 1 through 10 are approved and pushed.
 - Increment 9 commit: `1ac2782`.
-- Local `origin/main` matches the Increment 10 commit at `HEAD`.
+- Published Increment 10 commit: `60214c2`.
+- Increment 11 is implemented locally for independent review and is not pushed.
 
 ## Completed Increments
 
@@ -286,6 +287,37 @@ dual-vehicle two-row snapshots.
 - A normal live SEC search was not benchmarked during this increment, so no
   before/after slowdown was observed or claimed. The configured target remains
   eight requests per second as approved.
+
+## Increment 11
+
+### Large-Trust Series Identity
+
+1. Raised only `INDEX_PAGE_MAX_CHARS` from 60,000 to 300,000 so large EDGAR
+   filing-index pages retain their late series/class tables.
+2. Added the verbatim 107,838-character ProShares 485APOS index page for
+   accession `0001174610-26-000432`. Its first `contractRow` begins after
+   character 100,000, and the fixture test truncates with the production
+   constant before asserting all five series and class IDs.
+3. Extended the shared class-only pattern to accept repeated hyphen segments,
+   including `Class 529-F-1` and `Class 529-F-1 Shares`, while retaining the
+   negative `Class Act Growth ETF` case. The filing placeholder helper delegates
+   to this shared classifier, so filtering and vehicle classification remain
+   aligned.
+4. Added `MODULE_CONTRACT_VERSION = 11` to `sec_parsers.py` and
+   `sec_filings.py`. `app.py` now expects version 11, reloads a mismatched module
+   once, and visibly stops with a reboot message if the mismatch remains.
+   Removed the obsolete config import fallback and its duplicated constants.
+5. Bumped `DATA_VERSION` to the Increment 11 v7 value.
+
+### Verification
+
+- Fresh Python 3.14 virtual environment installed from `requirements.txt`.
+- Full suite: `Ran 65 tests in 0.623s`; result `OK` with zero expected failures.
+- `py_compile` passed for all active modules and tests.
+- Live production-path spot-check fetched the cited ProShares page through
+  `extract_text(..., INDEX_PAGE_MAX_CHARS)` and parsed five entries. All five
+  carried non-empty `series_id` and `class_id` values.
+- Increment 12 has not started. Do not push Increment 11 until review approval.
 
 ## Local-Only Files
 

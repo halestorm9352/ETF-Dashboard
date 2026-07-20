@@ -16,6 +16,7 @@ from theme_classifier import (
     TARGET_MATURITY_THEME,
     classify_primary_theme,
 )
+from vehicle_classifier import is_share_class_name
 
 
 class TickerHygieneTests(unittest.TestCase):
@@ -85,14 +86,23 @@ class PlaceholderShareClassTests(unittest.TestCase):
             "Investor Class Shares",
             "Retail Class",
             "Example Fund: Class X",
+            "Class 529-F-1",
+            "Class 529-F-1 Shares",
         )
 
         for name in names:
             with self.subTest(name=name):
                 self.assertTrue(_is_placeholder_share_class_name(name))
+                self.assertTrue(is_share_class_name(name))
 
     def test_mutual_fund_name_is_not_a_placeholder(self):
         self.assertFalse(_is_placeholder_share_class_name("Fidelity Contrafund"))
+
+    def test_class_word_in_fund_name_is_not_a_placeholder(self):
+        name = "Class Act Growth ETF"
+
+        self.assertFalse(_is_placeholder_share_class_name(name))
+        self.assertFalse(is_share_class_name(name))
 
 
 class ThemeHygieneTests(unittest.TestCase):

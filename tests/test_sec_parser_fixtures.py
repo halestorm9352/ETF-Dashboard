@@ -1,6 +1,9 @@
 import unittest
 from pathlib import Path
 
+import sec_filings
+import sec_parsers
+from config import INDEX_PAGE_MAX_CHARS
 from sec_filings import _merge_series_entries_with_pairs
 from sec_parsers import (
     extract_named_ticker_pairs,
@@ -19,6 +22,22 @@ def load_fixture(name: str) -> str:
 
 
 class SecParserFixtureTests(unittest.TestCase):
+    def test_large_trust_index_cap_preserves_series_identity_table(self):
+        text = load_fixture("proshares_485apos_large_index.html")
+
+        entries = extract_series_entries(text[:INDEX_PAGE_MAX_CHARS])
+
+        self.assertEqual(len(entries), 5)
+        self.assertTrue(all(entry["series_id"] for entry in entries))
+        self.assertTrue(all(entry["class_id"] for entry in entries))
+
+    def test_parser_and_filing_module_contract_versions_match(self):
+        self.assertEqual(
+            sec_parsers.MODULE_CONTRACT_VERSION,
+            sec_filings.MODULE_CONTRACT_VERSION,
+        )
+        self.assertEqual(sec_parsers.MODULE_CONTRACT_VERSION, 11)
+
     def test_s1_without_final_ticker_remains_unlisted(self):
         text = load_fixture("ishares_bitcoin_s1_primary.html")
 

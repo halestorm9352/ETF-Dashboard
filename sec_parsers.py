@@ -13,6 +13,9 @@ from vehicle_classifier import (
 )
 
 
+MODULE_CONTRACT_VERSION = 11
+
+
 def clean_html_text(value: str) -> str:
     without_tags = re.sub(r"<[^>]+>", " ", value)
     decoded = html.unescape(without_tags)

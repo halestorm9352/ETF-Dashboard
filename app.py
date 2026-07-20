@@ -7,59 +7,33 @@ from datetime import datetime, timedelta, timezone
 from html import escape
 from zoneinfo import ZoneInfo
 
-try:
-    from config import (
-        classify_flow_group,
-        CIK_GROUP_LOOKUP,
-        CIK_GROUP_OPTIONS,
-        DATA_VERSION,
-        FLOW_VIEW_OPTIONS,
-    )
-except ImportError:
-    from config import (
-        CIK_GROUP_LOOKUP,
-        CIK_GROUP_OPTIONS,
-        DATA_VERSION,
-        infer_cik_group_name,
-    )
+from config import (
+    classify_flow_group,
+    CIK_GROUP_LOOKUP,
+    CIK_GROUP_OPTIONS,
+    DATA_VERSION,
+    FLOW_VIEW_OPTIONS,
+)
 
-    FLOW_VIEW_OPTIONS = ("All", "Top 3", "The Field", "Series Trusts")
-    _TOP_FLOW_GROUPS = {"BlackRock", "SPDR", "Vanguard"}
-    _SERIES_TRUST_FLOW_GROUPS = {
-        "EA Series Trust",
-        "ETF Architect",
-        "ETF Opportunities Trust",
-        "ETF Series Solutions",
-        "Exchange Traded Concepts Trust",
-        "Financial Investors Trust",
-        "Investment Managers Series Trust",
-        "Northern Lights",
-        "TIDAL",
-    }
 
-    def classify_flow_group(group_name):
-        if group_name in _TOP_FLOW_GROUPS:
-            return "Top 3"
-        if group_name in _SERIES_TRUST_FLOW_GROUPS:
-            return "Series Trusts"
-        return "The Field"
+EXPECTED_MODULE_CONTRACT_VERSION = 11
+
+
+def _require_current_module_contract(module):
+    if getattr(module, "MODULE_CONTRACT_VERSION", None) != EXPECTED_MODULE_CONTRACT_VERSION:
+        module = importlib.reload(module)
+    if getattr(module, "MODULE_CONTRACT_VERSION", None) != EXPECTED_MODULE_CONTRACT_VERSION:
+        st.error("Deployed modules are out of sync; reboot the app.")
+        st.stop()
+    return module
 
 import sec_parsers as sec_parsers_module
 
-if not hasattr(sec_parsers_module, "extract_rule_485_effectiveness"):
-    sec_parsers_module = importlib.reload(sec_parsers_module)
+sec_parsers_module = _require_current_module_contract(sec_parsers_module)
 
 import sec_filings as sec_filings_module
 
-if not all(
-    hasattr(sec_filings_module, name)
-    for name in (
-        "derive_latest_fund_rows",
-        "fetch_filing_events",
-        "normalize_event_ticker",
-    )
-):
-    sec_filings_module = importlib.reload(sec_filings_module)
+sec_filings_module = _require_current_module_contract(sec_filings_module)
 
 derive_latest_fund_rows = sec_filings_module.derive_latest_fund_rows
 fetch_filing_events = sec_filings_module.fetch_filing_events

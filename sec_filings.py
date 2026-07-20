@@ -41,6 +41,9 @@ from vehicle_classifier import (
 )
 
 
+MODULE_CONTRACT_VERSION = 11
+
+
 class FilingEventResults(list[dict[str, str]]):
     def __init__(
         self,
