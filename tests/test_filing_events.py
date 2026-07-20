@@ -3,9 +3,12 @@ from datetime import date, datetime
 import json
 from unittest.mock import patch
 
+import requests
+
 from sec_filings import (
     _enrich_missing_tickers_from_later_filings,
     _enrich_tickers_from_sec_mapping,
+    _fetch_filings_for_cik,
     _row_timestamp,
     derive_latest_fund_rows,
     fetch_sec_fund_ticker_mapping,
@@ -84,6 +87,22 @@ class Rule485EffectivenessTests(unittest.TestCase):
 
 
 class FilingHistoryTests(unittest.TestCase):
+    def test_final_sec_rate_limit_marks_cik_failed(self):
+        response = requests.Response()
+        response.status_code = 429
+        error = requests.HTTPError("429 Too Many Requests", response=response)
+
+        with patch("sec_filings.get_http_response", side_effect=error):
+            rows, status = _fetch_filings_for_cik(
+                "0000000001",
+                datetime(2026, 1, 1),
+                datetime(2026, 1, 31, 23, 59, 59),
+            )
+
+        self.assertEqual(rows, [])
+        self.assertFalse(status["success"])
+        self.assertIn("429 Too Many Requests", status["error_summary"])
+
     def test_sec_fund_ticker_mapping_uses_documented_field_order(self):
         payload = {
             "fields": ["cik", "seriesId", "classId", "symbol"],

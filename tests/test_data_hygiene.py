@@ -5,7 +5,11 @@ from sec_filings import (
     _is_placeholder_share_class_name,
     _merge_series_entries_with_pairs,
 )
-from sec_parsers import extract_named_ticker_pairs, sanitize_ticker
+from sec_parsers import (
+    extract_named_ticker_pairs,
+    extract_series_entries,
+    sanitize_ticker,
+)
 from theme_classifier import (
     LEVERAGED_THEME,
     OPTIONS_INCOME_THEME,
@@ -15,6 +19,26 @@ from theme_classifier import (
 
 
 class TickerHygieneTests(unittest.TestCase):
+    def test_structured_ticker_sanitizer_accepts_two_to_five_letters(self):
+        self.assertEqual(sanitize_ticker("AB"), "AB")
+        self.assertEqual(sanitize_ticker("ABCDE"), "ABCDE")
+
+    def test_five_letter_series_table_ticker_survives(self):
+        entries = extract_series_entries(
+            """
+            <table>
+              <tr><td class="seriesName">Series S000000001</td>
+                  <td class="seriesCell">new</td>
+                  <td class="seriesCell">Example ETF</td></tr>
+              <tr class="contractRow">
+                  <td>Class/Contract C000000001</td><td></td>
+                  <td>Example ETF</td><td>ABCDE</td></tr>
+            </table>
+            """
+        )
+
+        self.assertEqual(entries[0]["ticker"], "ABCDE")
+
     def test_exchange_and_false_positive_terms_are_invalid_tickers(self):
         for ticker in ("CBOE", "EDGX", "ARCA", "BATS", "LONG"):
             with self.subTest(ticker=ticker):

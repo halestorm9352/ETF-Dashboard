@@ -18,7 +18,7 @@ from config import (
 
 SEC_FUND_TICKER_URL = "https://www.sec.gov/files/company_tickers_mf.json"
 SEC_FUND_TICKER_MAX_CHARS = 20_000_000
-from http_utils import get_http_session, get_response_text
+from http_utils import get_response as get_http_response, get_response_text
 from sec_parsers import (
     extract_etf_name,
     extract_filer_name,
@@ -100,31 +100,19 @@ def fetch_supporting_document_texts(
 
 def fetch_recent_filings_for_cik(cik: str) -> dict[str, Any]:
     url = f"https://data.sec.gov/submissions/CIK{cik}.json"
-    session = get_http_session()
-    last_error = ""
-    for attempt in range(3):
-        try:
-            response = session.get(url, timeout=20)
-            response.raise_for_status()
-            data = response.json()
-            return {
-                "filer_name": data.get("name", CIK_LOOKUP.get(cik, cik)),
-                "recent": data.get("filings", {}).get("recent", {}),
-            }
-        except requests.RequestException as exc:
-            last_error = f"{type(exc).__name__}: {exc}"
-            if attempt == 2:
-                return {
-                    "filer_name": CIK_LOOKUP.get(cik, cik),
-                    "recent": {},
-                    "_error": last_error,
-                }
-
-    return {
-        "filer_name": CIK_LOOKUP.get(cik, cik),
-        "recent": {},
-        "_error": last_error or "SEC submissions request failed",
-    }
+    try:
+        response = get_http_response(url, retries=3, timeout=20)
+        data = response.json()
+        return {
+            "filer_name": data.get("name", CIK_LOOKUP.get(cik, cik)),
+            "recent": data.get("filings", {}).get("recent", {}),
+        }
+    except (requests.RequestException, ValueError) as exc:
+        return {
+            "filer_name": CIK_LOOKUP.get(cik, cik),
+            "recent": {},
+            "_error": f"{type(exc).__name__}: {exc}",
+        }
 
 
 def _normalized_cik(value: Any) -> str:
@@ -600,6 +588,8 @@ def _fetch_filing_rows_for_cik(
                 url = future_map[future]
                 try:
                     prefetched_primary_text[url] = future.result()
+                except requests.HTTPError:
+                    raise
                 except Exception:
                     prefetched_primary_text[url] = ""
 

@@ -11,7 +11,7 @@ latest, amendment-aware snapshot row per detected fund for the selected period.
 - Local working branch: `sync-main`
 - Current published commit: `6ce3c3f`
 - Runtime: Python 3.14
-- Current test suite: 56 tests
+- Current test suite: 62 tests
 
 ## Mission
 
@@ -89,7 +89,7 @@ The Streamlit page provides:
 - A coverage caption after each search:
   `Searched N filers; K succeeded, M failed.`
 - A visible partial-coverage warning listing failed filers.
-- Summary cards for snapshot rows, listed tickers, distinct filers, and
+- Summary cards for funds loaded, listed tickers, distinct filers, and
   launch candidates.
 - Theme counts inferred from fund names.
 - One latest-snapshot table.
@@ -98,6 +98,7 @@ The Streamlit page provides:
 Ordinary identical searches reuse cached results and retain the original
 `Data as of` timestamp. A forced refresh increments the refresh token once,
 repopulates the cache, and resets the checkbox.
+The timestamp is converted from UTC to US Eastern time and labeled `ET`.
 
 ## Filing and Snapshot Model
 
@@ -242,6 +243,7 @@ All paths are relative to `C:\Users\jhale\Desktop\ETF Dashboard`.
 | `theme_classifier.py` | Rule-based theme classification and theme summaries. |
 | `http_utils.py` | Thread-local HTTP sessions, SEC headers, retry behavior, and response truncation. |
 | `tests/test_filing_events.py` | Filing history, partial failure, enrichment window, Rule 485, and ticker-at-filing tests. |
+| `tests/test_http_utils.py` | Shared SEC pacing, Retry-After, and terminal 403/429 behavior. |
 | `tests/test_data_hygiene.py` | Invalid ticker, ambiguous ticker assignment, placeholder class, and theme tests. |
 | `tests/test_readiness.py` | Launch-candidate gating and readiness-state tests. |
 | `tests/test_sec_parser_fixtures.py` | Real-world SEC fixture baselines for S-1, N-1A, 485APOS, and 485BPOS extraction. |
@@ -268,9 +270,8 @@ and seed files remain as references:
 The obsolete `.github/workflows/refresh-launches-snapshot.yml` workflow was
 deleted in Increment 2.
 
-`README.md` is included in Increment 9 so the repository overview matches the
-approved identity and vehicle model. The unrelated `.claude/worktrees/` entry
-must not be staged with project changes.
+The local `.claude/` worktree directory is ignored and is not part of the
+published application repository.
 
 ## Reproducible Setup
 
@@ -302,9 +303,9 @@ Run from the project root:
 
 ```powershell
 python -m unittest discover -s tests -v
-python -m py_compile app.py readiness.py sec_filings.py sec_parsers.py `
+python -m py_compile app.py http_utils.py readiness.py sec_filings.py sec_parsers.py `
   theme_classifier.py vehicle_classifier.py tests\test_filing_events.py `
-  tests\test_data_hygiene.py tests\test_readiness.py `
+  tests\test_data_hygiene.py tests\test_http_utils.py tests\test_readiness.py `
   tests\test_sec_parser_fixtures.py tests\test_vehicle_classifier.py
 git diff --check
 ```
@@ -312,7 +313,7 @@ git diff --check
 Current verified result:
 
 ```text
-Ran 56 tests
+Ran 62 tests
 OK
 ```
 
@@ -342,6 +343,9 @@ Coverage includes:
 Implemented safeguards:
 
 - Thread-local HTTP sessions.
+- A shared SEC interval limiter targeting eight requests per second across
+  worker threads.
+- Retryable SEC 403/429 handling with backoff and `Retry-After` support.
 - Bounded concurrent CIK processing.
 - Concurrent primary-document prefetch for a single selected CIK.
 - Response-size limits and retries.

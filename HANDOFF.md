@@ -14,12 +14,9 @@ Last updated: 2026-07-19
 ## Git State
 
 - Branch: `sync-main`.
-- User-confirmed Increments 1 through 8.5 are approved and pushed.
-- Published Increment 8.5 commit: `6ce3c3f`.
-- The local `origin/main` tracking ref still shows `40c100d` because no fetch
-  was performed; do not treat that stale ref as the published-state authority.
-- Increment 9 is implemented locally for independent review.
-- Do not push or deploy Increment 9 until explicitly authorized.
+- User-confirmed Increments 1 through 10 are approved and pushed.
+- Increment 9 commit: `1ac2782`.
+- Local `origin/main` matches the Increment 10 commit at `HEAD`.
 
 ## Completed Increments
 
@@ -250,8 +247,50 @@ ETF readiness, class identity-scope flips, empty readiness dataframes,
 same-day UTC timestamp ordering, quoted-prose IBIT extraction, and explicit
 dual-vehicle two-row snapshots.
 
-## Unrelated Files
+## Increment 10
 
-- `README.md` was previously untracked and is intentionally included in
-  Increment 9 because documentation alignment is part of the approved scope.
-- Ignore `.claude/worktrees/peaceful-bartik-994ff6`.
+### Final Cleanup
+
+1. Removed the dead news ticker, embedded component script, and all
+   `.etf-ticker-*` / `.etf-news-*` CSS. The unused components import was
+   removed; `escape` remains because live theme-card HTML still uses it.
+2. Renamed the first summary card to `Funds Loaded`.
+3. Added a process-wide SEC interval lock targeting eight requests per second
+   across worker threads. SEC 403/429 responses retry with backoff, honor
+   numeric or HTTP-date `Retry-After` with a 30-second maximum delay, and raise
+   after the final attempt.
+   Submission, index, supporting, and prefetched primary-document failures
+   therefore reach the existing per-CIK failed status path.
+4. Widened only `sanitize_ticker()` from `[A-Z]{3,4}` to `[A-Z]{2,5}` and used
+   it for structured series-table cells. Free-text extraction regexes were not
+   widened, and `INVALID_TICKERS` still applies.
+5. Removed the tracked `.claude` gitlink from the index and added `.claude/` to
+   `.gitignore`; local Claude files were not deleted.
+6. Cached fetch timestamps are now timezone-aware UTC values and display in
+   `America/New_York` with an explicit `ET` label. Legacy naive cached values
+   are interpreted as UTC during the 30-minute transition window.
+7. Bumped `DATA_VERSION` so cached rows are rebuilt under the wider structured
+   ticker validation.
+
+### Verification
+
+- Fresh Python 3.14 environment installed from `requirements.txt`.
+- Full suite: `Ran 62 tests`.
+- Result: `OK` with zero expected failures.
+- `py_compile` passed for all active modules and tests.
+- `git diff --check` passed.
+- New tests cover shared 125 ms SEC spacing, the 30-second `Retry-After` cap,
+  terminal 403 propagation, per-CIK rate-limit failure status,
+  two-to-five-letter ticker sanitization, and five-letter structured
+  series-table tickers.
+- A normal live SEC search was not benchmarked during this increment, so no
+  before/after slowdown was observed or claimed. The configured target remains
+  eight requests per second as approved.
+
+## Local-Only Files
+
+- `.claude/` remains available locally but is ignored and untracked.
+- Watch item only: structured series-table tickers pass through
+  `INVALID_TICKERS`, which could reject a legitimate ticker that collides with
+  a denylisted word such as `MID`. Do not change this without a future approved
+  increment.

@@ -8,7 +8,6 @@ from config import INVALID_TICKERS
 from vehicle_classifier import (
     UNKNOWN_VEHICLE,
     classify_vehicle,
-    is_mutual_fund_ticker,
     is_share_class_name,
     uses_parent_series_identity,
 )
@@ -287,7 +286,7 @@ def extract_ticker(
 
 def sanitize_ticker(value: Any) -> str:
     ticker = str(value or "").strip().upper()
-    if re.fullmatch(r"[A-Z]{3,4}", ticker) and ticker not in INVALID_TICKERS:
+    if re.fullmatch(r"[A-Z]{2,5}", ticker) and ticker not in INVALID_TICKERS:
         return ticker
     return "Not Listed"
 
@@ -466,11 +465,8 @@ def extract_series_entries(text: str) -> list[dict[str, str]]:
         ticker = clean_html_text(cells[3].get_text(" ", strip=True)).upper()
         if not class_name:
             continue
-        if ticker and not (
-            re.fullmatch(r"[A-Z]{3,4}", ticker)
-            or is_mutual_fund_ticker(ticker)
-        ):
-            ticker = ""
+        structured_ticker = sanitize_ticker(ticker)
+        ticker = "" if structured_ticker == "Not Listed" else structured_ticker
         entry = {
             "etf_name": (
                 current_series_name

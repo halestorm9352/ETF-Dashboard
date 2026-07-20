@@ -3,9 +3,9 @@ from io import BytesIO
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from html import escape
+from zoneinfo import ZoneInfo
 
 try:
     from config import (
@@ -113,67 +113,6 @@ st.markdown(
         margin-bottom: 1rem;
     }
 
-    .etf-ticker-shell {
-        border: 1px solid var(--etf-border);
-        background: var(--etf-card);
-        border-radius: 16px;
-        overflow: hidden;
-        margin: 0.5rem 0 1.25rem;
-    }
-
-    .etf-ticker-label {
-        color: var(--etf-accent);
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 0.7rem 1rem 0.45rem;
-        border-bottom: 1px solid var(--etf-border);
-    }
-
-    .etf-ticker-window {
-        overflow: hidden;
-        white-space: nowrap;
-        position: relative;
-    }
-
-    .etf-ticker-track {
-        display: inline-flex;
-        align-items: center;
-        gap: 2.5rem;
-        width: max-content;
-        padding: 0.8rem 0;
-        animation: etfTickerMove 900s linear infinite;
-    }
-
-    .etf-ticker-shell:hover .etf-ticker-track {
-        animation-play-state: paused;
-    }
-
-    .etf-ticker-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.65rem;
-    }
-
-    .etf-ticker-item a {
-        font-weight: 700;
-        text-decoration: none;
-    }
-
-    .etf-ticker-meta {
-        color: var(--etf-muted);
-        font-size: 0.85rem;
-    }
-
-    @keyframes etfTickerMove {
-        from {
-            transform: translateX(0);
-        }
-        to {
-            transform: translateX(-50%);
-        }
-    }
-
     .etf-card {
         border: 1px solid var(--etf-border);
         background: var(--etf-card);
@@ -232,78 +171,6 @@ st.markdown(
     .etf-section-copy {
         color: var(--etf-muted);
         margin-bottom: 0.8rem;
-    }
-
-    .etf-feature-title {
-        font-size: 1.3rem;
-        font-weight: 700;
-        margin-bottom: 0.35rem;
-    }
-
-    .etf-feature-meta {
-        color: var(--etf-muted);
-        font-size: 0.95rem;
-    }
-
-    .etf-news-item {
-        padding: 0.95rem 0;
-        border-bottom: 1px solid var(--etf-border);
-    }
-
-    .etf-news-item:last-child {
-        border-bottom: none;
-        padding-bottom: 0;
-    }
-
-    .etf-news-source {
-        color: var(--etf-accent);
-        font-size: 0.82rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-    }
-
-    .etf-news-meta {
-        color: var(--etf-muted);
-        font-size: 0.9rem;
-    }
-
-    .etf-news-title {
-        display: block;
-        font-size: 1.02rem;
-        font-weight: 700;
-        line-height: 1.35;
-        margin: 0.3rem 0 0.2rem;
-        text-decoration: none;
-    }
-
-    .etf-news-title:hover {
-        text-decoration: underline;
-    }
-
-    .etf-news-kicker {
-        color: var(--etf-muted);
-        font-size: 0.88rem;
-        margin-top: 0.15rem;
-    }
-
-    .etf-status-line {
-        font-size: 0.86rem;
-        margin-top: -0.15rem;
-        margin-bottom: 0.8rem;
-    }
-
-    .etf-status-live {
-        color: var(--etf-accent);
-    }
-
-    .etf-status-fallback {
-        color: #d8b44a;
-    }
-
-    .etf-news-rail {
-        max-height: 1450px;
-        overflow-y: auto;
-        padding-right: 0.5rem;
     }
 
     a, a:visited {
@@ -380,7 +247,7 @@ def load_filing_events(data_version, refresh_token, start_date, end_date, select
         list(event_results),
         list(event_results.statuses),
         dict(event_results.mapping_status),
-        datetime.now(),
+        datetime.now(timezone.utc),
     )
 
 
@@ -449,254 +316,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-news_items = []
-
-if news_items:
-    ticker_items_html = "".join(
-        [
-            (
-                f'<span class="etf-ticker-item">'
-                f'<a href="{escape(item.get("link", "#"))}" target="_blank">{escape(item.get("title", "Headline"))}</a>'
-                f'<span class="etf-ticker-meta">{escape(item.get("source", "ETF"))} | {escape(item.get("date", ""))}</span>'
-                f'</span>'
-            )
-            for item in news_items[:60]
-        ]
-    )
-    ticker_component_html = """
-    <!doctype html>
-    <html>
-    <head>
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=PT+Sans+Narrow:wght@400;700&display=swap');
-
-    :root {
-        --etf-accent: #138a36;
-        --etf-card: #121722;
-        --etf-border: rgba(255, 255, 255, 0.08);
-        --etf-muted: #aeb7c7;
-        --etf-text: #f3f6fb;
-    }
-
-    html, body {
-        margin: 0;
-        padding: 0;
-        background: transparent;
-        color: var(--etf-text);
-        font-family: 'PT Sans Narrow', sans-serif;
-    }
-
-    .etf-ticker-shell {
-        border: 1px solid var(--etf-border);
-        background: var(--etf-card);
-        border-radius: 16px;
-        overflow: hidden;
-    }
-
-    .etf-ticker-label {
-        color: var(--etf-accent);
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 0.7rem 1rem 0.45rem;
-        border-bottom: 1px solid var(--etf-border);
-    }
-
-    .etf-ticker-window {
-        overflow: hidden;
-        white-space: nowrap;
-        position: relative;
-    }
-
-    .etf-ticker-track {
-        display: inline-flex;
-        align-items: center;
-        gap: 2.5rem;
-        width: max-content;
-        padding: 0.8rem 0;
-        will-change: transform;
-    }
-
-    .etf-ticker-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.65rem;
-    }
-
-    .etf-ticker-item a {
-        font-weight: 700;
-        text-decoration: none;
-        color: #41a5ff;
-    }
-
-    .etf-ticker-meta {
-        color: var(--etf-muted);
-        font-size: 0.85rem;
-    }
-
-    .etf-ticker-scrubber-wrap {
-        padding: 0.25rem 1rem 0.8rem;
-        border-top: 1px solid var(--etf-border);
-        background: rgba(255, 255, 255, 0.015);
-    }
-
-    .etf-ticker-scrubber {
-        width: 100%;
-        margin: 0;
-        accent-color: var(--etf-accent);
-        background: transparent;
-    }
-
-    .etf-ticker-scrubber::-webkit-slider-runnable-track {
-        height: 6px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.12);
-    }
-
-    .etf-ticker-scrubber::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        margin-top: -4px;
-        background: var(--etf-accent);
-        border: 0;
-        cursor: pointer;
-    }
-
-    .etf-ticker-scrubber::-moz-range-track {
-        height: 6px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.12);
-        border: 0;
-    }
-
-    .etf-ticker-scrubber::-moz-range-thumb {
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: var(--etf-accent);
-        border: 0;
-        cursor: pointer;
-    }
-    </style>
-    </head>
-    <body>
-        <div class="etf-ticker-shell" id="ticker-shell">
-            <div class="etf-ticker-label">News Wire</div>
-            <div class="etf-ticker-window">
-                <div class="etf-ticker-track" id="ticker-track">""" + ticker_items_html + """</div>
-            </div>
-            <div class="etf-ticker-scrubber-wrap">
-                <input
-                    class="etf-ticker-scrubber"
-                    id="ticker-scrubber"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value="0"
-                    aria-label="News wire scrubber"
-                />
-            </div>
-        </div>
-
-        <script>
-        const shell = document.getElementById("ticker-shell");
-        const track = document.getElementById("ticker-track");
-        const scrubber = document.getElementById("ticker-scrubber");
-        const originalMarkup = track.innerHTML;
-
-        if (originalMarkup) {
-            track.innerHTML = originalMarkup + originalMarkup;
-        }
-
-        let singleWidth = 0;
-        let offset = 0;
-        let lastFrame = null;
-        let hoverPaused = false;
-        let dragging = false;
-
-        function measureTrack() {
-            singleWidth = track.scrollWidth / 2;
-            scrubber.max = Math.max(1, Math.round(singleWidth));
-            scrubber.value = Math.min(Number(scrubber.value || 0), Number(scrubber.max));
-        }
-
-        function applyOffset() {
-            if (!singleWidth) {
-                return;
-            }
-            const normalized = ((offset % singleWidth) + singleWidth) % singleWidth;
-            track.style.transform = `translateX(${-normalized}px)`;
-            if (!dragging) {
-                scrubber.value = Math.round(normalized);
-            }
-        }
-
-        function tick(timestamp) {
-            if (lastFrame === null) {
-                lastFrame = timestamp;
-            }
-
-            const elapsed = timestamp - lastFrame;
-            lastFrame = timestamp;
-
-            if (!hoverPaused && !dragging && singleWidth > 0) {
-                const pixelsPerMs = singleWidth / 900000;
-                offset += elapsed * pixelsPerMs;
-                if (offset >= singleWidth) {
-                    offset -= singleWidth;
-                }
-                applyOffset();
-            }
-
-            window.requestAnimationFrame(tick);
-        }
-
-        shell.addEventListener("mouseenter", () => {
-            hoverPaused = true;
-        });
-
-        shell.addEventListener("mouseleave", () => {
-            hoverPaused = false;
-        });
-
-        scrubber.addEventListener("pointerdown", () => {
-            dragging = true;
-        });
-
-        scrubber.addEventListener("pointerup", () => {
-            dragging = false;
-        });
-
-        scrubber.addEventListener("input", (event) => {
-            dragging = true;
-            offset = Number(event.target.value || 0);
-            applyOffset();
-        });
-
-        scrubber.addEventListener("change", () => {
-            dragging = false;
-        });
-
-        window.addEventListener("resize", () => {
-            measureTrack();
-            applyOffset();
-        });
-
-        measureTrack();
-        applyOffset();
-        window.requestAnimationFrame(tick);
-        </script>
-    </body>
-    </html>
-    """
-    components.html(
-        ticker_component_html,
-        height=126,
-        scrolling=False,
-    )
 
 with st.container():
     center_col = st.container()
@@ -892,7 +511,7 @@ with st.container():
                     )
                     stat_cols = st.columns(4)
                     stat_cols[0].markdown(
-                        f'<div class="etf-card"><div class="etf-card-label">Snapshot Rows</div><div class="etf-card-value">{filings_count}</div></div>',
+                        f'<div class="etf-card"><div class="etf-card-label">Funds Loaded</div><div class="etf-card-value">{filings_count}</div></div>',
                         unsafe_allow_html=True,
                     )
                     stat_cols[1].markdown(
@@ -912,8 +531,16 @@ with st.container():
                         f"{filing_event_count} filing events. Readiness timing follows the checked Rule 485 "
                         "option in each filing when detected."
                     )
+                    fetched_at_utc = (
+                        fetched_at
+                        if fetched_at.tzinfo is not None
+                        else fetched_at.replace(tzinfo=timezone.utc)
+                    )
+                    fetched_at_et = fetched_at_utc.astimezone(
+                        ZoneInfo("America/New_York")
+                    )
                     st.caption(
-                        f"Data as of {fetched_at.strftime('%I:%M %p').lstrip('0')} "
+                        f"Data as of {fetched_at_et.strftime('%I:%M %p').lstrip('0')} ET "
                         "(cached up to 30 min; use Force refresh for live data)."
                     )
 
