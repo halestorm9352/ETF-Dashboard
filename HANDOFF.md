@@ -1,6 +1,6 @@
 # ETF Dashboard Handoff
 
-Last updated: 2026-07-19
+Last updated: 2026-07-20
 
 ## Workflow
 
@@ -14,10 +14,12 @@ Last updated: 2026-07-19
 ## Git State
 
 - Branch: `sync-main`.
-- User-confirmed Increments 1 through 10 are approved and pushed.
+- User-confirmed Increments 1 through 11 are approved and pushed.
 - Increment 9 commit: `1ac2782`.
 - Published Increment 10 commit: `60214c2`.
-- Increment 11 is implemented locally for independent review and is not pushed.
+- Published Increment 11 commit: `f39e650`.
+- Local `HEAD` and `origin/main` both resolve to `f39e650`.
+- Increment 12 is implemented locally for independent review and is not pushed.
 
 ## Completed Increments
 
@@ -34,6 +36,8 @@ Last updated: 2026-07-19
   mapping enrichment.
 - Increment 8.5: classified ETF and mutual-fund vehicles and associated
   mutual-fund classes with their parent series.
+- Increment 11: preserved large-trust series identity, expanded multi-hyphen
+  placeholder handling, and enforced module contract versions.
 
 ## Increment 8
 
@@ -317,7 +321,101 @@ dual-vehicle two-row snapshots.
 - Live production-path spot-check fetched the cited ProShares page through
   `extract_text(..., INDEX_PAGE_MAX_CHARS)` and parsed five entries. All five
   carried non-empty `series_id` and `class_id` values.
-- Increment 12 has not started. Do not push Increment 11 until review approval.
+- Increment 11 was independently approved and pushed as `f39e650`.
+
+## Increment 12
+
+### New-Fund Scoping
+
+1. Added `SERIES_NEW_MONTHS = 18`. Snapshot rows in the specified pipeline
+   states use their SEC series registration date to distinguish new-fund work
+   from amendments to established series. A series first filed more than 18
+   months before the search start becomes `Existing fund amendment`.
+2. Added paginated browse-edgar Atom retrieval using the series identifier in
+   the supported `CIK=S000...` form. The lookup follows SEC `next` links,
+   returns the earliest filing date and a structured status, and uses the
+   shared SEC HTTP limiter. Repeated pages, malformed responses, exhaustion,
+   and empty histories fail closed rather than supplying partial age evidence.
+3. Added an indefinite per-series Streamlit cache keyed by `DATA_VERSION`, the
+   force-refresh token, and series ID. Identical searches reuse immutable ages;
+   Force refresh retries failures. Failed lookups retain filing-window
+   readiness and produce a visible warning plus a failure count.
+4. Added an `Include existing-fund amendments` checkbox. The default cards,
+   theme counts, workbook, and table exclude `Existing fund amendment` rows.
+   Coverage text reports the hidden-row and failed-age-lookup counts.
+
+### Mapping-Gated Prospectus Identity
+
+Large filings can have an index series table unrelated to additional funds in
+the primary prospectus. Primary-document name/ticker pairs now survive beside
+such a table only when the SEC fund-ticker mapping contains that ticker for the
+same CIK. If the mapping is unavailable or the ticker is absent, the pair is
+dropped.
+
+- A ticker mapping to exactly one class for that CIK adopts the mapped
+  `series_id` and `class_id`.
+- An ambiguous same-CIK ticker remains name-scoped and never adopts an
+  arbitrary identity.
+- Variants sharing one mapped identity collapse before event construction.
+  Names without an exchange prefix (`BZX`, `NYSE`, `NASDAQ`, `CBOE`, `ARCA`)
+  win over prefixed variants. Snapshot sorting has the same clean-name
+  tie-breaker.
+- `ticker_at_filing` remains the ticker actually present in the prospectus.
+
+### Prior Effectiveness
+
+Snapshot derivation now records whether the resolved identity has an earlier
+`485BPOS` whose detected effective date passed by the latest row's filing date.
+For pipeline-state rows, that evidence forces `Existing fund amendment`
+regardless of series age. The 18-month rule remains the fallback where no prior
+effective filing exists. This handles young but already-live funds such as
+BUYB without changing general readiness precedence.
+
+Designated effective dates are parsed in the formats emitted by the SEC parser:
+`Month D, YYYY`, `M/D/YYYY`, and ISO `YYYY-MM-DD`. Unparseable values remain
+conservative and do not count as prior-effectiveness evidence.
+
+### Versions And Tests
+
+- `DATA_VERSION`: `2026-07-20-increment-12-new-fund-scope-v8`.
+- `MODULE_CONTRACT_VERSION`: 12 in `app.py`, `sec_filings.py`, and
+  `sec_parsers.py`.
+- Full Python 3.14 suite: `Ran 79 tests in 0.456s`; result `OK` with zero
+  expected failures.
+- `py_compile` passed for all active modules and tests.
+- `git diff --check` passed.
+- New coverage includes paginated age parsing, failed lookup statuses and
+  fallbacks, old/young/missing-ID cases, mapping-gated pair retention and
+  rejection beside unrelated index tables, ambiguous ticker identity,
+  clean-name preference, prior-effective history derivation, and the young
+  series override.
+
+### Live ProShares Acceptance
+
+The production path was run for ProShares CIK `0001174610`, May 1 through July
+20. It returned 137 events, 136 snapshot rows, 136 series-age lookups, zero age
+failures, and 75 default-hidden existing-amendment rows.
+
+Timings:
+
+- Filing retrieval and parsing: 196.194 seconds.
+- Uncached paginated series-age lookups: 369.487 seconds.
+- Total: 565.873 seconds. Subsequent app searches reuse the per-series cache.
+
+All required funds appeared exactly once, used clean non-`BZX` names, carried
+mapped identity, and were hidden from the default view:
+
+- ANEW: `S000069834` / `C000222595`, `Existing fund amendment`.
+- BUYB: `S000104157` / `C000274756`, history `485BPOS -> 485APOS`, prior
+  effectiveness true, `Existing fund amendment`.
+- EMDV: `S000046274` / `C000144591`, `Existing fund amendment`.
+- EUDV: `S000046275` / `C000144592`, `Existing fund amendment`.
+- HDG: `S000031041` / `C000096244`, `Existing fund amendment`.
+- TMDV: `S000066433` / `C000214312`, `Existing fund amendment`.
+- VERS: `S000075552` / `C000234747`, `Existing fund amendment`.
+
+Increment 12 received independent approval after the designated-effective-date
+correction. The corrected commit is authorized for push.
 
 ## Local-Only Files
 

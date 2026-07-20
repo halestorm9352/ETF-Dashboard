@@ -36,7 +36,7 @@ class SecParserFixtureTests(unittest.TestCase):
             sec_parsers.MODULE_CONTRACT_VERSION,
             sec_filings.MODULE_CONTRACT_VERSION,
         )
-        self.assertEqual(sec_parsers.MODULE_CONTRACT_VERSION, 11)
+        self.assertEqual(sec_parsers.MODULE_CONTRACT_VERSION, 12)
 
     def test_s1_without_final_ticker_remains_unlisted(self):
         text = load_fixture("ishares_bitcoin_s1_primary.html")

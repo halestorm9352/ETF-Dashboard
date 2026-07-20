@@ -1,9 +1,19 @@
 from datetime import datetime
+from typing import Any
 
 import pandas as pd
 
+from config import SERIES_NEW_MONTHS
 from sec_parsers import sanitize_ticker
 from vehicle_classifier import ETF_VEHICLE, is_vehicle_ticker_present
+
+
+EXISTING_FUND_AMENDMENT = "Existing fund amendment"
+SERIES_AGE_PIPELINE_STATUSES = {
+    "Launch candidate",
+    "Waiting on effectiveness",
+    "Needs ticker",
+}
 
 
 def classify_filing_stage(form):
@@ -72,7 +82,55 @@ def readiness_status(row, today):
     return "Waiting on effectiveness"
 
 
-def add_launch_readiness_columns(df):
+def requires_series_age_lookup(row) -> bool:
+    readiness = str(row.get("launch_readiness", "") or "")
+    if readiness in SERIES_AGE_PIPELINE_STATUSES:
+        return True
+    return (
+        readiness == "Timing not detected"
+        and str(row.get("form", "") or "").upper() in {"485APOS", "485BPOS"}
+    )
+
+
+def series_ids_requiring_age_lookup(df: pd.DataFrame) -> list[str]:
+    if df.empty or "series_id" not in df.columns:
+        return []
+    return sorted(
+        {
+            str(row.get("series_id", "") or "").strip().upper()
+            for _, row in df.iterrows()
+            if requires_series_age_lookup(row)
+            and str(row.get("series_id", "") or "").strip()
+        }
+    )
+
+
+def _is_existing_series(
+    first_filing_date: Any,
+    search_start_date: Any,
+    series_new_months: int,
+) -> bool:
+    first_date = pd.to_datetime(first_filing_date, errors="coerce")
+    search_start = pd.to_datetime(search_start_date, errors="coerce")
+    if pd.isna(first_date) or pd.isna(search_start):
+        return False
+    cutoff = search_start - pd.DateOffset(months=series_new_months)
+    return first_date < cutoff
+
+
+def _has_prior_effectiveness(row) -> bool:
+    value = row.get("prior_effective_485bpos", False)
+    return value is True or str(value).strip().lower() in {"1", "true", "yes"}
+
+
+def add_launch_readiness_columns(
+    df,
+    *,
+    series_first_filing_dates: dict[str, Any] | None = None,
+    search_start_date: Any = None,
+    series_new_months: int = SERIES_NEW_MONTHS,
+    today=None,
+):
     enriched_df = df.copy()
     if enriched_df.empty:
         enriched_df["filing_stage"] = pd.Series(dtype="object")
@@ -83,7 +141,7 @@ def add_launch_readiness_columns(df):
         enriched_df["days_to_readiness"] = pd.Series(dtype="object")
         return enriched_df
 
-    today = datetime.today().date()
+    today = today or datetime.today().date()
     enriched_df["filing_stage"] = enriched_df["form"].apply(classify_filing_stage)
     enriched_df["earliest_auto_effective_date"] = enriched_df.apply(
         earliest_auto_effective_date,
@@ -93,6 +151,28 @@ def add_launch_readiness_columns(df):
         lambda row: readiness_status(row, today),
         axis=1,
     )
+    if search_start_date is not None:
+        normalized_dates = {
+            str(series_id or "").strip().upper(): first_date
+            for series_id, first_date in (series_first_filing_dates or {}).items()
+        }
+        existing_mask = enriched_df.apply(
+            lambda row: (
+                requires_series_age_lookup(row)
+                and (
+                    _has_prior_effectiveness(row)
+                    or _is_existing_series(
+                        normalized_dates.get(
+                            str(row.get("series_id", "") or "").strip().upper()
+                        ),
+                        search_start_date,
+                        series_new_months,
+                    )
+                )
+            ),
+            axis=1,
+        )
+        enriched_df.loc[existing_mask, "launch_readiness"] = EXISTING_FUND_AMENDMENT
     enriched_df["days_to_readiness"] = enriched_df["earliest_auto_effective_date"].apply(
         lambda value: "" if pd.isna(value) else (value.date() - today).days
     )

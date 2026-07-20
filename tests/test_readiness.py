@@ -3,7 +3,12 @@ from datetime import date, datetime
 
 import pandas as pd
 
-from readiness import add_launch_readiness_columns, readiness_status
+from readiness import (
+    EXISTING_FUND_AMENDMENT,
+    add_launch_readiness_columns,
+    readiness_status,
+)
+from sec_filings import derive_latest_fund_rows
 from vehicle_classifier import ETF_VEHICLE, MUTUAL_FUND_SHARE_CLASS
 
 
@@ -123,6 +128,104 @@ class LaunchReadinessTests(unittest.TestCase):
         for overrides, expected in cases:
             with self.subTest(expected=expected):
                 self.assertEqual(self.readiness(**overrides), expected)
+
+    def scoped_485apos(self, series_id="S000000001"):
+        return pd.DataFrame(
+            [
+                {
+                    "form": "485APOS",
+                    "filing_form_history": "485APOS",
+                    "ticker": "EXAM",
+                    "vehicle": ETF_VEHICLE,
+                    "series_id": series_id,
+                    "date": pd.Timestamp("2026-07-01"),
+                    "effectiveness_days": 0,
+                }
+            ]
+        )
+
+    def test_old_series_485apos_is_existing_fund_amendment(self):
+        result = add_launch_readiness_columns(
+            self.scoped_485apos(),
+            series_first_filing_dates={"S000000001": "2020-01-01"},
+            search_start_date=date(2026, 5, 1),
+            today=date(2026, 7, 20),
+        )
+
+        self.assertEqual(result.iloc[0]["launch_readiness"], EXISTING_FUND_AMENDMENT)
+
+    def test_young_series_485apos_keeps_pipeline_status(self):
+        result = add_launch_readiness_columns(
+            self.scoped_485apos(),
+            series_first_filing_dates={"S000000001": "2026-01-01"},
+            search_start_date=date(2026, 5, 1),
+            today=date(2026, 7, 20),
+        )
+
+        self.assertEqual(result.iloc[0]["launch_readiness"], "Launch candidate")
+
+    def test_missing_series_id_keeps_window_history_behavior(self):
+        result = add_launch_readiness_columns(
+            self.scoped_485apos(series_id=""),
+            series_first_filing_dates={"S000000001": "2020-01-01"},
+            search_start_date=date(2026, 5, 1),
+            today=date(2026, 7, 20),
+        )
+
+        self.assertEqual(result.iloc[0]["launch_readiness"], "Launch candidate")
+
+    def test_failed_age_lookup_keeps_window_history_behavior(self):
+        result = add_launch_readiness_columns(
+            self.scoped_485apos(),
+            series_first_filing_dates={},
+            search_start_date=date(2026, 5, 1),
+            today=date(2026, 7, 20),
+        )
+
+        self.assertEqual(result.iloc[0]["launch_readiness"], "Launch candidate")
+
+    def test_prior_effective_485bpos_overrides_young_series_age(self):
+        events = [
+            {
+                "cik": "0000000001",
+                "series_id": "S000000001",
+                "class_id": "C000000001",
+                "etf_name": "Example ETF",
+                "class_name": "Example ETF",
+                "ticker": "EXAM",
+                "form": "485BPOS",
+                "designated_effective_date": "April 30, 2026",
+                "date": "2026-04-15",
+                "accepted_at": "2026-04-15T12:00:00Z",
+                "vehicle": ETF_VEHICLE,
+            },
+            {
+                "cik": "0000000001",
+                "series_id": "S000000001",
+                "class_id": "C000000001",
+                "etf_name": "Example ETF",
+                "class_name": "Example ETF",
+                "ticker": "EXAM",
+                "form": "485APOS",
+                "effectiveness_days": 75,
+                "date": "2026-07-17",
+                "accepted_at": "2026-07-17T12:00:00Z",
+                "vehicle": ETF_VEHICLE,
+            },
+        ]
+        rows = pd.DataFrame(derive_latest_fund_rows(events))
+        rows["date"] = pd.to_datetime(rows["date"])
+
+        self.assertTrue(rows.iloc[0]["prior_effective_485bpos"])
+
+        result = add_launch_readiness_columns(
+            rows,
+            series_first_filing_dates={"S000000001": "2026-02-20"},
+            search_start_date=date(2026, 5, 1),
+            today=date(2026, 7, 20),
+        )
+
+        self.assertEqual(result.iloc[0]["launch_readiness"], EXISTING_FUND_AMENDMENT)
 
 
 if __name__ == "__main__":

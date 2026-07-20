@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 import json
 import re
 from typing import Any
+from urllib.parse import urlencode
+from xml.etree import ElementTree
 
 import requests
 
@@ -41,7 +43,14 @@ from vehicle_classifier import (
 )
 
 
-MODULE_CONTRACT_VERSION = 11
+MODULE_CONTRACT_VERSION = 12
+SERIES_FEED_PAGE_SIZE = 100
+SERIES_FEED_MAX_PAGES = 100
+ATOM_NAMESPACE = "{http://www.w3.org/2005/Atom}"
+EXCHANGE_NAME_PREFIX = re.compile(
+    r"^(?:BZX|NYSE|NASDAQ|CBOE|ARCA)\b",
+    re.IGNORECASE,
+)
 
 
 class FilingEventResults(list[dict[str, str]]):
@@ -74,6 +83,70 @@ class SecFundTickerMapping(dict[tuple[str, str, str], str]):
 
 def extract_text(url: str, max_chars: int = INDEX_PAGE_MAX_CHARS) -> str:
     return get_response_text(url, max_chars)
+
+
+def fetch_series_registration_date(series_id: str) -> dict[str, Any]:
+    normalized_series_id = str(series_id or "").strip().upper()
+    status: dict[str, Any] = {
+        "series_id": normalized_series_id,
+        "success": False,
+        "first_filing_date": "",
+        "error_summary": "",
+    }
+    if not re.fullmatch(r"S\d{9}", normalized_series_id):
+        status["error_summary"] = "Invalid SEC series ID"
+        return status
+
+    query = {
+        "action": "getcompany",
+        "CIK": normalized_series_id,
+        "output": "atom",
+        "count": SERIES_FEED_PAGE_SIZE,
+        "start": 0,
+    }
+    next_url = f"https://www.sec.gov/cgi-bin/browse-edgar?{urlencode(query)}"
+    filing_dates: list[datetime] = []
+    seen_urls: set[str] = set()
+
+    try:
+        for _ in range(SERIES_FEED_MAX_PAGES):
+            if not next_url:
+                break
+            if next_url in seen_urls:
+                status["error_summary"] = "SEC series filing history repeated a page"
+                return status
+            seen_urls.add(next_url)
+            response = get_http_response(next_url)
+            root = ElementTree.fromstring(response.text)
+            entries = root.findall(f"{ATOM_NAMESPACE}entry")
+            for entry in entries:
+                filing_date = entry.findtext(
+                    f".//{ATOM_NAMESPACE}filing-date",
+                    default="",
+                ).strip()
+                if filing_date:
+                    filing_dates.append(datetime.strptime(filing_date, "%Y-%m-%d"))
+
+            next_link = root.find(f"{ATOM_NAMESPACE}link[@rel='next']")
+            next_url = (
+                str(next_link.get("href", "") or "").strip()
+                if next_link is not None
+                else ""
+            )
+        else:
+            status["error_summary"] = "SEC series filing history exceeded pagination limit"
+            return status
+    except Exception as exc:
+        status["error_summary"] = f"{type(exc).__name__}: {exc}"
+        return status
+
+    if not filing_dates:
+        status["error_summary"] = "SEC series filing history returned no filing dates"
+        return status
+
+    status["success"] = True
+    status["first_filing_date"] = min(filing_dates).date().isoformat()
+    return status
 
 
 def fetch_supporting_document_texts(
@@ -250,6 +323,94 @@ def _merge_series_entries_with_pairs(
     return merged_entries
 
 
+def _mapping_validated_prospectus_entries(
+    cik: str,
+    named_ticker_pairs: list[dict[str, str]],
+    mapping: dict[tuple[str, str, str], str],
+    series_entries: list[dict[str, str]] | None = None,
+) -> list[dict[str, str]]:
+    normalized_cik = _normalized_cik(cik)
+    identities_by_ticker: dict[str, set[tuple[str, str]]] = {}
+    for (mapped_cik, series_id, class_id), symbol in mapping.items():
+        if _normalized_cik(mapped_cik) != normalized_cik:
+            continue
+        ticker = _official_ticker(symbol)
+        if ticker:
+            identities_by_ticker.setdefault(ticker, set()).add(
+                (str(series_id).strip().upper(), str(class_id).strip().upper())
+            )
+
+    existing_identities = {
+        (
+            str(entry.get("series_id", "") or "").strip().upper(),
+            str(entry.get("class_id", "") or "").strip().upper(),
+        )
+        for entry in (series_entries or [])
+        if entry.get("series_id") and entry.get("class_id")
+    }
+    pairs_by_ticker: dict[str, list[dict[str, str]]] = {}
+    for pair in named_ticker_pairs:
+        ticker = _official_ticker(pair.get("ticker", ""))
+        name = str(pair.get("etf_name", "") or "").strip()
+        if ticker in identities_by_ticker and name:
+            pairs_by_ticker.setdefault(ticker, []).append(pair)
+
+    retained: list[dict[str, str]] = []
+    for ticker, pairs in pairs_by_ticker.items():
+        identities = identities_by_ticker[ticker]
+        if len(identities) == 1:
+            series_id, class_id = next(iter(identities))
+            if (series_id, class_id) in existing_identities:
+                continue
+            clean_pair = max(
+                pairs,
+                key=lambda pair: int(
+                    not EXCHANGE_NAME_PREFIX.match(
+                        str(pair.get("etf_name", "") or "").strip()
+                    )
+                ),
+            )
+            clean_name = str(clean_pair.get("etf_name", "") or "").strip()
+            retained.append(
+                {
+                    "ticker": ticker,
+                    "ticker_at_filing": ticker,
+                    "ticker_source": "filing",
+                    "etf_name": clean_name,
+                    "class_name": clean_name,
+                    "series_id": series_id,
+                    "series_name": clean_name,
+                    "class_id": class_id,
+                    "vehicle": ETF_VEHICLE,
+                    "identity_scope": "class",
+                }
+            )
+            continue
+
+        seen_names: set[str] = set()
+        for pair in pairs:
+            name = str(pair.get("etf_name", "") or "").strip()
+            normalized_name = normalize_etf_name(name)
+            if not normalized_name or normalized_name in seen_names:
+                continue
+            seen_names.add(normalized_name)
+            retained.append(
+                {
+                    "ticker": ticker,
+                    "ticker_at_filing": ticker,
+                    "ticker_source": "filing",
+                    "etf_name": name,
+                    "class_name": name,
+                    "series_id": "",
+                    "series_name": "",
+                    "class_id": "",
+                    "vehicle": ETF_VEHICLE,
+                    "identity_scope": "name",
+                }
+            )
+    return retained
+
+
 def _display_filer_name(cik: str, filer_name: str) -> str:
     configured_name = CIK_LOOKUP.get(cik, "")
     normalized_name = str(configured_name or filer_name or "").upper()
@@ -280,6 +441,25 @@ def _row_filing_date(row: dict[str, str]) -> datetime:
         return datetime.strptime(str(row.get("date", "")), "%Y-%m-%d")
     except ValueError:
         return datetime.min
+
+
+def _effective_filing_date(row: dict[str, Any]) -> datetime:
+    designated_date = str(row.get("designated_effective_date", "") or "").strip()
+    if designated_date:
+        for date_format in ("%B %d, %Y", "%m/%d/%Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(designated_date, date_format)
+            except ValueError:
+                continue
+        return datetime.max
+
+    effectiveness_days = row.get("effectiveness_days")
+    try:
+        days = int(effectiveness_days)
+    except (TypeError, ValueError):
+        return datetime.max
+    filing_date = _row_filing_date(row)
+    return filing_date + timedelta(days=days) if filing_date != datetime.min else datetime.max
 
 
 def _filter_rows_to_bounds(
@@ -466,14 +646,20 @@ def _dedupe_latest_fund_rows(
         UNKNOWN_VEHICLE: 1,
     }
 
-    def snapshot_sort_key(row: dict[str, str]) -> tuple[datetime, int, int, int]:
+    def snapshot_sort_key(row: dict[str, str]) -> tuple[datetime, int, int, int, int]:
         class_name = normalize_etf_name(row.get("class_name", ""))
         series_name = normalize_etf_name(row.get("series_name", ""))
+        clean_name = int(
+            not EXCHANGE_NAME_PREFIX.match(
+                str(row.get("etf_name", "") or "").strip()
+            )
+        )
         return (
             _row_timestamp(row),
             vehicle_priority.get(row.get("vehicle", ""), 0),
             int(normalize_event_ticker(row) != "Not Listed"),
             int(bool(class_name and class_name == series_name)),
+            clean_name,
         )
 
     for row in sorted(rows, key=snapshot_sort_key, reverse=True):
@@ -524,6 +710,13 @@ def derive_latest_fund_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
             form in {"485APOS", "485BPOS"} for form in forms
         )
         row["filing_form_history"] = " -> ".join(forms)
+        row_date = _row_filing_date(row)
+        row["prior_effective_485bpos"] = any(
+            str(event.get("form", "") or "").upper() == "485BPOS"
+            and _row_timestamp(event) < _row_timestamp(row)
+            and _effective_filing_date(event) <= row_date
+            for event in unique_history
+        )
 
     return latest_rows
 
@@ -640,13 +833,18 @@ def _fetch_filing_rows_for_cik(
         primary_named_pairs: list[dict[str, str]] = []
 
         needs_primary_text = _needs_primary_document(series_entries, filing_filer_name)
+        needs_mapping_validated_pairs = bool(series_entries and ticker_mapping)
         needs_effectiveness_context = form in {"485APOS", "485BPOS"}
-        if primary_document_url and (needs_primary_text or needs_effectiveness_context):
+        if primary_document_url and (
+            needs_primary_text
+            or needs_mapping_validated_pairs
+            or needs_effectiveness_context
+        ):
             if primary_document_url in prefetched_primary_text:
                 primary_text = prefetched_primary_text[primary_document_url]
             else:
                 primary_text = extract_text(primary_document_url, max_chars=300000)
-            if primary_text and needs_primary_text:
+            if primary_text and (needs_primary_text or needs_mapping_validated_pairs):
                 primary_named_pairs = extract_named_ticker_pairs(primary_text)
                 primary_ticker = extract_ticker(
                     primary_text,
@@ -684,6 +882,7 @@ def _fetch_filing_rows_for_cik(
 
         effectiveness = extract_rule_485_effectiveness(primary_text or index_text)
         all_named_pairs = primary_named_pairs + supporting_named_pairs
+        mapped_prospectus_entries: list[dict[str, str]] = []
         if series_entries:
             series_entries = _merge_series_entries_with_pairs(series_entries, all_named_pairs)
             for entry in series_entries:
@@ -693,6 +892,12 @@ def _fetch_filing_rows_for_cik(
                 if filing_ticker != "Not Listed":
                     entry["ticker_at_filing"] = filing_ticker
                     entry["ticker_source"] = "filing"
+            mapped_prospectus_entries = _mapping_validated_prospectus_entries(
+                cik,
+                all_named_pairs,
+                ticker_mapping or {},
+                series_entries,
+            )
 
         resolved_filer_name = _display_filer_name(cik, filing_filer_name or filer_name)
         rows_to_append: list[dict[str, str]] = []
@@ -732,6 +937,21 @@ def _fetch_filing_rows_for_cik(
                         "link": filing_link,
                         **effectiveness,
                         "_source": "series",
+                    }
+                )
+            for entry in mapped_prospectus_entries:
+                rows_to_append.append(
+                    {
+                        **entry,
+                        "filer": resolved_filer_name,
+                        "form": form,
+                        "date": date_str,
+                        "accepted_at": accepted_at,
+                        "accession_number": accession_number,
+                        "cik": cik,
+                        "link": filing_link,
+                        **effectiveness,
+                        "_source": "mapped_pair",
                     }
                 )
         else:

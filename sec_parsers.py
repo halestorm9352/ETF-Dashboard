@@ -13,7 +13,7 @@ from vehicle_classifier import (
 )
 
 
-MODULE_CONTRACT_VERSION = 11
+MODULE_CONTRACT_VERSION = 12
 
 
 def clean_html_text(value: str) -> str:

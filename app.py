@@ -13,10 +13,11 @@ from config import (
     CIK_GROUP_OPTIONS,
     DATA_VERSION,
     FLOW_VIEW_OPTIONS,
+    SERIES_NEW_MONTHS,
 )
 
 
-EXPECTED_MODULE_CONTRACT_VERSION = 11
+EXPECTED_MODULE_CONTRACT_VERSION = 12
 
 
 def _require_current_module_contract(module):
@@ -38,8 +39,13 @@ sec_filings_module = _require_current_module_contract(sec_filings_module)
 derive_latest_fund_rows = sec_filings_module.derive_latest_fund_rows
 fetch_filing_events = sec_filings_module.fetch_filing_events
 normalize_event_ticker = sec_filings_module.normalize_event_ticker
+fetch_series_registration_date = sec_filings_module.fetch_series_registration_date
 from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
-from readiness import add_launch_readiness_columns
+from readiness import (
+    EXISTING_FUND_AMENDMENT,
+    add_launch_readiness_columns,
+    series_ids_requiring_age_lookup,
+)
 
 
 st.set_page_config(page_title="ETF Dash", layout="wide")
@@ -223,6 +229,11 @@ def load_filing_events(data_version, refresh_token, start_date, end_date, select
         dict(event_results.mapping_status),
         datetime.now(timezone.utc),
     )
+
+
+@st.cache_data
+def load_series_registration_status(data_version, refresh_token, series_id):
+    return dict(fetch_series_registration_date(series_id))
 
 
 def _issuer_groups_for_segment(segment):
@@ -456,10 +467,75 @@ with st.container():
                     )
                     filtered_df["themes"] = filtered_df["etf_name"].apply(classify_primary_theme)
                     filtered_df = add_launch_readiness_columns(filtered_df)
+                    series_age_statuses = []
+                    series_ids = series_ids_requiring_age_lookup(filtered_df)
+                    if series_ids:
+                        with st.spinner("Checking SEC series registration history..."):
+                            series_age_statuses = [
+                                load_series_registration_status(
+                                    DATA_VERSION,
+                                    st.session_state.search_refresh_token,
+                                    series_id,
+                                )
+                                for series_id in series_ids
+                            ]
+                    successful_series_dates = {
+                        status["series_id"]: status["first_filing_date"]
+                        for status in series_age_statuses
+                        if status.get("success") and status.get("first_filing_date")
+                    }
+                    failed_series_age_statuses = [
+                        status
+                        for status in series_age_statuses
+                        if not status.get("success", False)
+                    ]
+                    filtered_df = add_launch_readiness_columns(
+                        filtered_df,
+                        series_first_filing_dates=successful_series_dates,
+                        search_start_date=st.session_state.search_start_date,
+                        series_new_months=SERIES_NEW_MONTHS,
+                    )
+                    if failed_series_age_statuses:
+                        failed_series_ids = ", ".join(
+                            status.get("series_id", "Unknown")
+                            for status in failed_series_age_statuses[:8]
+                        )
+                        if len(failed_series_age_statuses) > 8:
+                            failed_series_ids += ", ..."
+                        st.warning(
+                            "New-fund scoping is incomplete for "
+                            f"{len(failed_series_age_statuses)} series ({failed_series_ids}). "
+                            "Those rows retain filing-window readiness; use Force refresh to retry."
+                        )
                     if filtered_df.empty:
                         st.info("No filing snapshot rows matched the selected date range.")
 
-                    display_df = filtered_df.copy()
+                    include_existing_amendments = st.checkbox(
+                        "Include existing-fund amendments",
+                        value=False,
+                        key="include_existing_fund_amendments",
+                    )
+                    existing_amendment_count = int(
+                        (filtered_df["launch_readiness"] == EXISTING_FUND_AMENDMENT).sum()
+                    )
+                    if include_existing_amendments:
+                        visible_df = filtered_df.copy()
+                        hidden_existing_count = 0
+                    else:
+                        visible_df = filtered_df[
+                            filtered_df["launch_readiness"] != EXISTING_FUND_AMENDMENT
+                        ].copy()
+                        hidden_existing_count = existing_amendment_count
+                    st.caption(
+                        f"New-fund scope: {hidden_existing_count} existing-fund amendment "
+                        f"row(s) hidden; {len(failed_series_age_statuses)} series age lookup(s) failed."
+                    )
+                    if visible_df.empty and not filtered_df.empty:
+                        st.info(
+                            "No new-fund rows remain after existing-fund amendments are hidden."
+                        )
+
+                    display_df = visible_df.copy()
                     if display_df.empty:
                         display_df["date"] = pd.Series(dtype="object")
                         display_df["earliest_auto_effective_date"] = pd.Series(
@@ -475,10 +551,10 @@ with st.container():
                     ].fillna("")
                     filings_count = len(display_df)
                     filing_event_count = len(filing_events)
-                    listed_tickers = int((filtered_df["ticker"] != "Not Listed").sum())
-                    distinct_filers = int(filtered_df["filer"].nunique())
-                    launch_candidates = int((filtered_df["launch_readiness"] == "Launch candidate").sum())
-                    latest_dt = filtered_df.iloc[0]["date"] if not filtered_df.empty else None
+                    listed_tickers = int((visible_df["ticker"] != "Not Listed").sum())
+                    distinct_filers = int(visible_df["filer"].nunique())
+                    launch_candidates = int((visible_df["launch_readiness"] == "Launch candidate").sum())
+                    latest_dt = visible_df.iloc[0]["date"] if not visible_df.empty else None
                     latest_date = (
                         f"{latest_dt.month}/{latest_dt.day}/{latest_dt.year % 100:02d}"
                         if latest_dt is not None else "N/A"
@@ -518,7 +594,7 @@ with st.container():
                         "(cached up to 30 min; use Force refresh for live data)."
                     )
 
-                    theme_counts = summarize_themes(filtered_df["etf_name"])
+                    theme_counts = summarize_themes(visible_df["etf_name"])
                     theme_cards = "".join(
                         f"""
                         <div class="etf-theme-card">

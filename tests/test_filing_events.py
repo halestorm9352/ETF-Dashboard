@@ -1,7 +1,7 @@
 import unittest
 from datetime import date, datetime
 import json
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import requests
 
@@ -9,10 +9,13 @@ from sec_filings import (
     _enrich_missing_tickers_from_later_filings,
     _enrich_tickers_from_sec_mapping,
     _fetch_filings_for_cik,
+    _fetch_filing_rows_for_cik,
+    _mapping_validated_prospectus_entries,
     _row_timestamp,
     derive_latest_fund_rows,
     fetch_sec_fund_ticker_mapping,
     fetch_filing_events,
+    fetch_series_registration_date,
     normalize_event_ticker,
 )
 from sec_parsers import extract_rule_485_effectiveness
@@ -87,6 +90,152 @@ class Rule485EffectivenessTests(unittest.TestCase):
 
 
 class FilingHistoryTests(unittest.TestCase):
+    def prospectus_pair_pipeline_rows(self, include_pair_mapping=True):
+        cik_data = {
+            "filer_name": "Example Trust",
+            "recent": {
+                "form": ["N-1A"],
+                "filingDate": ["2026-07-17"],
+                "acceptanceDateTime": ["2026-07-17T12:00:00Z"],
+                "accessionNumber": ["0000000001-26-000001"],
+                "primaryDocument": ["example.htm"],
+            },
+        }
+        index_text = """
+        <table class="tableSeries">
+          <tr><td class="seriesName">Series S000000999</td>
+              <td class="seriesCell"></td><td class="seriesCell">Unrelated ETF</td></tr>
+          <tr class="contractRow"><td>Class/Contract C000000999</td><td></td>
+              <td>Unrelated ETF</td><td>OTHR</td></tr>
+        </table>
+        """
+        mapping = {
+            ("0000000001", "S000000999", "C000000999"): "OTHR",
+        }
+        if include_pair_mapping:
+            mapping[("0000000001", "S000000001", "C000000001")] = "EXAM"
+
+        with patch(
+            "sec_filings.extract_text",
+            side_effect=lambda url, max_chars=300000: (
+                index_text if url.endswith("-index.htm") else "primary"
+            ),
+        ), patch(
+            "sec_filings.extract_named_ticker_pairs",
+            return_value=[{"etf_name": "Example ETF", "ticker": "EXAM"}],
+        ):
+            return _fetch_filing_rows_for_cik(
+                "0000000001",
+                datetime(2026, 7, 1),
+                datetime(2026, 7, 31, 23, 59, 59),
+                cik_data,
+                ticker_mapping=mapping,
+            )
+
+    def test_fetch_pipeline_retains_mapping_validated_pair_with_unrelated_table(self):
+        rows = self.prospectus_pair_pipeline_rows()
+
+        self.assertEqual(len(rows), 2)
+        mapped_row = next(row for row in rows if row["ticker"] == "EXAM")
+        self.assertEqual(mapped_row["series_id"], "S000000001")
+        self.assertEqual(mapped_row["class_id"], "C000000001")
+
+    def test_fetch_pipeline_drops_unvalidated_pair_with_unrelated_table(self):
+        rows = self.prospectus_pair_pipeline_rows(include_pair_mapping=False)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["ticker"], "OTHR")
+
+    def test_mapping_validated_pair_survives_unrelated_series_with_clean_identity(self):
+        mapping = {
+            ("0000000001", "S000000001", "C000000001"): "EXAM",
+            ("0000000001", "S000000999", "C000000999"): "OTHR",
+        }
+        unrelated_entries = [
+            {
+                "series_id": "S000000999",
+                "class_id": "C000000999",
+                "etf_name": "Unrelated ETF",
+            }
+        ]
+        pairs = [
+            {"etf_name": "BZX Example ETF", "ticker": "EXAM"},
+            {"etf_name": "Example ETF", "ticker": "EXAM"},
+        ]
+
+        retained = _mapping_validated_prospectus_entries(
+            "0000000001",
+            pairs,
+            mapping,
+            unrelated_entries,
+        )
+
+        self.assertEqual(len(retained), 1)
+        self.assertEqual(retained[0]["etf_name"], "Example ETF")
+        self.assertEqual(retained[0]["series_id"], "S000000001")
+        self.assertEqual(retained[0]["class_id"], "C000000001")
+
+    def test_unvalidated_pair_is_dropped_when_series_table_exists(self):
+        retained = _mapping_validated_prospectus_entries(
+            "0000000001",
+            [{"etf_name": "Unvalidated ETF", "ticker": "NOPE"}],
+            {("0000000001", "S000000999", "C000000999"): "OTHR"},
+            [{"series_id": "S000000999", "class_id": "C000000999"}],
+        )
+
+        self.assertEqual(retained, [])
+
+    def test_ambiguous_cik_ticker_mapping_remains_name_scoped(self):
+        mapping = {
+            ("0000000001", "S000000001", "C000000001"): "DUPL",
+            ("0000000001", "S000000002", "C000000002"): "DUPL",
+        }
+
+        retained = _mapping_validated_prospectus_entries(
+            "0000000001",
+            [{"etf_name": "Ambiguous ETF", "ticker": "DUPL"}],
+            mapping,
+            [{"series_id": "S000000999", "class_id": "C000000999"}],
+        )
+
+        self.assertEqual(len(retained), 1)
+        self.assertEqual(retained[0]["series_id"], "")
+        self.assertEqual(retained[0]["class_id"], "")
+        self.assertEqual(retained[0]["identity_scope"], "name")
+
+    def test_series_age_lookup_returns_earliest_paginated_filing_date(self):
+        first_page = """
+        <feed xmlns="http://www.w3.org/2005/Atom">
+          <link rel="next" href="https://www.sec.gov/cgi-bin/browse-edgar?start=100&amp;output=atom" />
+          <entry><content><filing-date>2025-01-15</filing-date></content></entry>
+        </feed>
+        """
+        last_page = """
+        <feed xmlns="http://www.w3.org/2005/Atom">
+          <entry><content><filing-date>2010-06-30</filing-date></content></entry>
+        </feed>
+        """
+        responses = [Mock(text=first_page), Mock(text=last_page)]
+
+        with patch("sec_filings.get_http_response", side_effect=responses) as get:
+            status = fetch_series_registration_date("S000000001")
+
+        self.assertTrue(status["success"])
+        self.assertEqual(status["first_filing_date"], "2010-06-30")
+        self.assertEqual(get.call_count, 2)
+
+    def test_series_age_lookup_failure_returns_search_status(self):
+        with patch(
+            "sec_filings.get_http_response",
+            side_effect=requests.RequestException("series feed unavailable"),
+        ):
+            status = fetch_series_registration_date("S000000001")
+
+        self.assertFalse(status["success"])
+        self.assertEqual(status["series_id"], "S000000001")
+        self.assertEqual(status["first_filing_date"], "")
+        self.assertIn("series feed unavailable", status["error_summary"])
+
     def test_final_sec_rate_limit_marks_cik_failed(self):
         response = requests.Response()
         response.status_code = 429
@@ -566,6 +715,73 @@ class FilingHistoryTests(unittest.TestCase):
         self.assertEqual(_row_timestamp(date_only_event), datetime(2026, 7, 1))
         self.assertEqual(snapshot[0]["form"], "485APOS")
         self.assertEqual(snapshot[0]["filing_form_history"], "485BPOS -> 485APOS")
+
+    def test_snapshot_records_prior_effective_485bpos_for_resolved_identity(self):
+        events = [
+            {
+                "cik": "0000000001",
+                "series_id": "S000000001",
+                "class_id": "C000000001",
+                "etf_name": "Example ETF",
+                "class_name": "Example ETF",
+                "ticker": "EXAM",
+                "form": "485BPOS",
+                "effectiveness_days": 0,
+                "date": "2026-05-01",
+                "accepted_at": "2026-05-01T12:00:00Z",
+            },
+            {
+                "cik": "0000000001",
+                "series_id": "S000000001",
+                "class_id": "C000000001",
+                "etf_name": "Example ETF",
+                "class_name": "Example ETF",
+                "ticker": "EXAM",
+                "form": "485APOS",
+                "effectiveness_days": 75,
+                "date": "2026-07-17",
+                "accepted_at": "2026-07-17T12:00:00Z",
+            },
+        ]
+
+        snapshot = derive_latest_fund_rows(events)
+
+        self.assertEqual(len(snapshot), 1)
+        self.assertTrue(snapshot[0]["prior_effective_485bpos"])
+        self.assertEqual(snapshot[0]["filing_form_history"], "485BPOS -> 485APOS")
+
+    def test_designated_date_485bpos_records_prior_effectiveness(self):
+        events = [
+            {
+                "cik": "0000000001",
+                "series_id": "S000000001",
+                "class_id": "C000000001",
+                "etf_name": "Example ETF",
+                "class_name": "Example ETF",
+                "ticker": "EXAM",
+                "form": "485BPOS",
+                "designated_effective_date": "April 30, 2026",
+                "date": "2026-04-15",
+                "accepted_at": "2026-04-15T12:00:00Z",
+            },
+            {
+                "cik": "0000000001",
+                "series_id": "S000000001",
+                "class_id": "C000000001",
+                "etf_name": "Example ETF",
+                "class_name": "Example ETF",
+                "ticker": "EXAM",
+                "form": "485APOS",
+                "effectiveness_days": 75,
+                "date": "2026-07-17",
+                "accepted_at": "2026-07-17T12:00:00Z",
+            },
+        ]
+
+        snapshot = derive_latest_fund_rows(events)
+
+        self.assertEqual(len(snapshot), 1)
+        self.assertTrue(snapshot[0]["prior_effective_485bpos"])
 
 
 if __name__ == "__main__":
