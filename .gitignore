@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .claude/
+
+# Increment 13b will deliberately un-ignore and commit the initial store.
+data/*.sqlite

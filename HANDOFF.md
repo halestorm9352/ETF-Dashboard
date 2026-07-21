@@ -14,12 +14,13 @@ Last updated: 2026-07-20
 ## Git State
 
 - Branch: `sync-main`.
-- User-confirmed Increments 1 through 11 are approved and pushed.
+- User-confirmed Increments 1 through 12 are approved and pushed.
 - Increment 9 commit: `1ac2782`.
 - Published Increment 10 commit: `60214c2`.
 - Published Increment 11 commit: `f39e650`.
-- Local `HEAD` and `origin/main` both resolve to `f39e650`.
-- Increment 12 is implemented locally for independent review and is not pushed.
+- Published Increment 12 commit: `a1cf372`.
+- Local `HEAD` and `origin/main` both resolve to `a1cf372` before Increment 13a.
+- Increment 13a is implemented locally for independent review and is not pushed.
 
 ## Completed Increments
 
@@ -36,8 +37,14 @@ Last updated: 2026-07-20
   mapping enrichment.
 - Increment 8.5: classified ETF and mutual-fund vehicles and associated
   mutual-fund classes with their parent series.
+- Increment 9: resolved the final parser fixture and accumulated data-path
+  correctness fixes.
+- Increment 10: removed dead UI, added the shared SEC limiter, and completed
+  low-risk cleanup.
 - Increment 11: preserved large-trust series identity, expanded multi-hyphen
   placeholder handling, and enforced module contract versions.
+- Increment 12: scoped the default pipeline to genuinely new funds using
+  persistent-ready series age and prior-effectiveness evidence.
 
 ## Increment 8
 
@@ -416,6 +423,99 @@ mapped identity, and were hidden from the default view:
 
 Increment 12 received independent approval after the designated-effective-date
 correction. The corrected commit is authorized for push.
+
+## Phase 2 Gameplan (decided with the user, 2026-07-20)
+
+All eleven open product questions were answered by the user. These decisions
+are FIXED - do not re-litigate them during implementation:
+
+1. Store = SQLite file committed to the repo by a scheduled GitHub Actions
+   ingest workflow. Portability concern acknowledged: mitigate by keeping all
+   store access in a UI-agnostic data-layer module (no Streamlit imports) with
+   a documented schema, so a future non-Streamlit UI consumes the same file.
+2. SQLite, not Parquet.
+3. No raw document archiving. Parsed events + accession numbers +
+   parser-version stamps are the breadcrumbs; re-fetch from EDGAR on demand.
+4. Backfill floor: trailing 12 months (user cut from the proposed 18).
+5. Filer universe: existing CIK registry, user-maintained. No auto-widening.
+6. Date picker stays current-calendar-year. Do NOT unlock prior years.
+7. Ingest cadence: ~7:00 AM and ~4:00 PM Eastern daily.
+8. GitHub workflow-failure notifications: enable (user-side setting; the
+   workflow itself needs no custom alerting).
+9. The Excel workbook remains a crucial deliverable. The UI stays simple -
+   the user's prior news rail and AUM tracker crowded the tool and were
+   removed. Do not re-crowd it.
+10. News is on hold indefinitely.
+11. Issuer net flows are the wanted future vector, but only from primary
+    sources (N-PORT-class filing data), never scraped websites. Nice-to-have,
+    not a commitment. A future full UI port away from Streamlit is a
+    long-term possibility - another reason for the UI-agnostic data layer.
+
+Planned increment sequence: 13a (schema + store module + ingest script with
+backfill and incremental modes, no app changes) -> 13b (scheduled workflow +
+initial store commit) -> 13c (app reads store with live top-up; series ages
+served from the store). Each increment: one commit, full suite green, stop
+for Claude's independent review before push - unchanged workflow.
+
+## Increment 13a
+
+### Persistent Store
+
+1. Added `store.py`, a standard-library-only SQLite data layer with no direct
+   or transitive Streamlit dependency. `SCHEMA_VERSION = 1`; `open_store()`
+   creates absent tables and rejects mismatched schema metadata clearly.
+2. Added source-event storage with contract-v12 columns and indexes on
+   `(cik, date)`, `series_id`, and `accession_number`. Snapshot-derived fields
+   remain read-time values and are not persisted.
+3. Added accession processing, immutable series registration, and ingest-run
+   audit tables. `load_events()` returns source dicts that can pass through the
+   existing enrichment and snapshot functions unchanged.
+4. Preserved optional `effectiveness_days` values exactly as `None`, empty
+   string, or integer. The live equality check caught the initial `None` to
+   empty-string coercion; it was corrected and fixture-tested rather than
+   papered over.
+
+### Ingest Runner
+
+1. Added `scripts/ingest_filings.py` with `--backfill` and `--incremental`.
+   Backfill covers trailing 365 days. Incremental starts three days before the
+   last successful end bound.
+2. Reuses `_fetch_filings_for_cik` and parse-time SEC mapping enrichment. It
+   does not apply later-filing ticker enrichment during ingest; that remains a
+   read-time operation.
+3. Skips processed accessions, resolves only missing series ages, records
+   partial failures, exits nonzero only when every CIK fails, emits progress,
+   and ends with `VACUUM`.
+4. CIK and series work use at most `SEC_MAX_WORKERS` threads. All network calls
+   remain behind the shared process-wide SEC eight-requests-per-second limiter;
+   SQLite writes remain serialized on the ingest thread.
+5. `data/*.sqlite` is ignored with an explicit note that Increment 13b will
+   deliberately un-ignore the initial store.
+
+### Tests And Acceptance
+
+- Added 12 tests across `tests/test_store.py` and
+  `tests/test_ingest_filings.py`: event/accession idempotency, exact field
+  round trips and filters, pipeline transparency, schema mismatch, Streamlit
+  portability, three-day overlap, processed-accession skips, series success
+  and retry, partial failure recording, and all-CIK nonzero exit behavior.
+- Full Python 3.14 suite: 91 tests passed in 1.282 seconds with zero expected
+  failures. `compileall` and `git diff --check` passed.
+- Real backfill, all 45 configured CIKs: 45 succeeded, 0 failed; 1,188 filings
+  processed; 5,482 events added; 3,987 series resolved; 0 unresolved. Wall
+  time: 6,735.678 seconds (1h 52m 16s).
+- Immediate incremental, July 17-20 overlap: 45 succeeded, 0 failed; 5
+  processed filings skipped; 0 new filings/events/series. Wall time: 38.921
+  seconds with 62 actual HTTP requests counted at `requests.Session.get`.
+- ETF Opportunities Trust (`0001771146`), June 19-July 2: persisted and live
+  paths each produced 14 snapshot rows. They matched exactly on event ID,
+  ticker/name, filing and SEC identity, vehicle/scope, ticker provenance,
+  effectiveness fields, amendment history, and prior-effectiveness evidence.
+  The confirming live fetch took 49.753 seconds.
+- Local ignored `data/etf_dash.sqlite`: 4,059,136 bytes (3.871 MiB). Do not
+  commit it in Increment 13a.
+- `MODULE_CONTRACT_VERSION` remains 12. No changes were made to `app.py`,
+  `readiness.py`, `vehicle_classifier.py`, or any pre-existing test.
 
 ## Local-Only Files
 

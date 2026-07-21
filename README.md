@@ -237,6 +237,8 @@ All paths are relative to `C:\Users\jhale\Desktop\ETF Dashboard`.
 | `app.py` | Streamlit UI, search form, cache wrapper, coverage messaging, summary cards, table, and workbook generation. |
 | `config.py` | CIK universe, issuer groups, segments, forms, concurrency limits, data versions, and invalid ticker terms. |
 | `sec_filings.py` | SEC retrieval, per-CIK status reporting, event construction, ticker enrichment, and snapshot derivation. |
+| `store.py` | Streamlit-free SQLite schema and persistent event/series/run data access. |
+| `scripts/ingest_filings.py` | Backfill and overlap-aware incremental SEC ingest CLI. |
 | `sec_parsers.py` | HTML/text cleaning and extraction of filer names, names, tickers, series rows, supporting URLs, and Rule 485 context. |
 | `readiness.py` | Filing stage, effective-date calculation, history parsing, and launch-readiness states. |
 | `vehicle_classifier.py` | ETF, mutual-fund share-class, and unknown vehicle classification plus parent-series identity rules. |
@@ -418,16 +420,85 @@ snapshot and one Excel download at commit `1b75d02`.
 
 ## Remaining Product Roadmap
 
-### Later Product Vectors
+### Phase 2: Persistent Filing Store (decided 2026-07-20)
 
-After the filing identity layer is reliable:
+The next phase replaces per-search live scraping with a durable local store.
+The following decisions are settled and Codex should treat them as fixed:
 
-1. Add filer-focused news and press releases for the selected dates.
-2. Build a validated legal-filer-to-fund map.
-3. Add selected-period aggregate AUM growth.
-4. Add selected-period aggregate net flows with source and coverage labels.
-5. Consider durable incremental filing storage to eliminate repeated full SEC
-   document scrapes.
+1. **Storage**: a single SQLite file (`data/etf_dash.sqlite`) committed to the
+   repository by a scheduled GitHub Actions ingest workflow. The app reads the
+   store and only fetches live filings for the gap since the last ingest.
+2. **Portability is a design requirement.** All store access goes through a
+   dedicated data-layer module with no Streamlit imports, and the SQLite
+   schema is documented, so a future non-Streamlit UI can consume the same
+   file and module unchanged. The repository is only the transport; the store
+   file is the product-portable artifact.
+3. **No raw document archiving.** The store holds parsed filing events plus
+   accession numbers and a parser-version stamp as breadcrumbs; anything can
+   be re-fetched and re-parsed from EDGAR on demand.
+4. **Backfill floor: trailing 12 months** at first backfill. The date picker
+   remains limited to the current calendar year; the deeper store primarily
+   serves speed, series ages, and history summaries.
+5. **Filer universe**: the existing CIK registry in `config.py`, maintained
+   manually. No auto-discovery.
+6. **Ingest cadence**: scheduled runs at approximately 7:00 AM and 4:00 PM
+   Eastern each day, with GitHub's workflow-failure notifications enabled.
+7. **Increment sequence**: 13a (schema + data layer + backfill/incremental
+   ingest script, no app changes) -> 13b (scheduled workflow + initial store
+   commit) -> 13c (app reads store with live top-up; series ages served from
+   the store).
+
+#### SQLite Schema (version 1)
+
+`store.py` is the UI-agnostic access boundary. It imports only Python standard
+library modules, creates the database when absent, and rejects a store whose
+`store_meta.schema_version` differs from its supported `SCHEMA_VERSION`.
+
+| Table | Purpose and key fields |
+|---|---|
+| `store_meta` | Key/value metadata keyed by `key`; records `schema_version=1`, the trailing-365-day `backfill_floor`, and `created_at`. |
+| `filing_events` | Contract-v12 source events keyed by `event_id`. Includes accession, CIK, form/timestamps, fund/series/class identity, ticker provenance, vehicle, filer/link, effectiveness fields, `ingested_at`, and `parser_version`. Indexed by `(cik, date)`, `series_id`, and `accession_number`. Snapshot-derived history fields are deliberately not stored. |
+| `processed_filings` | Accession-level ingest ledger keyed by `accession_number`, with CIK, form, filing date, parser version, event count, and ingest timestamp. |
+| `series_registry` | Immutable first-filing dates keyed by `series_id`, with parent CIK, lookup source, and resolution timestamp. Failed lookups are not inserted and retry on the next run. |
+| `ingest_runs` | Backfill/incremental audit records keyed by `run_id`, including bounds, CIK success coverage, filings/events added, timestamps, and failure summaries. |
+
+The public store API opens/version-checks the database, upserts and loads event
+dicts, tracks processed accessions, reads/writes series registration dates, and
+records/reads ingest runs. `load_events()` returns the same source-event shape
+as `fetch_filing_events()`, so existing read-time ticker enrichment and latest
+snapshot derivation can consume persisted and live events identically.
+
+#### Ingest CLI
+
+Run `python scripts/ingest_filings.py --backfill` for the trailing 365 days or
+`python scripts/ingest_filings.py --incremental` to resume from the last
+successful end bound with a three-day overlap. Both modes reuse the live
+per-CIK parser path, use bounded workers behind the shared SEC rate limiter,
+skip processed accessions, resolve missing series ages, record partial failures,
+and finish with SQLite `VACUUM`. Progress is written to stderr and the final
+structured run report to stdout. The default database is
+`data/etf_dash.sqlite`; it remains ignored through Increment 13a and will be
+deliberately committed by Increment 13b.
+
+### Later Product Vectors (deferred, in priority order)
+
+1. **Issuer net flows from primary sources.** Explicitly wanted, explicitly a
+   nice-to-have. Must come from primary/filing data (e.g., N-PORT-derived
+   shares outstanding and NAV), not scraped websites. Requires a research
+   spike on source latency before any UI work; monthly N-PORT data carries a
+   roughly 60-day lag that must be disclosed if used.
+2. **Conversions and ETF-share-class visibility** using the existing vehicle
+   classification data.
+3. Aggregate AUM growth for the selected filer and period.
+4. Filer-focused news is **on hold indefinitely** - prior attempts crowded
+   the UI without adding decision value.
+
+### UI Principle (decided 2026-07-20)
+
+The Excel workbook is a crucial deliverable and the page stays deliberately
+simple. Prior experiments with news rails and AUM trackers crowded the tool
+and were removed. New UI must not compromise the search -> snapshot ->
+workbook flow.
 
 ## Claude Review Guide
 
