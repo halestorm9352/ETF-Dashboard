@@ -1,5 +1,6 @@
 import importlib
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -40,12 +41,21 @@ derive_latest_fund_rows = sec_filings_module.derive_latest_fund_rows
 fetch_filing_events = sec_filings_module.fetch_filing_events
 normalize_event_ticker = sec_filings_module.normalize_event_ticker
 fetch_series_registration_date = sec_filings_module.fetch_series_registration_date
+from app_data import (
+    load_store_first_filing_events,
+    load_store_series_registry,
+    resolve_series_registration_status,
+)
 from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
 from readiness import (
     EXISTING_FUND_AMENDMENT,
     add_launch_readiness_columns,
     series_ids_requiring_age_lookup,
 )
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+STORE_PATH = PROJECT_ROOT / "data" / "etf_dash.sqlite"
 
 
 st.set_page_config(page_title="ETF Dash", layout="wide")
@@ -222,7 +232,16 @@ st.markdown(
 
 @st.cache_data(ttl=1800)
 def load_filing_events(data_version, refresh_token, start_date, end_date, selected_ciks):
-    event_results = fetch_filing_events(start_date, end_date, ciks=selected_ciks)
+    event_results, notices = load_store_first_filing_events(
+        STORE_PATH,
+        start_date,
+        end_date,
+        selected_ciks,
+        live_fetch=fetch_filing_events,
+    )
+    for notice in notices:
+        renderer = st.warning if notice.get("level") == "warning" else st.info
+        renderer(notice.get("message", "Temporary data source issue."))
     return (
         list(event_results),
         list(event_results.statuses),
@@ -232,8 +251,30 @@ def load_filing_events(data_version, refresh_token, start_date, end_date, select
 
 
 @st.cache_data
-def load_series_registration_status(data_version, refresh_token, series_id):
+def load_series_registry(data_version, refresh_token):
+    return load_store_series_registry(STORE_PATH)
+
+
+@st.cache_data
+def load_live_series_registration_status(data_version, refresh_token, series_id):
     return dict(fetch_series_registration_date(series_id))
+
+
+def load_series_registration_status(
+    data_version,
+    refresh_token,
+    series_id,
+    series_registry,
+):
+    return resolve_series_registration_status(
+        series_id,
+        series_registry,
+        live_fetch=lambda missing_series_id: load_live_series_registration_status(
+            data_version,
+            refresh_token,
+            missing_series_id,
+        ),
+    )
 
 
 def _issuer_groups_for_segment(segment):
@@ -470,12 +511,17 @@ with st.container():
                     series_age_statuses = []
                     series_ids = series_ids_requiring_age_lookup(filtered_df)
                     if series_ids:
+                        series_registry = load_series_registry(
+                            DATA_VERSION,
+                            st.session_state.search_refresh_token,
+                        )
                         with st.spinner("Checking SEC series registration history..."):
                             series_age_statuses = [
                                 load_series_registration_status(
                                     DATA_VERSION,
                                     st.session_state.search_refresh_token,
                                     series_id,
+                                    series_registry,
                                 )
                                 for series_id in series_ids
                             ]

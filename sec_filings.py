@@ -1073,6 +1073,35 @@ def _fetch_filings_for_cik(
     }
 
 
+def finalize_event_rows(
+    rows: list[dict[str, str]],
+    start_date=None,
+    end_date=None,
+    ticker_mapping: dict[tuple[str, str, str], str] | None = None,
+) -> list[dict[str, str]]:
+    start_bound = (
+        datetime.combine(start_date, datetime.min.time())
+        if start_date
+        else datetime.today() - timedelta(days=DAYS_BACK)
+    )
+    end_bound = (
+        datetime.combine(end_date, datetime.max.time())
+        if end_date
+        else datetime.today()
+    )
+    mapped_results = _enrich_tickers_from_sec_mapping(
+        rows,
+        ticker_mapping or {},
+    )
+    enriched_results = _enrich_missing_tickers_from_later_filings(mapped_results)
+    bounded_results = _filter_rows_to_bounds(
+        enriched_results,
+        start_bound,
+        end_bound,
+    )
+    return sorted(bounded_results, key=_row_timestamp, reverse=True)
+
+
 def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEventResults:
     results: list[dict[str, str]] = []
     statuses_by_cik: dict[str, dict[str, Any]] = {}
@@ -1100,11 +1129,8 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEven
             )
             results.extend(cik_rows)
             statuses_by_cik[cik] = status
-        mapped_results = _enrich_tickers_from_sec_mapping(results, ticker_mapping)
-        enriched_results = _enrich_missing_tickers_from_later_filings(mapped_results)
-        bounded_results = _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
         return FilingEventResults(
-            sorted(bounded_results, key=_row_timestamp, reverse=True),
+            finalize_event_rows(results, start_date, end_date, ticker_mapping),
             [statuses_by_cik[cik] for cik in selected_ciks],
             mapping_status,
         )
@@ -1138,11 +1164,8 @@ def fetch_filing_events(start_date=None, end_date=None, ciks=None) -> FilingEven
                     "error_summary": f"{type(exc).__name__}: {exc}",
                 }
 
-    mapped_results = _enrich_tickers_from_sec_mapping(results, ticker_mapping)
-    enriched_results = _enrich_missing_tickers_from_later_filings(mapped_results)
-    bounded_results = _filter_rows_to_bounds(enriched_results, start_bound, end_bound)
     return FilingEventResults(
-        sorted(bounded_results, key=_row_timestamp, reverse=True),
+        finalize_event_rows(results, start_date, end_date, ticker_mapping),
         [statuses_by_cik[cik] for cik in selected_ciks],
         mapping_status,
     )

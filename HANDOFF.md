@@ -517,6 +517,57 @@ for Claude's independent review before push - unchanged workflow.
 - `MODULE_CONTRACT_VERSION` remains 12. No changes were made to `app.py`,
   `readiness.py`, `vehicle_classifier.py`, or any pre-existing test.
 
+## Increment 13b
+
+1. Added `.github/workflows/ingest.yml`, scheduled for 7:00 AM and 4:00 PM
+   America/New_York with a daylight-saving-aware gate, manual dispatch,
+   serialized runs, Python 3.14, a 30-minute timeout, and bot commits only when
+   `data/etf_dash.sqlite` changes.
+2. Committed the validated 3.871 MiB initial store containing 5,482 filing
+   events. SQLite WAL, SHM, and journal sidecars remain ignored.
+3. Full suite passed with 91 tests. Commit `1e3724a` is pushed and is the base
+   for Increment 13c.
+
+## Increment 13c
+
+### Store-First Runtime
+
+1. Added `app_data.py`, a Streamlit-free runtime data layer. It resolves the
+   committed store from the app's project root, serves covered filing windows
+   without network calls, and falls back to the existing pure-live path when
+   the store is missing, empty, or unreadable.
+2. Requests extending beyond the latest successful ingest receive a live SEC
+   top-up beginning three days before the stored end bound. Stored and live
+   events merge by `event_id`, with one row retained per event across the
+   overlap. A failed or partial top-up returns stored coverage with a visible,
+   non-fatal warning and failed per-CIK status rather than crashing.
+3. Added public `sec_filings.finalize_event_rows()` and routed both the pure-live
+   and store-first paths through the same SEC-mapping enrichment, later-filing
+   ticker enrichment, date filtering, and timestamp ordering pipeline.
+4. `app.py` now reads the series registry once per cached render. Series IDs
+   already in the store require no live lookup; missing IDs retain the existing
+   cached SEC fallback and existing visible failure handling.
+5. `load_filing_events` retains its downstream tuple contract, including
+   filing statuses, mapping status, and fetch timestamp. Pure store responses
+   synthesize successful per-CIK statuses labeled as served from the store.
+
+### Tests And Acceptance
+
+- Added five tests in `tests/test_app_data.py`: offline store parity, overlap
+  top-up/dedup, missing-store live fallback, non-fatal offline top-up, and
+  store-first series-age lookup with one-call live fallback for a miss.
+- Full Python 3.14 suite: 96 tests passed in 3.78 seconds. `compileall` and
+  `git diff --check` passed.
+- Network-disabled ETF Opportunities Trust (`0001771146`), June 19-July 2:
+  store-first and direct finalized-store paths each produced 14 events and 14
+  snapshot rows. Event IDs and compared ticker, vehicle/scope, effectiveness,
+  and amendment-history fields matched exactly; the live function was never
+  invoked.
+- `MODULE_CONTRACT_VERSION` remains 12 in all three modules because this is a
+  data-source change only; no event or snapshot dictionary shape changed.
+- Increment 13c is one local commit pending independent review. Do not push it
+  until approved.
+
 ## Local-Only Files
 
 - `.claude/` remains available locally but is ignored and untracked.
@@ -524,3 +575,13 @@ for Claude's independent review before push - unchanged workflow.
   `INVALID_TICKERS`, which could reject a legitimate ticker that collides with
   a denylisted word such as `MID`. Do not change this without a future approved
   increment.
+- Store-first reads do not re-fetch or reapply the SEC fund-ticker mapping;
+  they rely on ingest-time mapping. A row stored as `Not Listed` during a
+  temporary mapping outage will not self-heal at read time as the pure-live path
+  would. This is accepted for Increment 13c and should be revisited only in a
+  separately approved increment.
+- Store-first live top-up currently extends only beyond the store's latest end
+  bound. It does not back-fill requests before the trailing-12-month store
+  floor. This remains safe while the date picker is restricted to the current
+  calendar year. Any future prior-year date support must add a floor-side
+  top-up before that restriction is removed.
