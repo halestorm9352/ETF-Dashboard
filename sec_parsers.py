@@ -14,6 +14,12 @@ from vehicle_classifier import (
 
 
 MODULE_CONTRACT_VERSION = 12
+EFFECTIVENESS_LEGACY_WINDOW_CHARS = 120_000
+EFFECTIVENESS_SCAN_CAP_CHARS = 1_000_000
+EFFECTIVENESS_WINDOW_BEFORE_CHARS = 2_000
+EFFECTIVENESS_WINDOW_AFTER_CHARS = 8_000
+EFFECTIVENESS_ANCHOR = "it is proposed that this filing will become effective"
+EFFECTIVENESS_FALLBACK_ANCHOR = "pursuant to paragraph"
 
 
 def clean_html_text(value: str) -> str:
@@ -335,9 +341,87 @@ def extract_filer_name(text: str) -> str:
 
 
 def _is_checked_effectiveness_marker(value: str) -> bool:
-    marker = clean_html_text(value).upper()
+    marker = html.unescape(str(value or "")).strip().upper()
     compact = re.sub(r"[\s\[\]\(\)]+", "", marker)
-    return compact in {"X", "☒", "☑", "■", "●"}
+    return compact in {
+        "X",
+        "\u00de",
+        "\u00fe",
+        "\u2611",
+        "\u2612",
+        "\u25a0",
+        "\u25cf",
+    }
+
+
+_EFFECTIVENESS_MARKER_RE = re.compile(
+    r"\[\s*(?:X)?\s*\]|[\u00a8\u00fe\u2610\u2611\u2612\u25a0\u25cf]|\b[OQX]\b",
+    re.IGNORECASE,
+)
+
+
+def _effectiveness_cover_window(text: str) -> str:
+    scan_text = text[:EFFECTIVENESS_SCAN_CAP_CHARS]
+    lowered = scan_text.lower()
+    anchor_offset = lowered.find(EFFECTIVENESS_ANCHOR)
+    if anchor_offset < 0:
+        anchor_offset = lowered.find(EFFECTIVENESS_FALLBACK_ANCHOR)
+    if anchor_offset < 0:
+        return text[:EFFECTIVENESS_LEGACY_WINDOW_CHARS]
+    return text[
+        max(0, anchor_offset - EFFECTIVENESS_WINDOW_BEFORE_CHARS):
+        anchor_offset + EFFECTIVENESS_WINDOW_AFTER_CHARS
+    ]
+
+
+def _nearest_effectiveness_marker(value: str, phrase_offset: int) -> str:
+    prefix = value[max(0, phrase_offset - 160):phrase_offset]
+    matches = list(_EFFECTIVENESS_MARKER_RE.finditer(prefix))
+    return matches[-1].group(0) if matches else ""
+
+
+def _checked_effectiveness_option(value: str, options):
+    lowered = value.lower()
+    for phrase, basis, days, label in options:
+        for phrase_match in re.finditer(re.escape(phrase), lowered):
+            marker = _nearest_effectiveness_marker(value, phrase_match.start())
+            if _is_checked_effectiveness_marker(marker):
+                return {
+                    "effectiveness_basis": basis,
+                    "effectiveness_days": days,
+                    "designated_effective_date": "",
+                    "effectiveness_label": label,
+                }
+    return None
+
+
+_DESIGNATED_EFFECTIVE_DATE_RE = re.compile(
+    r"\bon\s+\(?([A-Z][a-z]+\s+\d{1,2},\s+\d{4}|\d{1,2}/\d{1,2}/\d{4})\)?\s+"
+    r"pursuant\s+to\s+(?:paragraph\s+\((a|b)\)|rule\s+485\s*\((a|b)\)|"
+    r"rule\s+485,?\s+paragraph\s+\((a|b)\))",
+    re.IGNORECASE,
+)
+
+
+def _designated_effectiveness_result(match) -> dict[str, Any]:
+    designated_date = match.group(1)
+    paragraph = (match.group(2) or match.group(3) or match.group(4)).lower()
+    return {
+        "effectiveness_basis": f"rule_485_{paragraph}_designated_date",
+        "effectiveness_days": None,
+        "designated_effective_date": designated_date,
+        "effectiveness_label": (
+            f"Designated date {designated_date} (Rule 485({paragraph}))"
+        ),
+    }
+
+
+def _checked_designated_effectiveness(value: str):
+    for match in _DESIGNATED_EFFECTIVE_DATE_RE.finditer(value):
+        marker = _nearest_effectiveness_marker(value, match.start())
+        if _is_checked_effectiveness_marker(marker):
+            return _designated_effectiveness_result(match)
+    return None
 
 
 def extract_rule_485_effectiveness(text: str) -> dict[str, Any]:
@@ -350,7 +434,7 @@ def extract_rule_485_effectiveness(text: str) -> dict[str, Any]:
     if not text:
         return default
 
-    cover_page_text = text[:120000]
+    cover_page_text = _effectiveness_cover_window(text)
     soup = BeautifulSoup(cover_page_text, "html.parser")
     options = (
         (
@@ -380,56 +464,43 @@ def extract_rule_485_effectiveness(text: str) -> dict[str, Any]:
         cell_texts = [clean_html_text(cell.get_text(" ", strip=True)) for cell in cells]
         row_text = " ".join(cell_texts)
         row_html = str(row)
-        is_checked = any(_is_checked_effectiveness_marker(value) for value in cell_texts)
-        is_checked = is_checked or bool(
-            re.search(r"<input[^>]+checked", row_html, re.IGNORECASE)
-        )
-        if not is_checked:
-            continue
+        if re.search(r"<input[^>]+checked", row_html, re.IGNORECASE):
+            lower_row_text = row_text.lower()
+            for phrase, basis, days, label in options:
+                if phrase in lower_row_text:
+                    return {
+                        "effectiveness_basis": basis,
+                        "effectiveness_days": days,
+                        "designated_effective_date": "",
+                        "effectiveness_label": label,
+                    }
+            designated_match = _DESIGNATED_EFFECTIVE_DATE_RE.search(row_text)
+            if designated_match:
+                return _designated_effectiveness_result(designated_match)
 
-        lower_row_text = row_text.lower()
-        for phrase, basis, days, label in options:
-            if phrase in lower_row_text:
-                return {
-                    "effectiveness_basis": basis,
-                    "effectiveness_days": days,
-                    "designated_effective_date": "",
-                    "effectiveness_label": label,
-                }
-
-        designated_match = re.search(
-            r"\bon\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4}|\d{1,2}/\d{1,2}/\d{4})\s+"
-            r"pursuant\s+to\s+paragraph\s+\((a|b)\)",
-            row_text,
-            re.IGNORECASE,
-        )
-        if designated_match:
-            paragraph = designated_match.group(2).lower()
-            basis = f"rule_485_{paragraph}_designated_date"
-            return {
-                "effectiveness_basis": basis,
-                "effectiveness_days": None,
-                "designated_effective_date": designated_match.group(1),
-                "effectiveness_label": (
-                    f"Designated date {designated_match.group(1)} "
-                    f"(Rule 485({paragraph}))"
-                ),
-            }
+        selected_option = _checked_effectiveness_option(row_text, options)
+        if selected_option:
+            return selected_option
+        designated_result = _checked_designated_effectiveness(row_text)
+        if designated_result:
+            return designated_result
 
     cleaned_text = clean_html_text(cover_page_text)
-    for phrase, basis, days, label in options:
-        fallback_match = re.search(
-            rf"(?:\[\s*X\s*\]|☒|☑|■|●|\bX\b)\s*.{{0,80}}{re.escape(phrase)}",
-            cleaned_text,
-            re.IGNORECASE,
-        )
-        if fallback_match:
-            return {
-                "effectiveness_basis": basis,
-                "effectiveness_days": days,
-                "designated_effective_date": "",
-                "effectiveness_label": label,
-            }
+    selected_option = _checked_effectiveness_option(cleaned_text, options)
+    if selected_option:
+        return selected_option
+    designated_result = _checked_designated_effectiveness(cleaned_text)
+    if designated_result:
+        return designated_result
+
+    direct_designated_match = re.search(
+        rf"{re.escape(EFFECTIVENESS_ANCHOR)}\s+"
+        rf"{_DESIGNATED_EFFECTIVE_DATE_RE.pattern}",
+        cleaned_text,
+        re.IGNORECASE,
+    )
+    if direct_designated_match:
+        return _designated_effectiveness_result(direct_designated_match)
 
     return default
 

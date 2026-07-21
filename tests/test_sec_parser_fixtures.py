@@ -6,6 +6,8 @@ import sec_parsers
 from config import INDEX_PAGE_MAX_CHARS
 from sec_filings import _merge_series_entries_with_pairs
 from sec_parsers import (
+    EFFECTIVENESS_ANCHOR,
+    EFFECTIVENESS_LEGACY_WINDOW_CHARS,
     extract_named_ticker_pairs,
     extract_rule_485_effectiveness,
     extract_series_entries,
@@ -209,8 +211,111 @@ class SecParserFixtureTests(unittest.TestCase):
 
         result = extract_rule_485_effectiveness(text)
 
+        self.assertEqual(
+            result,
+            {
+                "effectiveness_basis": "rule_485_b_immediate",
+                "effectiveness_days": 0,
+                "designated_effective_date": "",
+                "effectiveness_label": "Immediately upon filing (Rule 485(b))",
+            },
+        )
+
+    def test_485bpos_anchor_beyond_legacy_window_detects_immediate_effectiveness(self):
+        excerpt = load_fixture("defiance_485bpos_beyond_window_primary.html")
+        text = "P" * (EFFECTIVENESS_LEGACY_WINDOW_CHARS + 3_500) + excerpt
+
+        self.assertGreater(
+            text.lower().find(EFFECTIVENESS_ANCHOR),
+            EFFECTIVENESS_LEGACY_WINDOW_CHARS,
+        )
+        self.assertEqual(
+            extract_rule_485_effectiveness(text),
+            {
+                "effectiveness_basis": "rule_485_b_immediate",
+                "effectiveness_days": 0,
+                "designated_effective_date": "",
+                "effectiveness_label": "Immediately upon filing (Rule 485(b))",
+            },
+        )
+
+    def test_485bpos_checked_designated_date_fixture(self):
+        text = load_fixture("etf_opportunities_485bpos_designated_primary.html")
+
+        self.assertEqual(
+            extract_rule_485_effectiveness(text),
+            {
+                "effectiveness_basis": "rule_485_b_designated_date",
+                "effectiveness_days": None,
+                "designated_effective_date": "June 30, 2026",
+                "effectiveness_label": (
+                    "Designated date June 30, 2026 (Rule 485(b))"
+                ),
+            },
+        )
+
+    def test_485bpos_direct_designated_date_fixture(self):
+        text = load_fixture("fidelity_485bpos_direct_designated_primary.html")
+
+        self.assertEqual(
+            extract_rule_485_effectiveness(text),
+            {
+                "effectiveness_basis": "rule_485_b_designated_date",
+                "effectiveness_days": None,
+                "designated_effective_date": "July 25, 2025",
+                "effectiveness_label": (
+                    "Designated date July 25, 2025 (Rule 485(b))"
+                ),
+            },
+        )
+
+    def test_485bpos_rule_then_paragraph_designated_date_fixture(self):
+        text = load_fixture("dimensional_485bpos_rule_paragraph_designated_primary.html")
+
+        self.assertEqual(
+            extract_rule_485_effectiveness(text),
+            {
+                "effectiveness_basis": "rule_485_b_designated_date",
+                "effectiveness_days": None,
+                "designated_effective_date": "April 30, 2026",
+                "effectiveness_label": (
+                    "Designated date April 30, 2026 (Rule 485(b))"
+                ),
+            },
+        )
+
+    def test_inline_checked_marker_does_not_leak_to_unchecked_later_options(self):
+        text = """
+        It is proposed that this filing will become effective:
+        \u2611 immediately upon filing pursuant to paragraph (b)
+        \u2610 60 days after filing pursuant to paragraph (a)(1)
+        \u2610 75 days after filing pursuant to paragraph (a)(2)
+        """
+
+        result = extract_rule_485_effectiveness(text)
+
         self.assertEqual(result["effectiveness_basis"], "rule_485_b_immediate")
         self.assertEqual(result["effectiveness_days"], 0)
+
+    def test_wingdings_markers_select_parenthesized_designated_date(self):
+        text = """
+        It is proposed that this filing will become effective:
+        q immediately upon filing pursuant to paragraph (b)
+        \u00fe on (August 17, 2025) pursuant to paragraph (b)
+        q 60 days after filing pursuant to paragraph (a)(1)
+        """
+
+        self.assertEqual(
+            extract_rule_485_effectiveness(text),
+            {
+                "effectiveness_basis": "rule_485_b_designated_date",
+                "effectiveness_days": None,
+                "designated_effective_date": "August 17, 2025",
+                "effectiveness_label": (
+                    "Designated date August 17, 2025 (Rule 485(b))"
+                ),
+            },
+        )
 
 
 if __name__ == "__main__":
