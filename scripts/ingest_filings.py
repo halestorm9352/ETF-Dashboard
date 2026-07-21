@@ -16,15 +16,15 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from config import CIKS, SEC_MAX_WORKERS
 from sec_filings import (
-    MODULE_CONTRACT_VERSION,
     _fetch_filings_for_cik,
     fetch_sec_fund_ticker_mapping,
     fetch_series_registration_date,
 )
+from sec_parsers import PARSER_VERSION
 from store import (
     get_last_successful_ingest,
-    is_filing_processed,
     open_store,
+    processed_filing_parser_version,
     record_ingest_run,
     record_processed_filing,
     upsert_events,
@@ -97,6 +97,7 @@ def run_ingest(
 
     statuses: list[dict[str, Any]] = []
     filings_processed = 0
+    filings_reprocessed = 0
     filings_skipped = 0
     events_added = 0
     events_updated = 0
@@ -112,7 +113,8 @@ def run_ingest(
         )
 
     def store_cik_result(cik: str, rows, status) -> None:
-        nonlocal ciks_completed, filings_processed, filings_skipped
+        nonlocal ciks_completed, filings_processed, filings_reprocessed
+        nonlocal filings_skipped
         nonlocal events_added, events_updated
         statuses.append(status)
         ciks_completed += 1
@@ -130,13 +132,22 @@ def run_ingest(
         for accession, filing_events in rows_by_accession.items():
             if not accession:
                 continue
-            if is_filing_processed(handle, accession):
+            stored_parser_version = processed_filing_parser_version(
+                handle,
+                accession,
+            )
+            if (
+                stored_parser_version is not None
+                and stored_parser_version >= PARSER_VERSION
+            ):
                 filings_skipped += 1
                 continue
+            # Event IDs are stable for this value-only parser change. A future
+            # identity change would also need orphan-event cleanup.
             counts = upsert_events(
                 handle,
                 filing_events,
-                parser_version=MODULE_CONTRACT_VERSION,
+                parser_version=PARSER_VERSION,
             )
             first_event = filing_events[0]
             record_processed_filing(
@@ -145,10 +156,12 @@ def run_ingest(
                 first_event.get("cik", cik),
                 first_event.get("form", ""),
                 first_event.get("date", ""),
-                MODULE_CONTRACT_VERSION,
+                PARSER_VERSION,
                 len(filing_events),
             )
             filings_processed += 1
+            if stored_parser_version is not None:
+                filings_reprocessed += 1
             events_added += counts["events_added"]
             events_updated += counts["events_updated"]
 
@@ -277,6 +290,7 @@ def run_ingest(
         **run_record,
         "run_id": run_id,
         "filings_skipped": filings_skipped,
+        "filings_reprocessed": filings_reprocessed,
         "events_updated": events_updated,
         "series_resolved": series_resolved,
         "series_unresolved": series_unresolved,

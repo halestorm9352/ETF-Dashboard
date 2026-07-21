@@ -240,6 +240,17 @@ def is_filing_processed(handle: sqlite3.Connection, accession) -> bool:
     )
 
 
+def processed_filing_parser_version(
+    handle: sqlite3.Connection,
+    accession,
+) -> int | None:
+    row = handle.execute(
+        "SELECT parser_version FROM processed_filings WHERE accession_number = ?",
+        (str(accession),),
+    ).fetchone()
+    return int(row["parser_version"]) if row is not None else None
+
+
 def load_events(handle, start_date, end_date, ciks=None) -> list[dict[str, Any]]:
     clauses = ["date >= ?", "date <= ?"]
     parameters: list[Any] = [_date_text(start_date), _date_text(end_date)]

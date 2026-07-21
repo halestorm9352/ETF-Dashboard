@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import requests
 
+from config import INDEX_PAGE_MAX_CHARS, PRIMARY_DOCUMENT_MAX_CHARS
 from sec_filings import (
     _enrich_missing_tickers_from_later_filings,
     _enrich_tickers_from_sec_mapping,
@@ -18,7 +19,7 @@ from sec_filings import (
     fetch_series_registration_date,
     normalize_event_ticker,
 )
-from sec_parsers import extract_rule_485_effectiveness
+from sec_parsers import EFFECTIVENESS_SCAN_CAP_CHARS, extract_rule_485_effectiveness
 from readiness import LAUNCHED_STALE, readiness_status
 from vehicle_classifier import ETF_VEHICLE
 
@@ -90,6 +91,51 @@ class Rule485EffectivenessTests(unittest.TestCase):
 
 
 class FilingHistoryTests(unittest.TestCase):
+    def test_primary_document_fetch_cap_matches_parser_scan_reach(self):
+        self.assertEqual(PRIMARY_DOCUMENT_MAX_CHARS, EFFECTIVENESS_SCAN_CAP_CHARS)
+        cik_data = {
+            "filer_name": "Example Trust",
+            "recent": {
+                "form": ["485BPOS", "S-1"],
+                "filingDate": ["2026-07-01", "2026-07-02"],
+                "acceptanceDateTime": [
+                    "2026-07-01T12:00:00Z",
+                    "2026-07-02T12:00:00Z",
+                ],
+                "accessionNumber": [
+                    "0000000001-26-000001",
+                    "0000000001-26-000002",
+                ],
+                "primaryDocument": ["485bpos.htm", "s1.htm"],
+            },
+        }
+
+        with patch("sec_filings.extract_text", return_value="") as extract:
+            _fetch_filing_rows_for_cik(
+                "0000000001",
+                datetime(2026, 7, 1),
+                datetime(2026, 7, 2, 23, 59, 59),
+                cik_data,
+                primary_document_workers=1,
+            )
+
+        calls_by_name = {
+            call.args[0].rsplit("/", 1)[-1]: call.kwargs.get(
+                "max_chars",
+                call.args[1] if len(call.args) > 1 else None,
+            )
+            for call in extract.call_args_list
+        }
+        self.assertEqual(calls_by_name["485bpos.htm"], PRIMARY_DOCUMENT_MAX_CHARS)
+        self.assertEqual(calls_by_name["s1.htm"], PRIMARY_DOCUMENT_MAX_CHARS)
+        index_limits = [
+            limit
+            for name, limit in calls_by_name.items()
+            if name.endswith("-index.htm")
+        ]
+        self.assertTrue(index_limits)
+        self.assertTrue(all(limit == INDEX_PAGE_MAX_CHARS for limit in index_limits))
+
     def prospectus_pair_pipeline_rows(self, include_pair_mapping=True):
         cik_data = {
             "filer_name": "Example Trust",

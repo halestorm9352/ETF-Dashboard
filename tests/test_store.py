@@ -17,6 +17,7 @@ from store import (
     is_filing_processed,
     load_events,
     open_store,
+    processed_filing_parser_version,
     record_ingest_run,
     record_processed_filing,
     upsert_events,
@@ -140,6 +141,16 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(first["events_added"], 1)
         self.assertEqual(second["events_added"], 0)
         self.assertTrue(is_filing_processed(self.handle, event["accession_number"]))
+        self.assertEqual(
+            processed_filing_parser_version(
+                self.handle,
+                event["accession_number"],
+            ),
+            12,
+        )
+        self.assertIsNone(
+            processed_filing_parser_version(self.handle, "unknown-accession")
+        )
         self.assertEqual(
             self.handle.execute("SELECT COUNT(*) FROM filing_events").fetchone()[0],
             1,

@@ -5,13 +5,16 @@ import unittest
 from unittest.mock import patch
 
 from scripts.ingest_filings import main, run_ingest
+from sec_parsers import PARSER_VERSION
 from store import (
     get_series_registry,
     is_filing_processed,
     load_events,
     open_store,
+    processed_filing_parser_version,
     record_ingest_run,
     record_processed_filing,
+    upsert_events,
 )
 from tests.test_store import sample_event
 
@@ -85,6 +88,7 @@ class IngestTests(unittest.TestCase):
         self.assertEqual(second["events_added"], 0)
         self.assertEqual(second["filings_processed"], 0)
         self.assertEqual(second["filings_skipped"], 1)
+        self.assertEqual(second["filings_reprocessed"], 0)
         self.assertEqual(bounds[1], (date(2026, 7, 17), date(2026, 7, 21)))
         self.assertEqual(len(load_events(self.handle, "2026-01-01", "2026-12-31")), 1)
 
@@ -137,6 +141,74 @@ class IngestTests(unittest.TestCase):
         self.assertEqual(get_series_registry(self.handle), {"S000000001": "2025-01-01"})
         self.assertEqual(result["series_resolved"], 1)
         self.assertEqual(result["series_unresolved"][0]["series_id"], "S000000002")
+
+    @patch("scripts.ingest_filings.fetch_series_registration_date")
+    @patch("scripts.ingest_filings.fetch_sec_fund_ticker_mapping", return_value={})
+    @patch("scripts.ingest_filings._fetch_filings_for_cik")
+    def test_stale_parser_version_reprocesses_and_updates_events(
+        self,
+        fetch_cik,
+        _fetch_mapping,
+        _fetch_series,
+    ):
+        old_event = sample_event(
+            series_id="",
+            class_id="",
+            identity_scope="name",
+            effectiveness_basis="",
+            effectiveness_days=None,
+            effectiveness_label="",
+        )
+        upsert_events(self.handle, [old_event], parser_version=12)
+        record_processed_filing(
+            self.handle,
+            old_event["accession_number"],
+            old_event["cik"],
+            old_event["form"],
+            old_event["date"],
+            12,
+            1,
+        )
+        updated_event = {
+            **old_event,
+            "effectiveness_basis": "rule_485_b_immediate",
+            "effectiveness_days": 0,
+            "effectiveness_label": "Immediately upon filing (Rule 485(b))",
+        }
+        fetch_cik.return_value = (
+            [updated_event],
+            success_status(old_event["cik"]),
+        )
+
+        result = run_ingest(
+            self.handle,
+            mode="backfill",
+            ciks=[old_event["cik"]],
+            today=date(2026, 7, 20),
+        )
+        stored_event = load_events(
+            self.handle,
+            "2026-01-01",
+            "2026-12-31",
+        )[0]
+
+        self.assertEqual(stored_event["effectiveness_basis"], "rule_485_b_immediate")
+        self.assertEqual(stored_event["effectiveness_days"], 0)
+        self.assertEqual(
+            processed_filing_parser_version(
+                self.handle,
+                old_event["accession_number"],
+            ),
+            PARSER_VERSION,
+        )
+        self.assertEqual(result["filings_reprocessed"], 1)
+        self.assertEqual(result["filings_skipped"], 0)
+        self.assertEqual(result["events_updated"], 1)
+        stored_event_parser_version = self.handle.execute(
+            "SELECT parser_version FROM filing_events WHERE event_id = ?",
+            (old_event["event_id"],),
+        ).fetchone()[0]
+        self.assertEqual(stored_event_parser_version, PARSER_VERSION)
 
     @patch("scripts.ingest_filings.fetch_series_registration_date")
     @patch("scripts.ingest_filings.fetch_sec_fund_ticker_mapping", return_value={})
@@ -227,7 +299,7 @@ class IngestTests(unittest.TestCase):
             processed["cik"],
             processed["form"],
             processed["date"],
-            12,
+            PARSER_VERSION,
             1,
         )
         new_event = sample_event(
@@ -257,6 +329,7 @@ class IngestTests(unittest.TestCase):
         self.assertEqual(captured["bounds"], (date(2026, 7, 7), date(2026, 7, 12)))
         self.assertTrue(is_filing_processed(self.handle, "new"))
         self.assertEqual(result["filings_skipped"], 1)
+        self.assertEqual(result["filings_reprocessed"], 0)
         self.assertEqual(result["filings_processed"], 1)
 
 

@@ -15,6 +15,7 @@ from config import (
     FORMS,
     INDEX_PAGE_MAX_CHARS,
     MAX_SUPPORTING_DOCUMENTS,
+    PRIMARY_DOCUMENT_MAX_CHARS,
     SEC_MAX_WORKERS,
 )
 
@@ -773,11 +774,18 @@ def _fetch_filing_rows_for_cik(
     )
     if primary_worker_count == 1:
         for url in primary_document_urls:
-            prefetched_primary_text[url] = extract_text(url, max_chars=300000)
+            prefetched_primary_text[url] = extract_text(
+                url,
+                max_chars=PRIMARY_DOCUMENT_MAX_CHARS,
+            )
     elif primary_document_urls:
         with ThreadPoolExecutor(max_workers=primary_worker_count) as executor:
             future_map = {
-                executor.submit(extract_text, url, 300000): url
+                executor.submit(
+                    extract_text,
+                    url,
+                    PRIMARY_DOCUMENT_MAX_CHARS,
+                ): url
                 for url in primary_document_urls
             }
             for future in as_completed(future_map):
@@ -843,7 +851,10 @@ def _fetch_filing_rows_for_cik(
             if primary_document_url in prefetched_primary_text:
                 primary_text = prefetched_primary_text[primary_document_url]
             else:
-                primary_text = extract_text(primary_document_url, max_chars=300000)
+                primary_text = extract_text(
+                    primary_document_url,
+                    max_chars=PRIMARY_DOCUMENT_MAX_CHARS,
+                )
             if primary_text and (needs_primary_text or needs_mapping_validated_pairs):
                 primary_named_pairs = extract_named_ticker_pairs(primary_text)
                 primary_ticker = extract_ticker(

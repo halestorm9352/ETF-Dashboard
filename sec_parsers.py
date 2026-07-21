@@ -14,6 +14,11 @@ from vehicle_classifier import (
 
 
 MODULE_CONTRACT_VERSION = 12
+# Continue the integer previously stamped from MODULE_CONTRACT_VERSION; stored
+# rows are version 12, so 13 is the first dedicated parser version and forces
+# one reprocess. Bump this whenever parser logic, fetch reach, or parse-time
+# enrichment changes parsed event values.
+PARSER_VERSION = 13
 EFFECTIVENESS_LEGACY_WINDOW_CHARS = 120_000
 EFFECTIVENESS_SCAN_CAP_CHARS = 1_000_000
 EFFECTIVENESS_WINDOW_BEFORE_CHARS = 2_000
