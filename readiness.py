@@ -8,11 +8,32 @@ from sec_parsers import sanitize_ticker
 from vehicle_classifier import ETF_VEHICLE, is_vehicle_ticker_present
 
 
+INITIAL_REVIEW = "Initial review"
+UPCOMING_LAUNCH = "Upcoming launch"
+RECENTLY_LAUNCHED = "Recently launched"
+LAUNCHED_STALE = "Launched (stale)"
 EXISTING_FUND_AMENDMENT = "Existing fund amendment"
+ROUTINE_485B_UPDATE = "Routine 485(b) update"
+EFFECTIVE_AMENDMENT = "Effective (amendment)"
+TIMING_UNDETECTED = "Timing undetected"
+RECENTLY_LAUNCHED_WINDOW_DAYS = 30
+
 SERIES_AGE_PIPELINE_STATUSES = {
-    "Launch candidate",
-    "Waiting on effectiveness",
-    "Needs ticker",
+    UPCOMING_LAUNCH,
+    RECENTLY_LAUNCHED,
+    LAUNCHED_STALE,
+}
+DEFAULT_VISIBLE_STATUSES = {
+    INITIAL_REVIEW,
+    UPCOMING_LAUNCH,
+    RECENTLY_LAUNCHED,
+}
+HIDDEN_BY_DEFAULT_STATUSES = {
+    LAUNCHED_STALE,
+    EXISTING_FUND_AMENDMENT,
+    ROUTINE_485B_UPDATE,
+    EFFECTIVE_AMENDMENT,
+    TIMING_UNDETECTED,
 }
 
 
@@ -56,30 +77,38 @@ def filing_form_history(row) -> list[str]:
 
 
 def readiness_status(row, today):
-    ticker_present = is_vehicle_ticker_present(row) or (
-        sanitize_ticker(row.get("ticker", "")) != "Not Listed"
-    )
     readiness_date = row.get("earliest_auto_effective_date")
     form_value = str(row.get("form", "")).upper()
 
     if form_value in {"S-1", "N-1A"}:
-        return "Initial review"
+        return INITIAL_REVIEW
     if pd.isna(readiness_date):
-        return "Timing not detected"
-    if not ticker_present:
-        return "Needs ticker"
-    if readiness_date.date() <= today:
-        history = filing_form_history(row)
-        if (
-            history
-            and history[0] in {"S-1", "N-1A", "485APOS"}
-            and row.get("vehicle") == ETF_VEHICLE
-        ):
-            return "Launch candidate"
-        if history and all(form == "485BPOS" for form in history):
-            return "Effective (485(b) update)"
-        return "Effective (amendment)"
-    return "Waiting on effectiveness"
+        return TIMING_UNDETECTED
+
+    history = filing_form_history(row)
+    is_new_pipeline = (
+        bool(history)
+        and history[0] in {"S-1", "N-1A", "485APOS"}
+        and row.get("vehicle") == ETF_VEHICLE
+    )
+    effective_date = readiness_date.date()
+    if is_new_pipeline:
+        if effective_date > today:
+            return UPCOMING_LAUNCH
+        days_since_effective = (today - effective_date).days
+        if days_since_effective <= RECENTLY_LAUNCHED_WINDOW_DAYS:
+            return RECENTLY_LAUNCHED
+        return LAUNCHED_STALE
+    if history and all(form == "485BPOS" for form in history):
+        return ROUTINE_485B_UPDATE
+    return EFFECTIVE_AMENDMENT
+
+
+def _needs_ticker(row) -> bool:
+    return not (
+        is_vehicle_ticker_present(row)
+        or sanitize_ticker(row.get("ticker", "")) != "Not Listed"
+    )
 
 
 def requires_series_age_lookup(row) -> bool:
@@ -87,7 +116,7 @@ def requires_series_age_lookup(row) -> bool:
     if readiness in SERIES_AGE_PIPELINE_STATUSES:
         return True
     return (
-        readiness == "Timing not detected"
+        readiness == TIMING_UNDETECTED
         and str(row.get("form", "") or "").upper() in {"485APOS", "485BPOS"}
     )
 
@@ -138,6 +167,7 @@ def add_launch_readiness_columns(
             dtype="datetime64[ns]"
         )
         enriched_df["launch_readiness"] = pd.Series(dtype="object")
+        enriched_df["needs_ticker"] = pd.Series(dtype="bool")
         enriched_df["days_to_readiness"] = pd.Series(dtype="object")
         return enriched_df
 
@@ -151,6 +181,7 @@ def add_launch_readiness_columns(
         lambda row: readiness_status(row, today),
         axis=1,
     )
+    enriched_df["needs_ticker"] = enriched_df.apply(_needs_ticker, axis=1)
     if search_start_date is not None:
         normalized_dates = {
             str(series_id or "").strip().upper(): first_date

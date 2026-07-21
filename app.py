@@ -48,7 +48,14 @@ from app_data import (
 )
 from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
 from readiness import (
+    DEFAULT_VISIBLE_STATUSES,
+    EFFECTIVE_AMENDMENT,
     EXISTING_FUND_AMENDMENT,
+    HIDDEN_BY_DEFAULT_STATUSES,
+    LAUNCHED_STALE,
+    ROUTINE_485B_UPDATE,
+    TIMING_UNDETECTED,
+    UPCOMING_LAUNCH,
     add_launch_readiness_columns,
     series_ids_requiring_age_lookup,
 )
@@ -556,29 +563,44 @@ with st.container():
                     if filtered_df.empty:
                         st.info("No filing snapshot rows matched the selected date range.")
 
-                    include_existing_amendments = st.checkbox(
-                        "Include existing-fund amendments",
+                    include_hidden_readiness_rows = st.checkbox(
+                        "Include already-effective, routine & undetected rows",
                         value=False,
                         key="include_existing_fund_amendments",
                     )
-                    existing_amendment_count = int(
-                        (filtered_df["launch_readiness"] == EXISTING_FUND_AMENDMENT).sum()
-                    )
-                    if include_existing_amendments:
+                    if include_hidden_readiness_rows:
                         visible_df = filtered_df.copy()
-                        hidden_existing_count = 0
+                        hidden_df = filtered_df.iloc[0:0].copy()
                     else:
                         visible_df = filtered_df[
-                            filtered_df["launch_readiness"] != EXISTING_FUND_AMENDMENT
+                            filtered_df["launch_readiness"].isin(
+                                DEFAULT_VISIBLE_STATUSES
+                            )
                         ].copy()
-                        hidden_existing_count = existing_amendment_count
+                        hidden_df = filtered_df[
+                            filtered_df["launch_readiness"].isin(
+                                HIDDEN_BY_DEFAULT_STATUSES
+                            )
+                        ].copy()
+                    hidden_count = len(hidden_df)
+                    hidden_breakdown = {
+                        "stale": LAUNCHED_STALE,
+                        "routine": ROUTINE_485B_UPDATE,
+                        "undetected": TIMING_UNDETECTED,
+                        "existing amendments": EXISTING_FUND_AMENDMENT,
+                        "effective amendments": EFFECTIVE_AMENDMENT,
+                    }
+                    hidden_summary = ", ".join(
+                        f"{int((hidden_df['launch_readiness'] == status).sum())} {label}"
+                        for label, status in hidden_breakdown.items()
+                    )
                     st.caption(
-                        f"New-fund scope: {hidden_existing_count} existing-fund amendment "
-                        f"row(s) hidden; {len(failed_series_age_statuses)} series age lookup(s) failed."
+                        f"Forward pipeline: {hidden_count} row(s) hidden "
+                        f"({hidden_summary}); {len(failed_series_age_statuses)} series age lookup(s) failed."
                     )
                     if visible_df.empty and not filtered_df.empty:
                         st.info(
-                            "No new-fund rows remain after existing-fund amendments are hidden."
+                            "No forward-pipeline rows remain. Enable the readiness toggle to view already-effective, routine, and timing-undetected rows."
                         )
 
                     display_df = visible_df.copy()
@@ -599,7 +621,9 @@ with st.container():
                     filing_event_count = len(filing_events)
                     listed_tickers = int((visible_df["ticker"] != "Not Listed").sum())
                     distinct_filers = int(visible_df["filer"].nunique())
-                    launch_candidates = int((visible_df["launch_readiness"] == "Launch candidate").sum())
+                    upcoming_launches = int(
+                        (visible_df["launch_readiness"] == UPCOMING_LAUNCH).sum()
+                    )
                     latest_dt = visible_df.iloc[0]["date"] if not visible_df.empty else None
                     latest_date = (
                         f"{latest_dt.month}/{latest_dt.day}/{latest_dt.year % 100:02d}"
@@ -619,7 +643,7 @@ with st.container():
                         unsafe_allow_html=True,
                     )
                     stat_cols[3].markdown(
-                        f'<div class="etf-card"><div class="etf-card-label">Launch Candidates</div><div class="etf-card-value">{launch_candidates}</div></div>',
+                        f'<div class="etf-card"><div class="etf-card-label">Upcoming Launches</div><div class="etf-card-value">{upcoming_launches}</div></div>',
                         unsafe_allow_html=True,
                     )
                     st.caption(
@@ -660,6 +684,7 @@ with st.container():
 
                     export_columns = [
                         "ticker",
+                        "needs_ticker",
                         "etf_name",
                         "class_name",
                         "vehicle",

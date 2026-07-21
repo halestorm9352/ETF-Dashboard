@@ -19,7 +19,7 @@ from sec_filings import (
     normalize_event_ticker,
 )
 from sec_parsers import extract_rule_485_effectiveness
-from readiness import readiness_status
+from readiness import LAUNCHED_STALE, readiness_status
 from vehicle_classifier import ETF_VEHICLE
 
 
@@ -654,7 +654,7 @@ class FilingHistoryTests(unittest.TestCase):
         self.assertEqual(older_event["vehicle"], ETF_VEHICLE)
         self.assertEqual(
             readiness_status(older_event, date(2026, 7, 16)),
-            "Launch candidate",
+            LAUNCHED_STALE,
         )
 
     def test_identity_scope_flip_resolves_to_one_series_snapshot(self):
