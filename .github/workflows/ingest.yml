@@ -1,0 +1,64 @@
+name: Ingest SEC filings
+
+on:
+  workflow_dispatch:
+  schedule:
+    # UTC cron. 11/20 cover EDT, 12/21 cover EST; the gate job below keeps
+    # this firing at exactly 07:00 and 16:00 America/New_York year-round.
+    - cron: '0 11,12,20,21 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ingest-store
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          hour=$(TZ='America/New_York' date +%H)
+          if [ "$hour" = "07" ] || [ "$hour" = "16" ]; then
+            echo "Eastern hour $hour matches; running ingest."
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Eastern hour $hour off-schedule; skipping."
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  ingest:
+    needs: gate
+    if: needs.gate.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run incremental ingest
+        run: python scripts/ingest_filings.py --incremental
+      - name: Commit updated store
+        run: |
+          if [ -n "$(git status --porcelain data/etf_dash.sqlite)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/etf_dash.sqlite
+            git commit -m "chore(ingest): incremental store update [skip ci]"
+            git push
+          else
+            echo "No store changes to commit."
+          fi

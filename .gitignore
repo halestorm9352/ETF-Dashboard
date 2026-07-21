@@ -2,5 +2,8 @@ __pycache__/
 *.pyc
 .claude/
 
-# Increment 13b will deliberately un-ignore and commit the initial store.
-data/*.sqlite
+# The initial filing store is tracked as of Increment 13b; transient
+# SQLite sidecar files are not.
+data/*.sqlite-wal
+data/*.sqlite-shm
+data/*.sqlite-journal
