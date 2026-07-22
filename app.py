@@ -53,6 +53,7 @@ from readiness import (
     EXISTING_FUND_AMENDMENT,
     HIDDEN_BY_DEFAULT_STATUSES,
     LAUNCHED_STALE,
+    RECENTLY_LAUNCHED,
     ROUTINE_485B_UPDATE,
     TIMING_UNDETECTED,
     UPCOMING_LAUNCH,
@@ -584,6 +585,7 @@ with st.container():
                         ].copy()
                     hidden_count = len(hidden_df)
                     hidden_breakdown = {
+                        "recently launched": RECENTLY_LAUNCHED,
                         "stale": LAUNCHED_STALE,
                         "routine": ROUTINE_485B_UPDATE,
                         "undetected": TIMING_UNDETECTED,

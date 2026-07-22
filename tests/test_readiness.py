@@ -4,8 +4,10 @@ from datetime import date, datetime
 import pandas as pd
 
 from readiness import (
+    DEFAULT_VISIBLE_STATUSES,
     EFFECTIVE_AMENDMENT,
     EXISTING_FUND_AMENDMENT,
+    HIDDEN_BY_DEFAULT_STATUSES,
     INITIAL_REVIEW,
     LAUNCHED_STALE,
     RECENTLY_LAUNCHED,
@@ -33,6 +35,29 @@ class LaunchReadinessTests(unittest.TestCase):
         }
         row.update(overrides)
         return readiness_status(row, self.TODAY)
+
+    def test_visibility_sets_show_only_not_yet_effective_funds_by_default(self):
+        all_statuses = {
+            INITIAL_REVIEW,
+            UPCOMING_LAUNCH,
+            RECENTLY_LAUNCHED,
+            LAUNCHED_STALE,
+            EXISTING_FUND_AMENDMENT,
+            ROUTINE_485B_UPDATE,
+            EFFECTIVE_AMENDMENT,
+            TIMING_UNDETECTED,
+        }
+
+        self.assertEqual(
+            DEFAULT_VISIBLE_STATUSES,
+            {INITIAL_REVIEW, UPCOMING_LAUNCH},
+        )
+        self.assertIn(RECENTLY_LAUNCHED, HIDDEN_BY_DEFAULT_STATUSES)
+        self.assertTrue(DEFAULT_VISIBLE_STATUSES.isdisjoint(HIDDEN_BY_DEFAULT_STATUSES))
+        self.assertEqual(
+            DEFAULT_VISIBLE_STATUSES | HIDDEN_BY_DEFAULT_STATUSES,
+            all_statuses,
+        )
 
     def test_485bpos_only_history_is_routine_update(self):
         for history in ("485BPOS", "485BPOS -> 485BPOS"):
