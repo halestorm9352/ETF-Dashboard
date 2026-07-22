@@ -216,6 +216,10 @@ FORMS = ["S-1", "N-1A", "485BPOS", "485APOS"]
 DAYS_BACK = 60
 INDEX_PAGE_MAX_CHARS = 300000
 PRIMARY_DOCUMENT_MAX_CHARS = 1_000_000
+# Identity and named-pair extraction stays in the prospectus front matter to
+# avoid treating exhibit lists (sub-advisory agreements, Schedule A) as funds.
+# Effectiveness parsing still uses the full primary-document window.
+PRIMARY_IDENTITY_MAX_CHARS = 300_000
 SEC_MAX_WORKERS = 6
 MAX_SUPPORTING_DOCUMENTS = 2
 SERIES_NEW_MONTHS = 18

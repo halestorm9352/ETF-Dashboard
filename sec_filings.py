@@ -15,6 +15,7 @@ from config import (
     FORMS,
     INDEX_PAGE_MAX_CHARS,
     MAX_SUPPORTING_DOCUMENTS,
+    PRIMARY_IDENTITY_MAX_CHARS,
     PRIMARY_DOCUMENT_MAX_CHARS,
     SEC_MAX_WORKERS,
 )
@@ -856,14 +857,15 @@ def _fetch_filing_rows_for_cik(
                     max_chars=PRIMARY_DOCUMENT_MAX_CHARS,
                 )
             if primary_text and (needs_primary_text or needs_mapping_validated_pairs):
-                primary_named_pairs = extract_named_ticker_pairs(primary_text)
+                primary_identity_text = primary_text[:PRIMARY_IDENTITY_MAX_CHARS]
+                primary_named_pairs = extract_named_ticker_pairs(primary_identity_text)
                 primary_ticker = extract_ticker(
-                    primary_text,
+                    primary_identity_text,
                     named_ticker_pairs=primary_named_pairs,
                 )
-                primary_etf_name = extract_etf_name(primary_text)
+                primary_etf_name = extract_etf_name(primary_identity_text)
                 if not filing_filer_name:
-                    filing_filer_name = extract_filer_name(primary_text)
+                    filing_filer_name = extract_filer_name(primary_identity_text)
 
         supporting_named_pairs: list[dict[str, str]] = []
         if index_text and _needs_supporting_documents(

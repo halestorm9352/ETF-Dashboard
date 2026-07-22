@@ -5,7 +5,11 @@ from unittest.mock import Mock, patch
 
 import requests
 
-from config import INDEX_PAGE_MAX_CHARS, PRIMARY_DOCUMENT_MAX_CHARS
+from config import (
+    INDEX_PAGE_MAX_CHARS,
+    PRIMARY_DOCUMENT_MAX_CHARS,
+    PRIMARY_IDENTITY_MAX_CHARS,
+)
 from sec_filings import (
     _enrich_missing_tickers_from_later_filings,
     _enrich_tickers_from_sec_mapping,
@@ -135,6 +139,56 @@ class FilingHistoryTests(unittest.TestCase):
         ]
         self.assertTrue(index_limits)
         self.assertTrue(all(limit == INDEX_PAGE_MAX_CHARS for limit in index_limits))
+
+    def test_primary_identity_is_bounded_but_effectiveness_uses_full_document(self):
+        cik_data = {
+            "filer_name": "Example Trust",
+            "recent": {
+                "form": ["485BPOS"],
+                "filingDate": ["2026-07-17"],
+                "acceptanceDateTime": ["2026-07-17T12:00:00Z"],
+                "accessionNumber": ["0000000001-26-000001"],
+                "primaryDocument": ["example-485bpos.htm"],
+            },
+        }
+        front_matter = "<table><tr><td>Front Matter ETF</td><td>FRNT</td></tr></table>"
+        effectiveness = (
+            "It is proposed that this filing will become effective "
+            "☑ immediately upon filing pursuant to paragraph (b)"
+        )
+        exhibit = (
+            "Investment Sub-Advisory Agreement dated April 25, 2025 "
+            "with respect to Junk ETF (JUNK)"
+        )
+        primary_text = (
+            front_matter
+            + " " * (400_000 - len(front_matter))
+            + effectiveness
+            + " " * (500_000 - 400_000 - len(effectiveness))
+            + exhibit
+        )
+        self.assertGreater(primary_text.index(effectiveness), PRIMARY_IDENTITY_MAX_CHARS)
+        self.assertGreater(primary_text.index(exhibit), PRIMARY_IDENTITY_MAX_CHARS)
+
+        with patch(
+            "sec_filings.extract_text",
+            side_effect=lambda url, max_chars=INDEX_PAGE_MAX_CHARS: (
+                primary_text if url.endswith("example-485bpos.htm") else ""
+            ),
+        ):
+            rows = _fetch_filing_rows_for_cik(
+                "0000000001",
+                datetime(2026, 7, 1),
+                datetime(2026, 7, 31, 23, 59, 59),
+                cik_data,
+            )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["etf_name"], "Front Matter ETF")
+        self.assertEqual(rows[0]["ticker"], "FRNT")
+        self.assertEqual(rows[0]["effectiveness_basis"], "rule_485_b_immediate")
+        self.assertFalse(any(row["ticker"] == "JUNK" for row in rows))
+        self.assertFalse(any("Junk ETF" in row["etf_name"] for row in rows))
 
     def prospectus_pair_pipeline_rows(self, include_pair_mapping=True):
         cik_data = {
