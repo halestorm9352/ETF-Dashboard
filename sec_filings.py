@@ -24,6 +24,7 @@ SEC_FUND_TICKER_URL = "https://www.sec.gov/files/company_tickers_mf.json"
 SEC_FUND_TICKER_MAX_CHARS = 20_000_000
 from http_utils import get_response as get_http_response, get_response_text
 from sec_parsers import (
+    detect_exchange_listed,
     extract_etf_name,
     extract_filer_name,
     extract_named_ticker_pairs,
@@ -608,7 +609,14 @@ def _normalize_vehicle_identity_metadata(
 ) -> list[dict[str, str]]:
     series_scoped_classes: set[tuple[str, str, str]] = set()
     for row in rows:
-        row["vehicle"] = classify_vehicle(row)
+        stored_vehicle = row.get("vehicle")
+        computed_vehicle = classify_vehicle(row)
+        row["vehicle"] = (
+            stored_vehicle
+            if computed_vehicle == UNKNOWN_VEHICLE
+            and stored_vehicle in {ETF_VEHICLE, MUTUAL_FUND_SHARE_CLASS}
+            else computed_vehicle
+        )
         series_id = str(row.get("series_id", "") or "").strip().upper()
         class_id = str(row.get("class_id", "") or "").strip().upper()
         if series_id and class_id:
@@ -840,6 +848,8 @@ def _fetch_filing_rows_for_cik(
         primary_ticker = ""
         primary_etf_name = "N/A"
         primary_named_pairs: list[dict[str, str]] = []
+        primary_identity_text = ""
+        exchange_listed = False
 
         needs_primary_text = _needs_primary_document(series_entries, filing_filer_name)
         needs_mapping_validated_pairs = bool(series_entries and ticker_mapping)
@@ -856,8 +866,10 @@ def _fetch_filing_rows_for_cik(
                     primary_document_url,
                     max_chars=PRIMARY_DOCUMENT_MAX_CHARS,
                 )
-            if primary_text and (needs_primary_text or needs_mapping_validated_pairs):
+            if primary_text:
                 primary_identity_text = primary_text[:PRIMARY_IDENTITY_MAX_CHARS]
+                exchange_listed = detect_exchange_listed(primary_identity_text)
+            if primary_text and (needs_primary_text or needs_mapping_validated_pairs):
                 primary_named_pairs = extract_named_ticker_pairs(primary_identity_text)
                 primary_ticker = extract_ticker(
                     primary_identity_text,
@@ -1028,10 +1040,12 @@ def _fetch_filing_rows_for_cik(
                 continue
             if source != "series" and "ETF" not in row_name.upper() and "FUND" not in row_name.upper():
                 continue
+            row["exchange_listed"] = exchange_listed
             row["vehicle"] = classify_vehicle(row)
             row["identity_scope"] = (
                 "series" if uses_parent_series_identity(row) else row["identity_scope"]
             )
+            row.pop("exchange_listed", None)
             row.setdefault("ticker_at_filing", row["ticker"])
             identity_token = row.get("class_id") or row.get("series_id") or normalize_etf_name(row_name)
             row["event_id"] = f"{accession_number}:{identity_token}"

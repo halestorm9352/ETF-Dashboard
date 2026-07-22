@@ -1,6 +1,7 @@
 import unittest
 from datetime import date, datetime
 import json
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import requests
@@ -16,6 +17,7 @@ from sec_filings import (
     _fetch_filings_for_cik,
     _fetch_filing_rows_for_cik,
     _mapping_validated_prospectus_entries,
+    _normalize_vehicle_identity_metadata,
     _row_timestamp,
     derive_latest_fund_rows,
     fetch_sec_fund_ticker_mapping,
@@ -25,7 +27,7 @@ from sec_filings import (
 )
 from sec_parsers import EFFECTIVENESS_SCAN_CAP_CHARS, extract_rule_485_effectiveness
 from readiness import LAUNCHED_STALE, readiness_status
-from vehicle_classifier import ETF_VEHICLE
+from vehicle_classifier import ETF_VEHICLE, MUTUAL_FUND_SHARE_CLASS
 
 
 class Rule485EffectivenessTests(unittest.TestCase):
@@ -95,6 +97,71 @@ class Rule485EffectivenessTests(unittest.TestCase):
 
 
 class FilingHistoryTests(unittest.TestCase):
+    def test_exchange_listed_fund_survives_parse_and_snapshot_normalization(self):
+        fixture = (
+            Path(__file__).parent
+            / "fixtures"
+            / "sec"
+            / "wisdomtree_485apos_exchange_listed_primary.html"
+        ).read_text(encoding="utf-8")
+        cik_data = {
+            "filer_name": "WisdomTree Trust",
+            "recent": {
+                "form": ["485APOS"],
+                "filingDate": ["2026-07-09"],
+                "acceptanceDateTime": ["2026-07-09T12:00:00Z"],
+                "accessionNumber": ["0001214659-26-008405"],
+                "primaryDocument": ["pea99872261485apos.htm"],
+            },
+        }
+        index_text = """
+        <table class="tableSeries">
+          <tr><td class="seriesName">Series S000109282</td>
+              <td class="seriesCell"></td>
+              <td class="seriesCell">WisdomTree Global Alpha Fund</td></tr>
+          <tr class="contractRow"><td>Class/Contract C000280390</td><td></td>
+              <td>WisdomTree Global Alpha Fund</td><td></td></tr>
+        </table>
+        """
+
+        with patch(
+            "sec_filings.extract_text",
+            side_effect=lambda url, max_chars=300000: (
+                fixture if url.endswith("pea99872261485apos.htm") else index_text
+            ),
+        ), patch("sec_filings.fetch_supporting_document_texts", return_value=[]):
+            events = _fetch_filing_rows_for_cik(
+                "0001350487",
+                datetime(2026, 7, 1),
+                datetime(2026, 7, 31, 23, 59, 59),
+                cik_data,
+            )
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["vehicle"], ETF_VEHICLE)
+        self.assertNotIn("exchange_listed", events[0])
+        snapshot = derive_latest_fund_rows(events)
+        self.assertEqual(snapshot[0]["vehicle"], ETF_VEHICLE)
+
+    def test_read_normalization_preserves_known_vehicle_only_for_unknown_result(self):
+        rows = [
+            {
+                "class_name": "Tickerless Example Fund",
+                "ticker": "",
+                "vehicle": ETF_VEHICLE,
+            },
+            {
+                "class_name": "Mutual Example Fund",
+                "ticker": "EXMPX",
+                "vehicle": ETF_VEHICLE,
+            },
+        ]
+
+        normalized = _normalize_vehicle_identity_metadata(rows)
+
+        self.assertEqual(normalized[0]["vehicle"], ETF_VEHICLE)
+        self.assertEqual(normalized[1]["vehicle"], MUTUAL_FUND_SHARE_CLASS)
+
     def test_primary_document_fetch_cap_matches_parser_scan_reach(self):
         self.assertEqual(PRIMARY_DOCUMENT_MAX_CHARS, EFFECTIVENESS_SCAN_CAP_CHARS)
         cik_data = {

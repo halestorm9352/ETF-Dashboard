@@ -16,10 +16,11 @@ from vehicle_classifier import (
 MODULE_CONTRACT_VERSION = 12
 # Continue the integer previously stamped from MODULE_CONTRACT_VERSION; stored
 # rows are version 12, so 13 was the first dedicated parser version. Version 14
-# bounds primary-document identity extraction to prospectus front matter. Bump
-# this whenever parser logic, fetch reach, or parse-time enrichment changes
-# parsed event values.
-PARSER_VERSION = 14
+# bounds primary-document identity extraction to prospectus front matter, and
+# version 15 adds exchange-listing evidence to vehicle classification. Bump this
+# whenever parser logic, fetch reach, or parse-time enrichment changes parsed
+# event values.
+PARSER_VERSION = 15
 EFFECTIVENESS_LEGACY_WINDOW_CHARS = 120_000
 EFFECTIVENESS_SCAN_CAP_CHARS = 1_000_000
 EFFECTIVENESS_WINDOW_BEFORE_CHARS = 2_000
@@ -33,6 +34,51 @@ def clean_html_text(value: str) -> str:
     decoded = html.unescape(without_tags)
     decoded = re.sub(r"[\u2000-\u200f\u2028-\u202f\u205f\u2060\ufeff]", " ", decoded)
     return " ".join(decoded.split())
+
+
+def detect_exchange_listed(text: str) -> bool:
+    if not text:
+        return False
+
+    cleaned_text = clean_html_text(text)
+    if re.search(
+        r"\bas with all exchange[- ]traded funds\b",
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        return True
+    if re.search(
+        r"\b(?:the\s+)?fund\s+is\s+an?\s+exchange[- ]traded fund\b",
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        return True
+
+    shares = r"(?:fund(?:['\u2019]s)?\s+shares|shares\s+of\s+the\s+fund)"
+    exchange = (
+        r"(?:NYSE(?:\s+Arca)?|Cboe(?:\s+BZX)?|Nasdaq|BZX|"
+        r"national securities exchange|[A-Z][A-Za-z&.\- ]{0,40}\s+Exchange)"
+    )
+    if re.search(
+        rf"\b{shares}\b.{{0,140}}\b(?:listed(?:\s+and\s+traded)?|traded)\b"
+        rf".{{0,80}}\b(?:on|upon)\s+(?:the\s+)?{exchange}\b",
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        return True
+
+    for market_match in re.finditer(
+        rf"\b{shares}\b.{{0,180}}\b(?:trade|traded|bought\s+and\s+sold)\b"
+        r".{0,120}\bat market prices\b",
+        cleaned_text,
+        re.IGNORECASE,
+    ):
+        context = cleaned_text[
+            max(0, market_match.start() - 200) : market_match.end() + 400
+        ]
+        if re.search(rf"\b{exchange}\b", context, re.IGNORECASE):
+            return True
+    return False
 
 
 def normalize_etf_name(value: str) -> str:

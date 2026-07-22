@@ -36,6 +36,42 @@ class VehicleClassifierTests(unittest.TestCase):
             UNKNOWN_VEHICLE,
         )
 
+    def test_exchange_listing_rescues_tickerless_fund_as_etf(self):
+        self.assertEqual(
+            classify_vehicle(
+                {
+                    "class_name": "Example Fund",
+                    "ticker": "",
+                    "exchange_listed": True,
+                }
+            ),
+            ETF_VEHICLE,
+        )
+
+    def test_mutual_fund_ticker_precedes_exchange_listing_signal(self):
+        self.assertEqual(
+            classify_vehicle(
+                {
+                    "class_name": "Example Fund",
+                    "ticker": "EXMPX",
+                    "exchange_listed": True,
+                }
+            ),
+            MUTUAL_FUND_SHARE_CLASS,
+        )
+
+    def test_false_exchange_listing_leaves_tickerless_fund_unknown(self):
+        self.assertEqual(
+            classify_vehicle(
+                {
+                    "class_name": "Example Fund",
+                    "ticker": "",
+                    "exchange_listed": False,
+                }
+            ),
+            UNKNOWN_VEHICLE,
+        )
+
     def test_parented_class_events_form_one_series_snapshot_row(self):
         base = {
             "cik": "819118",

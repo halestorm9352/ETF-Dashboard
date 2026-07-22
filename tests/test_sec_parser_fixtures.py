@@ -8,6 +8,7 @@ from sec_filings import _merge_series_entries_with_pairs
 from sec_parsers import (
     EFFECTIVENESS_ANCHOR,
     EFFECTIVENESS_LEGACY_WINDOW_CHARS,
+    detect_exchange_listed,
     extract_named_ticker_pairs,
     extract_rule_485_effectiveness,
     extract_series_entries,
@@ -24,6 +25,22 @@ def load_fixture(name: str) -> str:
 
 
 class SecParserFixtureTests(unittest.TestCase):
+    def test_wisdomtree_front_matter_detects_exchange_listed_etf(self):
+        text = load_fixture("wisdomtree_485apos_exchange_listed_primary.html")
+
+        self.assertTrue(detect_exchange_listed(text))
+
+    def test_mutual_fund_comparison_does_not_imply_exchange_listing(self):
+        text = (
+            "Unlike exchange-traded funds, shares of the Fund are purchased "
+            "and redeemed at net asset value."
+        )
+
+        self.assertFalse(detect_exchange_listed(text))
+
+    def test_empty_text_is_not_exchange_listed(self):
+        self.assertFalse(detect_exchange_listed(""))
+
     def test_large_trust_index_cap_preserves_series_identity_table(self):
         text = load_fixture("proshares_485apos_large_index.html")
 

@@ -54,6 +54,8 @@ def classify_vehicle(row: dict[str, Any]) -> str:
         return ETF_VEHICLE
     if re.fullmatch(r"[A-Z]{1,4}", ticker):
         return ETF_VEHICLE
+    if row.get("exchange_listed"):
+        return ETF_VEHICLE
     return UNKNOWN_VEHICLE
 
 
