@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from scripts.ingest_filings import main, run_ingest
+from scripts.ingest_filings import _ingest_bounds, main, run_ingest
 from sec_parsers import PARSER_VERSION
 from store import (
     get_series_registry,
@@ -52,6 +52,51 @@ class IngestTests(unittest.TestCase):
     def tearDown(self):
         self.handle.close()
         self.temp_dir.cleanup()
+
+    def test_backfill_bounds_accept_window_override(self):
+        today = date(2026, 7, 20)
+
+        self.assertEqual(
+            _ingest_bounds(self.handle, "backfill", today, backfill_days=90),
+            (date(2026, 4, 21), today),
+        )
+
+    def test_backfill_bounds_default_remains_365_days(self):
+        today = date(2026, 7, 20)
+
+        self.assertEqual(
+            _ingest_bounds(self.handle, "backfill", today),
+            (date(2025, 7, 20), today),
+        )
+
+    @patch("scripts.ingest_filings.fetch_sec_fund_ticker_mapping", return_value={})
+    @patch("scripts.ingest_filings._fetch_filings_for_cik")
+    def test_run_ingest_passes_windowed_backfill_bounds(
+        self,
+        fetch_cik,
+        _fetch_mapping,
+    ):
+        captured = {}
+
+        def fake_fetch(cik, start_bound, end_bound, **_kwargs):
+            captured["bounds"] = (start_bound.date(), end_bound.date())
+            return [], success_status(cik, row_count=0)
+
+        fetch_cik.side_effect = fake_fetch
+        result = run_ingest(
+            self.handle,
+            mode="backfill",
+            ciks=["0000000001"],
+            today=date(2026, 7, 20),
+            backfill_days=90,
+        )
+
+        self.assertEqual(
+            captured["bounds"],
+            (date(2026, 4, 21), date(2026, 7, 20)),
+        )
+        self.assertEqual(result["start_bound"], "2026-04-21")
+        self.assertEqual(result["end_bound"], "2026-07-20")
 
     @patch("scripts.ingest_filings.fetch_series_registration_date")
     @patch("scripts.ingest_filings.fetch_sec_fund_ticker_mapping", return_value={})

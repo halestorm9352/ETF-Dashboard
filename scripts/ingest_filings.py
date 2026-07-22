@@ -49,9 +49,15 @@ def _parse_date(value: Any) -> date:
     return datetime.strptime(str(value), "%Y-%m-%d").date()
 
 
-def _ingest_bounds(handle, mode: str, today: date) -> tuple[date, date]:
+def _ingest_bounds(
+    handle,
+    mode: str,
+    today: date,
+    backfill_days: int | None = None,
+) -> tuple[date, date]:
     if mode == "backfill":
-        return today - timedelta(days=BACKFILL_DAYS), today
+        days = backfill_days if backfill_days is not None else BACKFILL_DAYS
+        return today - timedelta(days=days), today
     last_run = get_last_successful_ingest(handle)
     if last_run:
         return (
@@ -85,13 +91,19 @@ def run_ingest(
     mode: str,
     ciks: Iterable[str],
     today: date | None = None,
+    backfill_days: int | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     if mode not in {"backfill", "incremental"}:
         raise ValueError("Ingest mode must be 'backfill' or 'incremental'.")
     run_today = today or date.today()
     selected_ciks = [str(cik) for cik in ciks]
-    start_bound, end_bound = _ingest_bounds(handle, mode, run_today)
+    start_bound, end_bound = _ingest_bounds(
+        handle,
+        mode,
+        run_today,
+        backfill_days=backfill_days,
+    )
     started_at = _utc_now()
     ticker_mapping = fetch_sec_fund_ticker_mapping()
 
@@ -305,6 +317,12 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--backfill", action="store_true")
     mode.add_argument("--incremental", action="store_true")
     parser.add_argument("--store", type=Path, default=DEFAULT_STORE_PATH)
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="Override the backfill window in days; ignored for incremental runs.",
+    )
     return parser
 
 
@@ -318,6 +336,7 @@ def main(argv=None, *, ciks=None, today=None) -> int:
             mode=mode,
             ciks=CIKS if ciks is None else ciks,
             today=today,
+            backfill_days=args.days,
             progress=lambda message: print(message, file=sys.stderr, flush=True),
         )
     finally:
