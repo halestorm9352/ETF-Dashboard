@@ -585,3 +585,19 @@ for Claude's independent review before push - unchanged workflow.
   floor. This remains safe while the date picker is restricted to the current
   calendar year. Any future prior-year date support must add a floor-side
   top-up before that restriction is removed.
+
+## Targeted Effectiveness Heal
+
+- Reprocessed the 2026-04-23 through 2026-07-22 window under
+  `PARSER_VERSION = 14` using the 90-day backfill option.
+- Reprocessed 311 filings. Stored filing events increased from 5,482 to 5,503,
+  safely passing the 6,100-event sanity gate.
+- Accessions with at least one blank-effectiveness row in the 90-day window
+  fell from 41 to 8. The parser-version orphan check returned zero rows.
+- Global X LLM ETF, Global X Asia Semiconductor ETF, and Global X MLCC &
+  Electronic Components ETF now carry Rule 485(a)(2) effectiveness timing and
+  appear as `Upcoming launch` in the default view.
+- Known deferred gap: WisdomTree Global Alpha Fund and WisdomTree Efficient
+  Long/Short U.S. SmallCap Equity Fund now have effectiveness timing but remain
+  `Other / unknown`, so they do not pass the ETF vehicle gate. Increment 19
+  will address this classification separately.
