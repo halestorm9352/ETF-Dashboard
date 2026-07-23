@@ -601,3 +601,18 @@ for Claude's independent review before push - unchanged workflow.
   Long/Short U.S. SmallCap Equity Fund now have effectiveness timing but remain
   `Other / unknown`, so they do not pass the ETF vehicle gate. Increment 19
   will address this classification separately.
+
+## Increment 19b
+
+- Reprocessed the 2026-04-24 through 2026-07-23 window under
+  `PARSER_VERSION = 15` to apply the exchange-listed ETF classifier.
+- Reprocessed 315 filings. Stored filing events increased from 5,528 to 5,537,
+  safely passing the 6,100-event sanity gate.
+- Fifty-five events changed from `Other / unknown` to `ETF`: 53 ProShares
+  registrations and the two targeted WisdomTree funds. Independent review
+  found no wrong-direction or mutual-fund vehicle flips.
+- The parser-version orphan check returned zero rows, and SQLite integrity
+  remained healthy.
+- WisdomTree Global Alpha Fund, WisdomTree Efficient Long/Short U.S. SmallCap
+  Equity Fund, and future-effective ProShares registrations now classify as
+  `Upcoming launch` through the store-first snapshot and readiness pipeline.
