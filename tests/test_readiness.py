@@ -136,13 +136,87 @@ class LaunchReadinessTests(unittest.TestCase):
         self.assertIn("filing_stage", result.columns)
         self.assertIn("earliest_auto_effective_date", result.columns)
         self.assertIn("launch_readiness", result.columns)
+        self.assertIn("etf_share_class", result.columns)
         self.assertIn("needs_ticker", result.columns)
         self.assertIn("days_to_readiness", result.columns)
+        self.assertTrue(pd.api.types.is_bool_dtype(result["etf_share_class"]))
         self.assertTrue(
             pd.api.types.is_datetime64_any_dtype(
                 result["earliest_auto_effective_date"]
             )
         )
+
+    def test_etf_share_class_flags_etf_with_mutual_fund_sibling(self):
+        rows = pd.DataFrame(
+            [
+                {
+                    "series_id": "S1",
+                    "vehicle": ETF_VEHICLE,
+                    "form": "N-1A",
+                    "ticker": "EXAM",
+                    "date": pd.Timestamp("2026-07-01"),
+                },
+                {
+                    "series_id": "S1",
+                    "vehicle": MUTUAL_FUND_SHARE_CLASS,
+                    "form": "N-1A",
+                    "ticker": "EXAMX",
+                    "date": pd.Timestamp("2026-07-01"),
+                },
+            ]
+        )
+
+        result = add_launch_readiness_columns(rows)
+
+        self.assertEqual(result["etf_share_class"].tolist(), [True, False])
+
+    def test_etf_share_class_is_false_for_single_vehicle_series(self):
+        rows = pd.DataFrame(
+            [
+                {
+                    "series_id": "S1",
+                    "vehicle": ETF_VEHICLE,
+                    "form": "N-1A",
+                    "ticker": "EXAM",
+                    "date": pd.Timestamp("2026-07-01"),
+                },
+                {
+                    "series_id": "S2",
+                    "vehicle": MUTUAL_FUND_SHARE_CLASS,
+                    "form": "N-1A",
+                    "ticker": "EXAMX",
+                    "date": pd.Timestamp("2026-07-01"),
+                },
+            ]
+        )
+
+        result = add_launch_readiness_columns(rows)
+
+        self.assertEqual(result["etf_share_class"].tolist(), [False, False])
+
+    def test_etf_share_class_requires_mutual_fund_share_class_sibling(self):
+        rows = pd.DataFrame(
+            [
+                {
+                    "series_id": "S1",
+                    "vehicle": ETF_VEHICLE,
+                    "form": "N-1A",
+                    "ticker": "EXAM",
+                    "date": pd.Timestamp("2026-07-01"),
+                },
+                {
+                    "series_id": "S1",
+                    "vehicle": "Other / unknown",
+                    "form": "N-1A",
+                    "ticker": "Not Listed",
+                    "date": pd.Timestamp("2026-07-01"),
+                },
+            ]
+        )
+
+        result = add_launch_readiness_columns(rows)
+
+        self.assertEqual(result["etf_share_class"].tolist(), [False, False])
 
     def test_initial_and_undetected_readiness_states(self):
         cases = (

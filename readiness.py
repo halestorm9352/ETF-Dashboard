@@ -5,7 +5,11 @@ import pandas as pd
 
 from config import SERIES_NEW_MONTHS
 from sec_parsers import sanitize_ticker
-from vehicle_classifier import ETF_VEHICLE, is_vehicle_ticker_present
+from vehicle_classifier import (
+    ETF_VEHICLE,
+    MUTUAL_FUND_SHARE_CLASS,
+    is_vehicle_ticker_present,
+)
 
 
 INITIAL_REVIEW = "Initial review"
@@ -152,6 +156,25 @@ def _has_prior_effectiveness(row) -> bool:
     return value is True or str(value).strip().lower() in {"1", "true", "yes"}
 
 
+def _etf_share_class_flags(df: pd.DataFrame) -> pd.Series:
+    series_ids = df.get("series_id", pd.Series("", index=df.index)).fillna(
+        ""
+    ).astype(str).str.strip().str.upper()
+    vehicles = df.get("vehicle", pd.Series("", index=df.index)).fillna("")
+    populated_series = series_ids != ""
+    etf_series = set(series_ids[populated_series & (vehicles == ETF_VEHICLE)])
+    mutual_fund_series = set(
+        series_ids[populated_series & (vehicles == MUTUAL_FUND_SHARE_CLASS)]
+    )
+    qualifying_series = etf_series & mutual_fund_series
+
+    # V1 observes only siblings present in this snapshot window. A future
+    # mapping-backed pass can identify classes whose siblings did not file.
+    return (
+        (vehicles == ETF_VEHICLE) & series_ids.isin(qualifying_series)
+    ).astype(bool)
+
+
 def add_launch_readiness_columns(
     df,
     *,
@@ -167,6 +190,7 @@ def add_launch_readiness_columns(
             dtype="datetime64[ns]"
         )
         enriched_df["launch_readiness"] = pd.Series(dtype="object")
+        enriched_df["etf_share_class"] = pd.Series(dtype="bool")
         enriched_df["needs_ticker"] = pd.Series(dtype="bool")
         enriched_df["days_to_readiness"] = pd.Series(dtype="object")
         return enriched_df
@@ -181,6 +205,7 @@ def add_launch_readiness_columns(
         lambda row: readiness_status(row, today),
         axis=1,
     )
+    enriched_df["etf_share_class"] = _etf_share_class_flags(enriched_df)
     enriched_df["needs_ticker"] = enriched_df.apply(_needs_ticker, axis=1)
     if search_start_date is not None:
         normalized_dates = {

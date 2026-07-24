@@ -626,12 +626,13 @@ with st.container():
                     upcoming_launches = int(
                         (visible_df["launch_readiness"] == UPCOMING_LAUNCH).sum()
                     )
+                    etf_share_classes = int(visible_df["etf_share_class"].sum())
                     latest_dt = visible_df.iloc[0]["date"] if not visible_df.empty else None
                     latest_date = (
                         f"{latest_dt.month}/{latest_dt.day}/{latest_dt.year % 100:02d}"
                         if latest_dt is not None else "N/A"
                     )
-                    stat_cols = st.columns(4)
+                    stat_cols = st.columns(5)
                     stat_cols[0].markdown(
                         f'<div class="etf-card"><div class="etf-card-label">Funds Loaded</div><div class="etf-card-value">{filings_count}</div></div>',
                         unsafe_allow_html=True,
@@ -646,6 +647,10 @@ with st.container():
                     )
                     stat_cols[3].markdown(
                         f'<div class="etf-card"><div class="etf-card-label">Upcoming Launches</div><div class="etf-card-value">{upcoming_launches}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                    stat_cols[4].markdown(
+                        f'<div class="etf-card"><div class="etf-card-label">ETF Share Classes</div><div class="etf-card-value">{etf_share_classes}</div></div>',
                         unsafe_allow_html=True,
                     )
                     st.caption(
@@ -690,6 +695,7 @@ with st.container():
                         "etf_name",
                         "class_name",
                         "vehicle",
+                        "etf_share_class",
                         "series_id",
                         "class_id",
                         "themes",
