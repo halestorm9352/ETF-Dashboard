@@ -616,3 +616,45 @@ for Claude's independent review before push - unchanged workflow.
 - WisdomTree Global Alpha Fund, WisdomTree Efficient Long/Short U.S. SmallCap
   Equity Fund, and future-effective ProShares registrations now classify as
   `Upcoming launch` through the store-first snapshot and readiness pipeline.
+
+## Increment 20
+
+### ETF Share-Class Watch
+
+- Added a read-time boolean `etf_share_class` column in
+  `add_launch_readiness_columns` (`readiness.py`). It flags an ETF-vehicle
+  snapshot row whose `series_id` also has at least one
+  `MUTUAL_FUND_SHARE_CLASS` sibling row in the same snapshot window: a
+  multi-share-class fund with both an ETF class and traditional mutual-fund
+  classes. Only ETF-vehicle rows are flagged; mutual-fund and other rows remain
+  `False`. Series IDs are normalized both when building the qualifying set and
+  when testing membership.
+- `app.py` adds an "ETF Share Classes" summary card counted from `visible_df`,
+  so it follows the readiness toggle, and includes `etf_share_class` in the
+  on-screen table and Excel export immediately after `vehicle`.
+- V1 limitation, also documented in code: both sibling vehicle types must
+  appear in the selected snapshot window. A future SEC-mapping-backed pass
+  could catch classes whose siblings did not file in-window. The mutual-fund
+  -> ETF conversions half of this competitive-signal vector remains deferred;
+  it needs N-14/proxy forms or conversion-language parsing and is not
+  detectable from the current 485-only data.
+- No version bumps: `add_launch_readiness_columns` runs post-cache, so
+  `MODULE_CONTRACT_VERSION` (12), `PARSER_VERSION` (15), `DATA_VERSION`, and
+  `SCHEMA_VERSION` (1) are unchanged.
+- Independent verification on the committed store found 12 flags, all Vanguard
+  dual-class index-fund ETF Shares such as VOO, with 100% `vehicle == ETF` and
+  zero false flags. Commit `7f03592` was rebased to `da3a822` over a concurrent
+  scheduled store commit and pushed.
+
+### Current State (2026-08-04)
+
+- Code HEAD `da3a822`; the repository was subsequently fast-forwarded to
+  `origin/main` `83c67b2`, which contains 12 automated store-only ingest commits
+  on top.
+- Store: 5,694 events, 1,259 accessions, range 2025-07-21 through 2026-07-31,
+  integrity `ok`. Parser versions: events v12=4,330 / v14=5 / v15=1,359;
+  processed filings v12=877 / v14=3 / v15=379.
+- Current-year snapshot: 248 `Upcoming launch` rows in the default view, 461
+  `Timing undetected` rows, and 12 ETF share-class flags, with zero in the
+  default view. Scheduled ingest is healthy; the latest run searched 45 CIKs
+  with zero failures.
