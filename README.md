@@ -413,20 +413,12 @@ Deferred vectors:
 
 Any new rail must preserve the simple search -> snapshot -> workbook flow.
 
-## Legacy and Reference Files
+## Retired Rails
 
-The removed launch, broad-news, AUM, and flow rails remain only as inactive
-references:
-
-| File | Current status |
-| --- | --- |
-| `etfcom.py` | Legacy launch, AUM, flow, and news logic; not imported by the page. |
-| `news_sources.py` | Legacy broad-news helpers; not imported by the page. |
-| `etfcom_launches_seed.csv` | Historical launch fallback data. |
-| `etfcom_launches_status.json` | Historical launch freshness metadata. |
-| `etfcom_news_seed.csv` | Historical news fallback data. |
-| `scripts/refresh_launches_snapshot.py` | Legacy refresh script with no active workflow. |
-| `cik_*_2026-04-22.json` | Historical CIK/form audit artifacts. |
+The earlier third-party scraping and broad-news code, along with its seed data,
+refresh script, and one-off CIK audit artifacts, was removed in Increment 22.
+The product relies exclusively on primary SEC filings; see git history for the
+retired implementation.
 
 The local `.claude/` directory is ignored and is not part of the published
 application repository.
