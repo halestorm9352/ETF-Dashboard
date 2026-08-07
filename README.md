@@ -11,6 +11,7 @@ snapshot. It is not a price, portfolio, or holdings dashboard.
 
 - Live site: [etfdash.streamlit.app](https://etfdash.streamlit.app/)
 - Repository: [halestorm9352/ETF-Dashboard](https://github.com/halestorm9352/ETF-Dashboard)
+- Comprehensive LLM-ingest and integration spec: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)
 - Detailed implementation history: [HANDOFF.md](HANDOFF.md)
 - Runtime: Python 3.14
 - Local project root: `C:\Users\jhale\Desktop\ETF Dashboard`
