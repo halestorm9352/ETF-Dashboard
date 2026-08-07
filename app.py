@@ -1,7 +1,6 @@
 import importlib
 from io import BytesIO
 from pathlib import Path
-from zipfile import ZIP_DEFLATED, ZipFile
 
 import pandas as pd
 import streamlit as st
@@ -43,11 +42,9 @@ fetch_filing_events = sec_filings_module.fetch_filing_events
 normalize_event_ticker = sec_filings_module.normalize_event_ticker
 fetch_series_registration_date = sec_filings_module.fetch_series_registration_date
 from app_data import (
-    list_source_files,
     load_launch_brief,
     load_store_first_filing_events,
     load_store_series_registry,
-    read_source_file,
     resolve_series_registration_status,
 )
 from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
@@ -332,27 +329,6 @@ def _latest_snapshot_workbook(df):
     return output.getvalue()
 
 
-def _source_language(rel_path):
-    return {
-        ".py": "python",
-        ".md": "markdown",
-        ".yml": "yaml",
-        ".yaml": "yaml",
-    }.get(Path(rel_path).suffix.lower(), "text")
-
-
-def _source_archive(source_files):
-    output = BytesIO()
-    with ZipFile(output, mode="w", compression=ZIP_DEFLATED) as archive:
-        for rel_path in source_files:
-            try:
-                content = (PROJECT_ROOT / rel_path).read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                continue
-            archive.writestr(rel_path, content.encode("utf-8"))
-    return output.getvalue()
-
-
 def _brief_markdown(text, css_class=""):
     classes = "etf-brief-text"
     if css_class:
@@ -431,53 +407,6 @@ if brief_data is not None:
             "Reflects the last scheduled ingest and may lag live search results "
             "by a few hours."
         )
-
-source_files = list_source_files(PROJECT_ROOT)
-with st.expander("Source & Documentation", expanded=False):
-    st.markdown(
-        "The full project source is open and browsable here. "
-        "[View the repository on GitHub]"
-        "(https://github.com/halestorm9352/ETF-Dashboard)."
-    )
-
-    doc_paths = ("PROJECT_CONTEXT.md", "README.md", "HANDOFF.md")
-    doc_tabs = st.tabs(("Project Context", "README", "Handoff"))
-    for doc_tab, doc_path in zip(doc_tabs, doc_paths):
-        with doc_tab:
-            doc_text = read_source_file(PROJECT_ROOT, doc_path)
-            if doc_text is None:
-                st.caption(f"{doc_path} is not available in this deployment.")
-            else:
-                st.markdown(doc_text)
-
-    if source_files:
-        selected_source = st.selectbox(
-            "Browse source files",
-            options=source_files,
-            key="source_file_browser",
-        )
-        source_text = read_source_file(PROJECT_ROOT, selected_source)
-        if source_text is None:
-            st.caption(f"{selected_source} is not currently readable.")
-        else:
-            st.code(source_text, language=_source_language(selected_source))
-            st.download_button(
-                "Download selected file",
-                data=source_text.encode("utf-8"),
-                file_name=Path(selected_source).name,
-                mime="text/plain",
-                key="download_selected_source",
-            )
-
-        st.download_button(
-            "Download full source (.zip)",
-            data=_source_archive(source_files),
-            file_name="etf-dashboard-source.zip",
-            mime="application/zip",
-            key="download_full_source",
-        )
-    else:
-        st.caption("Source files are not available in this deployment.")
 
 with st.container():
     center_col = st.container()

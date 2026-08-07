@@ -10,67 +10,6 @@ from sec_filings import FilingEventResults, finalize_event_rows
 from store import get_last_successful_ingest, get_series_registry, load_events, open_store
 
 
-SOURCE_GLOBS = (
-    "*.py",
-    "scripts/*.py",
-    "tests/*.py",
-    "*.md",
-    ".github/workflows/*.yml",
-)
-SOURCE_FILES = ("requirements.txt", ".python-version")
-
-
-def _is_project_text_file(project_root: Path, candidate: Path) -> bool:
-    try:
-        resolved = candidate.resolve()
-        resolved.relative_to(project_root)
-        content = resolved.read_bytes()
-        if b"\x00" in content:
-            return False
-        content.decode("utf-8")
-    except (OSError, UnicodeDecodeError, ValueError):
-        return False
-    return resolved.is_file()
-
-
-def list_source_files(project_root) -> list[str]:
-    root = Path(project_root).resolve()
-    candidates: set[Path] = set()
-    try:
-        for pattern in SOURCE_GLOBS:
-            candidates.update(root.glob(pattern))
-        candidates.update(root / filename for filename in SOURCE_FILES)
-    except OSError:
-        return []
-
-    paths = {
-        candidate.relative_to(root).as_posix()
-        for candidate in candidates
-        if _is_project_text_file(root, candidate)
-    }
-    return sorted(paths)
-
-
-def read_source_file(project_root, rel_path) -> str | None:
-    root = Path(project_root).resolve()
-    try:
-        target = (root / Path(rel_path)).resolve()
-        target.relative_to(root)
-    except (OSError, TypeError, ValueError):
-        return None
-
-    allowed_targets = {
-        (root / allowed_path).resolve()
-        for allowed_path in list_source_files(root)
-    }
-    if target not in allowed_targets:
-        return None
-    try:
-        return target.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return None
-
-
 def load_launch_brief(brief_path) -> dict[str, Any] | None:
     path = Path(brief_path)
     try:
