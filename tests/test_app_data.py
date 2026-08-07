@@ -1,4 +1,5 @@
 from datetime import date
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -78,21 +79,34 @@ class AppStoreRuntimeTests(unittest.TestCase):
         finally:
             handle.close()
 
-    def test_load_launch_brief_returns_nonempty_file_content(self):
-        brief_path = Path(self.temp_dir.name) / "launch_brief.md"
-        expected = "# Launch Pipeline Brief\n\nCurrent pipeline.\n"
-        brief_path.write_text(expected, encoding="utf-8")
+    def test_load_launch_brief_returns_parsed_json(self):
+        brief_path = Path(self.temp_dir.name) / "launch_brief.json"
+        expected = {
+            "as_of": "2026-08-07",
+            "total": 3,
+            "upcoming": 2,
+            "initial_review": 1,
+            "top_filers": [{"name": "Example Trust", "count": 3}],
+            "top_themes": [{"name": "Thematic Equity", "count": 3}],
+        }
+        brief_path.write_text(json.dumps(expected), encoding="utf-8")
 
         self.assertEqual(load_launch_brief(brief_path), expected)
 
     def test_load_launch_brief_returns_none_for_missing_file(self):
-        brief_path = Path(self.temp_dir.name) / "missing.md"
+        brief_path = Path(self.temp_dir.name) / "missing.json"
 
         self.assertIsNone(load_launch_brief(brief_path))
 
     def test_load_launch_brief_returns_none_for_empty_file(self):
-        brief_path = Path(self.temp_dir.name) / "launch_brief.md"
+        brief_path = Path(self.temp_dir.name) / "launch_brief.json"
         brief_path.write_text("  \n", encoding="utf-8")
+
+        self.assertIsNone(load_launch_brief(brief_path))
+
+    def test_load_launch_brief_returns_none_for_malformed_json(self):
+        brief_path = Path(self.temp_dir.name) / "launch_brief.json"
+        brief_path.write_text('{"as_of":', encoding="utf-8")
 
         self.assertIsNone(load_launch_brief(brief_path))
 

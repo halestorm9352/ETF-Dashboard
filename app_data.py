@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+import json
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -9,13 +10,16 @@ from sec_filings import FilingEventResults, finalize_event_rows
 from store import get_last_successful_ingest, get_series_registry, load_events, open_store
 
 
-def load_launch_brief(brief_path) -> str | None:
+def load_launch_brief(brief_path) -> dict[str, Any] | None:
     path = Path(brief_path)
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError:
+        if not text.strip():
+            return None
+        brief = json.loads(text)
+    except (OSError, json.JSONDecodeError):
         return None
-    return text if text.strip() else None
+    return brief if isinstance(brief, dict) else None
 
 
 def _store_is_available(store_path: Path) -> bool:

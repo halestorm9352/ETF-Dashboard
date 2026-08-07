@@ -98,9 +98,11 @@ The table and workbook include the `etf_share_class` flag immediately after
 original fetch timestamp. Force refresh bypasses that cache once and repopulates
 it for subsequent searches.
 
-The launch brief is a deterministic, no-LLM markdown digest of the
-not-yet-effective pipeline (`Upcoming launch` plus `Initial review`).
-`scripts/generate_launch_brief.py` builds it from the committed store, and the
+The launch brief is a deterministic, no-LLM snapshot of the not-yet-effective
+pipeline (`Upcoming launch` plus `Initial review`). Its compact panel places the
+Top Filers and Top Themes rankings side by side; it does not include a fund list
+or a new-since-last delta. `scripts/generate_launch_brief.py` builds the
+structured `data/launch_brief.json` artifact from the committed store, and the
 scheduled ingest regenerates and commits it whenever the store changes. The app
 only reads the committed file, so the collapsed panel stays fast but may lag a
 live search by a few hours.
@@ -235,7 +237,7 @@ dates are also served from the store before any live fallback.
 `.github/workflows/ingest.yml` runs the incremental ingest at approximately
 7:00 AM and 4:00 PM America/New_York and commits the updated SQLite file through
 the GitHub Actions bot. When the store changes, the workflow also regenerates
-and commits the launch brief and its state in the same commit. The ingest uses
+and commits `data/launch_brief.json` in the same commit. The ingest uses
 a three-day overlap, skips accessions already processed by the current parser,
 resolves missing series ages, records partial failures, and remains behind the
 shared SEC rate limiter.
@@ -278,9 +280,11 @@ As recorded on 2026-08-07, the committed store contained:
 - Processed-accession versions: v12=877, v14=3, v15=383.
 - SQLite integrity result: `ok`.
 
-The committed 2026-08-07 launch brief contains 234 default-visible forward
-pipeline rows, all `Upcoming launch`. ETF share-class flags remain available
-when the already-effective toggle reveals established dual-class series.
+As of 2026-08-07, the forward pipeline held 234 funds, all `Upcoming launch`;
+the committed `data/launch_brief.json` summarizes them as Top Filers and Top
+Themes rather than listing individual rows. ETF share-class flags remain
+available when the already-effective toggle reveals established dual-class
+series.
 
 ## Data Flow
 
@@ -317,7 +321,7 @@ All paths are relative to `C:\Users\jhale\Desktop\ETF Dashboard`.
 | `config.py` | CIK universe, groups, forms, worker limits, parser windows, and data versions. |
 | `store.py` | Streamlit-free SQLite schema and filing-event, accession, series, and ingest-run APIs. |
 | `scripts/ingest_filings.py` | Backfill, targeted reprocessing, and overlap-aware incremental ingest CLI. |
-| `scripts/generate_launch_brief.py` | Deterministic current-pipeline digest and new-since-last state generator. |
+| `scripts/generate_launch_brief.py` | Deterministic structured Top Filers / Top Themes snapshot generator. |
 | `.github/workflows/ingest.yml` | Twice-daily Eastern-time ingest and bot store commit. |
 | `sec_filings.py` | SEC retrieval, event construction/finalization, ticker enrichment, and snapshot derivation. |
 | `sec_parsers.py` | Fixture-backed name, ticker, series/class, exchange-listing, and effectiveness extraction. |

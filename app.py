@@ -65,7 +65,7 @@ from readiness import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 STORE_PATH = PROJECT_ROOT / "data" / "etf_dash.sqlite"
-BRIEF_PATH = PROJECT_ROOT / "data" / "launch_brief.md"
+BRIEF_PATH = PROJECT_ROOT / "data" / "launch_brief.json"
 
 
 st.set_page_config(page_title="ETF Dash", layout="wide")
@@ -353,10 +353,29 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-brief_text = load_launch_brief(BRIEF_PATH)
-if brief_text is not None:
+brief_data = load_launch_brief(BRIEF_PATH)
+if brief_data is not None:
     with st.expander("Launch Pipeline Brief", expanded=False):
-        st.markdown(brief_text)
+        st.caption(
+            f"As of {brief_data.get('as_of', 'unknown')} - "
+            f"{brief_data.get('total', 0)} funds in the forward pipeline "
+            f"({brief_data.get('upcoming', 0)} upcoming, "
+            f"{brief_data.get('initial_review', 0)} initial review)."
+        )
+        filer_col, theme_col = st.columns(2)
+        with filer_col:
+            st.caption("**Top Filers**")
+            for item in brief_data.get("top_filers", []):
+                st.caption(
+                    f"{item.get('name', 'Unknown filer')}: "
+                    f"{item.get('count', 0)}"
+                )
+        with theme_col:
+            st.caption("**Top Themes**")
+            for item in brief_data.get("top_themes", []):
+                st.caption(
+                    f"{item.get('name', 'Other')}: {item.get('count', 0)}"
+                )
         st.caption(
             "Reflects the last scheduled ingest and may lag live search results "
             "by a few hours."

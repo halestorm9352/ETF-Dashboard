@@ -1,0 +1,74 @@
+{
+  "as_of": "2026-08-07",
+  "total": 234,
+  "upcoming": 234,
+  "initial_review": 0,
+  "top_filers": [
+    {
+      "name": "PROSHARES TRUST",
+      "count": 75
+    },
+    {
+      "name": "DIREXION SHARES ETF TRUST",
+      "count": 32
+    },
+    {
+      "name": "ETF OPPORTUNITIES TRUST",
+      "count": 27
+    },
+    {
+      "name": "TIDAL",
+      "count": 27
+    },
+    {
+      "name": "INVESTMENT MANAGERS SERIES TRUST II",
+      "count": 18
+    },
+    {
+      "name": "NORTHERN FUNDS",
+      "count": 11
+    },
+    {
+      "name": "EA SERIES TRUST",
+      "count": 9
+    },
+    {
+      "name": "ETF SERIES SOLUTIONS",
+      "count": 6
+    }
+  ],
+  "top_themes": [
+    {
+      "name": "Leveraged / Inverse",
+      "count": 146
+    },
+    {
+      "name": "Other",
+      "count": 33
+    },
+    {
+      "name": "Options Income / Covered Call",
+      "count": 13
+    },
+    {
+      "name": "Thematic Equity",
+      "count": 10
+    },
+    {
+      "name": "Target Maturity",
+      "count": 8
+    },
+    {
+      "name": "Factor / Quant / Active",
+      "count": 6
+    },
+    {
+      "name": "Fixed Income / Credit",
+      "count": 5
+    },
+    {
+      "name": "International / Emerging Markets",
+      "count": 5
+    }
+  ]
+}
