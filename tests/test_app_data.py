@@ -6,9 +6,11 @@ import unittest
 from unittest.mock import Mock
 
 from app_data import (
+    list_source_files,
     load_launch_brief,
     load_store_first_filing_events,
     load_store_series_registry,
+    read_source_file,
     resolve_series_registration_status,
 )
 from sec_filings import FilingEventResults, derive_latest_fund_rows, finalize_event_rows
@@ -47,6 +49,61 @@ def event(**overrides):
     }
     row.update(overrides)
     return row
+
+
+class SourceFileAccessTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = TemporaryDirectory()
+        self.project_root = Path(self.temp_dir.name)
+        files = {
+            "app.py": "print('app')\n",
+            "store.py": "SCHEMA_VERSION = 1\n",
+            "PROJECT_CONTEXT.md": "# Project context\n",
+            "README.md": "# README\n",
+            "requirements.txt": "streamlit>=1\n",
+            ".python-version": "3.14\n",
+            "scripts/tool.py": "print('tool')\n",
+            "tests/test_tool.py": "def test_tool(): pass\n",
+            ".github/workflows/ingest.yml": "name: ingest\n",
+            "data/launch_brief.json": "{}\n",
+            ".venv/ignored.py": "print('ignored')\n",
+            ".claude/ignored.md": "# ignored\n",
+        }
+        for rel_path, content in files.items():
+            path = self.project_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        (self.project_root / "binary.md").write_bytes(b"binary\x00content")
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_list_source_files_returns_curated_sorted_text_paths(self):
+        source_files = list_source_files(self.project_root)
+
+        self.assertEqual(source_files, sorted(source_files))
+        self.assertIn("app.py", source_files)
+        self.assertIn("store.py", source_files)
+        self.assertIn("PROJECT_CONTEXT.md", source_files)
+        self.assertIn("requirements.txt", source_files)
+        self.assertIn("scripts/tool.py", source_files)
+        self.assertIn("tests/test_tool.py", source_files)
+        self.assertIn(".github/workflows/ingest.yml", source_files)
+        self.assertNotIn("data/launch_brief.json", source_files)
+        self.assertNotIn(".venv/ignored.py", source_files)
+        self.assertNotIn(".claude/ignored.md", source_files)
+        self.assertNotIn("binary.md", source_files)
+
+    def test_read_source_file_allows_only_list_members(self):
+        self.assertEqual(
+            read_source_file(self.project_root, "app.py"),
+            "print('app')\n",
+        )
+        self.assertIsNone(read_source_file(self.project_root, "../secret"))
+        self.assertIsNone(
+            read_source_file(self.project_root, "data/launch_brief.json")
+        )
+        self.assertIsNone(read_source_file(self.project_root, "missing.py"))
 
 
 class AppStoreRuntimeTests(unittest.TestCase):
