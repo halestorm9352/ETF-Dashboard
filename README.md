@@ -83,6 +83,7 @@ The Streamlit page provides:
 - Per-filer coverage reporting and visible partial-failure warnings.
 - A not-yet-effective default view with a toggle labeled
   `Include already-effective, routine & undetected rows`.
+- A collapsed `Launch Pipeline Brief` panel above the search workflow.
 - Five summary cards:
   - `Funds Loaded`
   - `Tickers Listed`
@@ -96,6 +97,13 @@ The table and workbook include the `etf_share_class` flag immediately after
 `vehicle`. Ordinary identical searches reuse the 30-minute cache and retain the
 original fetch timestamp. Force refresh bypasses that cache once and repopulates
 it for subsequent searches.
+
+The launch brief is a deterministic, no-LLM markdown digest of the
+not-yet-effective pipeline (`Upcoming launch` plus `Initial review`).
+`scripts/generate_launch_brief.py` builds it from the committed store, and the
+scheduled ingest regenerates and commits it whenever the store changes. The app
+only reads the committed file, so the collapsed panel stays fast but may lag a
+live search by a few hours.
 
 ## Filing and Snapshot Model
 
@@ -226,9 +234,11 @@ dates are also served from the store before any live fallback.
 
 `.github/workflows/ingest.yml` runs the incremental ingest at approximately
 7:00 AM and 4:00 PM America/New_York and commits the updated SQLite file through
-the GitHub Actions bot. The ingest uses a three-day overlap, skips accessions
-already processed by the current parser, resolves missing series ages, records
-partial failures, and remains behind the shared SEC rate limiter.
+the GitHub Actions bot. When the store changes, the workflow also regenerates
+and commits the launch brief and its state in the same commit. The ingest uses
+a three-day overlap, skips accessions already processed by the current parser,
+resolves missing series ages, records partial failures, and remains behind the
+shared SEC rate limiter.
 
 `PARSER_VERSION = 15` is stamped on both event rows and processed accessions.
 When parser behavior changes, a higher version causes older accessions to be
@@ -260,18 +270,17 @@ than stored columns.
 
 ### Current Store Snapshot
 
-As recorded on 2026-08-04, the committed store contained:
+As recorded on 2026-08-07, the committed store contained:
 
-- 5,694 filing events across 1,259 accessions.
-- Filing dates from 2025-07-21 through 2026-07-31.
-- Event parser versions: v12=4,330, v14=5, v15=1,359.
-- Processed-accession versions: v12=877, v14=3, v15=379.
+- 5,715 filing events across 1,263 accessions.
+- Filing dates from 2025-07-21 through 2026-08-05.
+- Event parser versions: v12=4,330, v14=5, v15=1,380.
+- Processed-accession versions: v12=877, v14=3, v15=383.
 - SQLite integrity result: `ok`.
 
-The latest measured current-year snapshot had 248 default-visible upcoming
-rows, 461 timing-undetected rows, and 12 ETF share-class flags. The share-class
-flags were established Vanguard dual-class index funds and therefore appeared
-only when the already-effective toggle was enabled.
+The committed 2026-08-07 launch brief contains 234 default-visible forward
+pipeline rows, all `Upcoming launch`. ETF share-class flags remain available
+when the already-effective toggle reveals established dual-class series.
 
 ## Data Flow
 
@@ -308,6 +317,7 @@ All paths are relative to `C:\Users\jhale\Desktop\ETF Dashboard`.
 | `config.py` | CIK universe, groups, forms, worker limits, parser windows, and data versions. |
 | `store.py` | Streamlit-free SQLite schema and filing-event, accession, series, and ingest-run APIs. |
 | `scripts/ingest_filings.py` | Backfill, targeted reprocessing, and overlap-aware incremental ingest CLI. |
+| `scripts/generate_launch_brief.py` | Deterministic current-pipeline digest and new-since-last state generator. |
 | `.github/workflows/ingest.yml` | Twice-daily Eastern-time ingest and bot store commit. |
 | `sec_filings.py` | SEC retrieval, event construction/finalization, ticker enrichment, and snapshot derivation. |
 | `sec_parsers.py` | Fixture-backed name, ticker, series/class, exchange-listing, and effectiveness extraction. |
@@ -394,7 +404,7 @@ and watch items, use [HANDOFF.md](HANDOFF.md) and `git log --oneline`.
 
 Shipped foundations include the persistent filing store, scheduled incremental
 ingest, store-first runtime, timing-first launch view, exchange-listing vehicle
-signal, and ETF share-class watch.
+signal, ETF share-class watch, and deterministic launch-pipeline brief.
 
 Deferred vectors:
 

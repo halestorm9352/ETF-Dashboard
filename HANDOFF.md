@@ -1,6 +1,6 @@
 # ETF Dashboard Handoff
 
-Last updated: 2026-07-20
+Last updated: 2026-08-07
 
 ## Workflow
 
@@ -14,13 +14,13 @@ Last updated: 2026-07-20
 ## Git State
 
 - Branch: `sync-main`.
-- User-confirmed Increments 1 through 12 are approved and pushed.
-- Increment 9 commit: `1ac2782`.
-- Published Increment 10 commit: `60214c2`.
-- Published Increment 11 commit: `f39e650`.
-- Published Increment 12 commit: `a1cf372`.
-- Local `HEAD` and `origin/main` both resolve to `a1cf372` before Increment 13a.
-- Increment 13a is implemented locally for independent review and is not pushed.
+- Increments 1 through 24 are approved, pushed, and published.
+- Local `HEAD` and `origin/main` both resolve to Increment 24 commit `6859563`
+  before Increment 25.
+- The scheduled ingest may add store-only bot commits independently. Always
+  fetch and fast-forward before starting an approved increment.
+- Increment 25 is documentation-only and must stop for independent review
+  before push.
 
 ## Completed Increments
 
@@ -45,6 +45,27 @@ Last updated: 2026-07-20
   placeholder handling, and enforced module contract versions.
 - Increment 12: scoped the default pipeline to genuinely new funds using
   persistent-ready series age and prior-effectiveness evidence.
+- Increments 13a-13c: added the persistent SQLite store, scheduled incremental
+  ingest, and store-first app reads with a live tail and offline grace.
+- Increment 14: replaced the launch-candidate label with a timing-first,
+  eight-state readiness taxonomy and an orthogonal ticker flag.
+- Increment 15: recovered Rule 485 effectiveness elections beyond the legacy
+  120,000-character cover window.
+- Increment 16: introduced parser-version-aware reprocessing and a one-million-
+  character primary-document fetch cap.
+- Increment 16c: added targeted `--backfill --days N` reprocessing.
+- Increment 17: bounded fund identity extraction to prospectus front matter
+  while preserving the deeper effectiveness scan.
+- Increment 18: limited the default view to not-yet-effective funds.
+- Increment 19: added conservative exchange-listing evidence for tickerless ETF
+  vehicle classification and preserved authoritative stored vehicles.
+- Increment 19b: applied the new vehicle classifier to the recent store window.
+- Increment 20: added the ETF share-class competitive-signal watch.
+- Increment 21: refreshed the README around the current product and architecture.
+- Increment 22: removed retired third-party scraper/news code and stale audits.
+- Increment 23: added the deterministic launch-pipeline brief generator.
+- Increment 24: published the brief through scheduled ingest and a read-only app
+  panel.
 
 ## Increment 8
 
@@ -565,8 +586,103 @@ for Claude's independent review before push - unchanged workflow.
   invoked.
 - `MODULE_CONTRACT_VERSION` remains 12 in all three modules because this is a
   data-source change only; no event or snapshot dictionary shape changed.
-- Increment 13c is one local commit pending independent review. Do not push it
-  until approved.
+- Increment 13c was approved and pushed as commit `447d7a0`.
+
+## Increment 14
+
+### Launch-Readiness Taxonomy
+
+- Replaced ticker-led readiness with a timing-first eight-state model:
+  `Initial review`, `Upcoming launch`, `Recently launched`, `Launched (stale)`,
+  `Existing fund amendment`, `Routine 485(b) update`,
+  `Effective (amendment)`, and `Timing undetected`.
+- `S-1` and `N-1A` rows remain `Initial review`; Rule 485 timing determines the
+  future, recent, stale, routine, amendment, and undetected states. The
+  recently-launched window is inclusive through 30 days.
+- Added `needs_ticker` as an orthogonal boolean, so ticker availability no
+  longer changes the readiness state. Series-age and prior-effectiveness
+  overrides continue to identify existing-fund amendments.
+- Updated the app's visibility filters, summary card, table, and workbook to
+  use the new taxonomy. Increment 18 later narrowed the default-visible set.
+- Commit: `a0fc41c`. No module-contract or data-version bump was required
+  because readiness remains a post-cache presentation step.
+
+## Increment 15
+
+### Deep Rule 485 Effectiveness Recognition
+
+- Replaced the blind 120,000-character parser slice with an anchor search over
+  at most the first 1,000,000 characters, followed by a small bounded window
+  around the Rule 485 facing-sheet election. Documents without an anchor keep
+  the legacy first-120,000-character fallback.
+- Added precise nearest-marker handling for inline checked and unchecked ballot
+  boxes while retaining the existing table-row and designated-date paths.
+- The diagnostic sample covered 40 store-blank `485BPOS` accessions: 29 had
+  elections beyond 120,000 characters, two had direct/inline elections within
+  that range, and nine used Wingdings-marker or designated-date variants. With
+  1,000,000-character input, the sample improved from 40 blanks to zero.
+- Added accession-backed Defiance, Dimensional, ETF Opportunities Trust, and
+  Fidelity fixtures plus leakage and regression tests.
+- Commit: `dcc4e36`. `MODULE_CONTRACT_VERSION` remained 12.
+
+## Increment 16
+
+### Version-Aware Reprocessing
+
+- Raised all primary-document fetch sites to
+  `PRIMARY_DOCUMENT_MAX_CHARS = 1_000_000`; filing-index fetches remained
+  bounded at 300,000 characters.
+- Introduced dedicated `PARSER_VERSION = 13`, stamped it on filing events and
+  processed accessions, and taught the ingest to reprocess accessions stored
+  under an older parser version instead of skipping them.
+- Added ingest and store tests for parser-version lookup, stamping,
+  reprocessing, and in-place event updates. `MODULE_CONTRACT_VERSION` stayed 12
+  and `SCHEMA_VERSION` stayed 1.
+- A subsequent full-store Increment 16b reprocess trial exposed identity
+  over-extraction from exhibit lists when the full one-million-character text
+  reached the name/ticker parsers. That data trial was discarded and never
+  committed. Increment 17 contained identity extraction before the targeted
+  effectiveness heal documented below.
+- Commit: `70e4976`.
+
+## Increment 16c
+
+### Windowed Backfill
+
+- Added optional `--days N` support to the backfill CLI and ingest bounds, with
+  the existing 365-day backfill retained when the option is omitted.
+- The option affects backfill mode only and is harmlessly ignored for
+  incremental runs. This enabled bounded parser-version reprocessing of the
+  recent launch window.
+- Commit: `32cf41f`. No version constants changed.
+
+## Increment 17
+
+### Bounded Identity Extraction
+
+- Added `PRIMARY_IDENTITY_MAX_CHARS = 300_000` and limited primary-document
+  name, ticker, and filer extraction to prospectus front matter. This prevents
+  exhibit lists, sub-advisory agreements, and Schedule A entries from becoming
+  false fund events.
+- Rule 485 effectiveness parsing still receives the full fetched
+  one-million-character document, preserving Increment 15's deep election
+  recognition.
+- Bumped `PARSER_VERSION` from 13 to 14 because parsed event identities and
+  values can change. `MODULE_CONTRACT_VERSION` and `SCHEMA_VERSION` remained
+  unchanged.
+- Commit: `0858b4e`.
+
+## Increment 18
+
+### Not-Yet-Effective Default View
+
+- Moved `Recently launched` from the default-visible set to the hidden set.
+  The default is now exactly `Initial review` plus `Upcoming launch`.
+- The hidden set contains all six already-effective, routine, amendment, stale,
+  and timing-undetected states. Tests lock a complete, disjoint partition of
+  all eight readiness states.
+- Added recently launched rows to the app's hidden-count caption breakdown.
+- Commit: `7c1616e`. No version constants changed.
 
 ## Local-Only Files
 
@@ -601,6 +717,26 @@ for Claude's independent review before push - unchanged workflow.
   Long/Short U.S. SmallCap Equity Fund now have effectiveness timing but remain
   `Other / unknown`, so they do not pass the ETF vehicle gate. Increment 19
   will address this classification separately.
+
+## Increment 19
+
+### Exchange-Listed ETF Signal
+
+- Added conservative, self-referential exchange-listing detection against the
+  bounded primary-document front matter. Strong signals include the fund being
+  an exchange-traded fund or its own shares being listed or traded on an
+  exchange; comparison-only mutual-fund language does not qualify.
+- Passed the transient `exchange_listed` signal into vehicle classification at
+  parse time, then removed it before emitting the event. The signal is a
+  low-precedence ETF rescue, so mutual-fund class names and five-letter
+  mutual-fund tickers still win.
+- Read-time vehicle normalization now preserves an authoritative stored ETF or
+  mutual-fund-share-class value when current evidence would otherwise degrade
+  it to `Other / unknown`; stronger contrary evidence can still reclassify it.
+- Added a real WisdomTree `485APOS` fixture and classifier, parser, integration,
+  and non-downgrade tests. Bumped `PARSER_VERSION` from 14 to 15 while leaving
+  `MODULE_CONTRACT_VERSION` and `SCHEMA_VERSION` unchanged.
+- Commit: `3489df0`.
 
 ## Increment 19b
 
@@ -646,15 +782,69 @@ for Claude's independent review before push - unchanged workflow.
   zero false flags. Commit `7f03592` was rebased to `da3a822` over a concurrent
   scheduled store commit and pushed.
 
-### Current State (2026-08-04)
+## Increment 21
 
-- Code HEAD `da3a822`; the repository was subsequently fast-forwarded to
-  `origin/main` `83c67b2`, which contains 12 automated store-only ingest commits
-  on top.
-- Store: 5,694 events, 1,259 accessions, range 2025-07-21 through 2026-07-31,
-  integrity `ok`. Parser versions: events v12=4,330 / v14=5 / v15=1,359;
-  processed filings v12=877 / v14=3 / v15=379.
-- Current-year snapshot: 248 `Upcoming launch` rows in the default view, 461
-  `Timing undetected` rows, and 12 ETF share-class flags, with zero in the
-  default view. Scheduled ingest is healthy; the latest run searched 45 CIKs
-  with zero failures.
+### README Repositioning
+
+- Rewrote `README.md` around the shipped product: a primary-SEC filing radar
+  for not-yet-effective ETF launches, not a price or portfolio dashboard.
+- Documented the eight readiness states, the store-first runtime, scheduled
+  ingest and parser-version repair model, current UI/workbook behavior,
+  limitations, roadmap, and review entry points.
+- Commit: `ceb7593`. Documentation only; no runtime or version change.
+
+## Increment 22
+
+### Retired Legacy Rails
+
+- Deleted the unused ETF.com/ETFdb scraper, broad-news helper, seed/status
+  files, legacy refresh script, and three one-off CIK audit artifacts after a
+  repository-wide reference check confirmed no live dependency.
+- Replaced the README's legacy-file table with a concise historical note. The
+  product now documents primary SEC filings as its sole data source.
+- The commit removed nine dead files and 3,442 lines from those files (3,455
+  total deletions including the README edit).
+- Commit: `5ea9b75`. No live module, dependency, workflow, store, or version
+  change.
+
+## Increment 23
+
+### Deterministic Launch-Pipeline Brief
+
+- Added the Streamlit-free `scripts/generate_launch_brief.py`. It builds the
+  current-year store-first snapshot, applies the same series-age and readiness
+  rules as the app, and keeps only `Initial review` and `Upcoming launch` rows.
+- Added stable SEC-identity/name fallback keys and a JSON state file to compute
+  new entries since the previous brief. Markdown output includes pipeline
+  totals, top filers and themes, and detailed new-fund bullets.
+- The generator is deterministic for a supplied date, uses no LLM or external
+  API, and writes `data/launch_brief.md` plus
+  `data/launch_brief_state.json`. Both baseline artifacts are committed.
+- Commit: `42bbe77`.
+
+## Increment 24
+
+### Published Launch Brief
+
+- Added Streamlit-free `app_data.load_launch_brief()` with missing, empty, and
+  read-error handling. `app.py` reads the committed markdown and displays it in
+  a collapsed `Launch Pipeline Brief` expander above the search workflow.
+- The panel is read-only and notes that it reflects the last scheduled ingest,
+  so it may lag live search results by a few hours. A missing brief produces no
+  panel and no error.
+- The scheduled ingest now regenerates and stages the brief and state inside
+  the existing store-changed conditional, committing all three data artifacts
+  together. Quiet ingest runs still create no commit.
+- Commit: `6859563`. No dependency or version change.
+
+## Current State (2026-08-07)
+
+- Published code is current through Increment 24 at commit `6859563`; local
+  `sync-main` and `origin/main` matched before Increment 25 began.
+- Committed store integrity is `ok`: 5,715 events across 1,263 accessions, with
+  filing dates from 2025-07-21 through 2026-08-05. Event parser versions are
+  v12=4,330 / v14=5 / v15=1,380; processed-accession versions are v12=877 /
+  v14=3 / v15=383.
+- The committed launch brief is dated 2026-08-07 and contains 234 forward
+  pipeline rows, all `Upcoming launch`, establishing the first saved brief
+  baseline.
