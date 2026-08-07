@@ -1,0 +1,257 @@
+# Launch Pipeline Brief -- as of 2026-08-07
+
+**Forward pipeline:** 234 funds (234 upcoming, 0 initial review).
+**Baseline brief:** no prior state was found; all current pipeline entries establish the baseline.
+
+## Top Filers
+
+- PROSHARES TRUST: 75
+- DIREXION SHARES ETF TRUST: 32
+- ETF OPPORTUNITIES TRUST: 27
+- TIDAL: 27
+- INVESTMENT MANAGERS SERIES TRUST II: 18
+
+## Top Themes
+
+- Leveraged / Inverse: 146
+- Other: 33
+- Options Income / Covered Call: 13
+- Thematic Equity: 10
+- Target Maturity: 8
+
+## New This Period
+
+- **ProShares Short AI Computing Power** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-09; Days to effective: 2.
+- **ProShares UltraShort AI Computing Power** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-09; Days to effective: 2.
+- **Defiance China Robotics ETF** (Not Listed (ticker needed)) - Filer: ETF SERIES SOLUTIONS; Theme: International / Emerging Markets; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-10; Days to effective: 3.
+- **ProShares Ultra Crusoe** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-10; Days to effective: 3.
+- **ProShares Ultra Nscale** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-10; Days to effective: 3.
+- **ProShares Ultra VAST Data** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-10; Days to effective: 3.
+- **XFUNDS(TM) 1-3 Month BOX ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-10; Days to effective: 3.
+- **iShares Future Robotics and Related Technologies Active ETF** (Not Listed (ticker needed)) - Filer: BLACKROCK ETF TRUST; Theme: Factor / Quant / Active; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-11; Days to effective: 4.
+- **SoFi AI Power Grid ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Thematic Equity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-11; Days to effective: 4.
+- **SoFi Blockchain Infrastructure ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Crypto / Digital Assets; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-11; Days to effective: 4.
+- **SoFi Robotaxi and Autonomous Vehicles ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-11; Days to effective: 4.
+- **Sequoia Select Equity Income ETF** (UITY) - Filer: EA SERIES TRUST; Theme: Dividend / Income; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **Sequoia Select Global Equity ETF** (Not Listed (ticker needed)) - Filer: EA SERIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **Sequoia Select Large Core ETF** (Not Listed (ticker needed)) - Filer: EA SERIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **Sequoia Select Large Growth ETF** (Not Listed (ticker needed)) - Filer: EA SERIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **Sequoia Select SMID ETF** (Not Listed (ticker needed)) - Filer: EA SERIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **T-REX 2X INVERSE MU DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **T-REX 2X LONG AADX DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **T-REX 2X LONG AMBA DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **T-REX 2X LONG BRUN DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **T-REX 2X LONG MOD DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **T-REX 2X LONG MTSI DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **T-REX 2X LONG VPG DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **Defiance Daily Target 3X Long SPCX ETF** (Not Listed (ticker needed)) - Filer: ETF SERIES SOLUTIONS; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **NORTHERN TRUST 2031 INFLATION-LINKED DISTRIBUTING LADDER ETF** (Not Listed (ticker needed)) - Filer: NORTHERN FUNDS; Theme: Target Maturity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **NORTHERN TRUST 2031 TAX-EXEMPT DISTRIBUTING LADDER ETF** (Not Listed (ticker needed)) - Filer: NORTHERN FUNDS; Theme: Target Maturity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **NORTHERN TRUST 2036 INFLATION-LINKED DISTRIBUTING LADDER ETF** (Not Listed (ticker needed)) - Filer: NORTHERN FUNDS; Theme: Target Maturity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **NORTHERN TRUST 2036 TAX-EXEMPT DISTRIBUTING LADDER ETF** (Not Listed (ticker needed)) - Filer: NORTHERN FUNDS; Theme: Target Maturity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **NORTHERN TRUST 2046 INFLATION-LINKED DISTRIBUTING LADDER ETF** (Not Listed (ticker needed)) - Filer: NORTHERN FUNDS; Theme: Target Maturity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **NORTHERN TRUST 2046 TAX-EXEMPT DISTRIBUTING LADDER ETF** (Not Listed (ticker needed)) - Filer: NORTHERN FUNDS; Theme: Target Maturity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **NORTHERN TRUST 2056 INFLATION-LINKED DISTRIBUTING LADDER ETF** (Not Listed (ticker needed)) - Filer: NORTHERN FUNDS; Theme: Target Maturity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **NORTHERN TRUST 2056 TAX-EXEMPT DISTRIBUTING LADDER ETF** (Not Listed (ticker needed)) - Filer: NORTHERN FUNDS; Theme: Target Maturity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **NORTHERN TRUST CALIFORNIA TAX-EXEMPT BOND ETF** (Not Listed (ticker needed)) - Filer: NORTHERN FUNDS; Theme: Fixed Income / Credit; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **NORTHERN TRUST NEW YORK TAX-EXEMPT BOND ETF** (Not Listed (ticker needed)) - Filer: NORTHERN FUNDS; Theme: Fixed Income / Credit; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **ProShares Ultra Oura** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **ProShares Ultra SB Energy** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **State Street(R) SPDR(R) UC Investments 90/10 Endowment Strategy Index ETF** (Not Listed (ticker needed)) - Filer: SPDR SERIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-12; Days to effective: 5.
+- **Brickworks Core US Equity ETF** (Not Listed (ticker needed)) - Filer: EA SERIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-16; Days to effective: 9.
+- **Brickworks Extended Market ETF** (Not Listed (ticker needed)) - Filer: EA SERIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-16; Days to effective: 9.
+- **Global X U.S. TaxSmart Income Edge ETF** (Not Listed (ticker needed)) - Filer: GLOBAL X FUNDS; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-16; Days to effective: 9.
+- **3A All World Equity ETF** (Not Listed (ticker needed)) - Filer: EA SERIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-17; Days to effective: 10.
+- **ProShares Ultra ABB** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-17; Days to effective: 10.
+- **ProShares Ultra Besi** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-17; Days to effective: 10.
+- **ProShares Ultra Nanya Technology** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-17; Days to effective: 10.
+- **ProShares Ultra Novartis** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-17; Days to effective: 10.
+- **ProShares Ultra Roche** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-17; Days to effective: 10.
+- **ProShares Ultra SAP** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-17; Days to effective: 10.
+- **ProShares Ultra Saudi Aramco** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-17; Days to effective: 10.
+- **ProShares Ultra Winbond Electronics** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-17; Days to effective: 10.
+- **ProShares Ultra Alchip** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-18; Days to effective: 11.
+- **ProShares Ultra Foxconn** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-18; Days to effective: 11.
+- **ProShares Ultra Global Unichip** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-18; Days to effective: 11.
+- **ProShares Ultra Hyundai** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-18; Days to effective: 11.
+- **ProShares Ultra Mitsubishi Heavy Industries** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-18; Days to effective: 11.
+- **ProShares Ultra Quanta Computer** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-18; Days to effective: 11.
+- **ProShares Ultra Samsung Electro-Mechanics** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-18; Days to effective: 11.
+- **ProShares Ultra Siemens Energy** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-18; Days to effective: 11.
+- **Defiance AI Capacitors Leaders ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Thematic Equity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-19; Days to effective: 12.
+- **XFUNDS(TM) Growth Income ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-23; Days to effective: 16.
+- **XFUNDS(TM) Large Cap Income ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-23; Days to effective: 16.
+- **XFUNDS(TM) Technology Income ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Thematic Equity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-23; Days to effective: 16.
+- **XFUNDS(TM) Value Income ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Factor / Quant / Active; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-23; Days to effective: 16.
+- **Hedgeye Hedged Bitcoin ETF** (HBIT) - Filer: ETF OPPORTUNITIES TRUST; Theme: Crypto / Digital Assets; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-24; Days to effective: 17.
+- **ProShares Ultra CATL** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-24; Days to effective: 17.
+- **ProShares Ultra Cambricon** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-24; Days to effective: 17.
+- **ProShares Ultra GigaDevice** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-24; Days to effective: 17.
+- **ProShares Ultra Zhongji Innolight** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-24; Days to effective: 17.
+- **State Street(R) SPDR(R) Nasdaq MyPaycheck ETF** (Not Listed (ticker needed)) - Filer: SPDR SERIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-24; Days to effective: 17.
+- **ProShares Ultra Eoptolink** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-25; Days to effective: 18.
+- **ProShares Ultra Foxconn Industrial Internet** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-25; Days to effective: 18.
+- **ProShares Ultra Hygon** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-25; Days to effective: 18.
+- **ProShares Ultra Luxshare Precision** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-25; Days to effective: 18.
+- **ProShares Ultra TFC Communication** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-25; Days to effective: 18.
+- **ProShares UltraShort Anthropic** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-25; Days to effective: 18.
+- **ProShares UltraShort OpenAI** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-25; Days to effective: 18.
+- **ProShares UltraShort SK hynix** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-26; Days to effective: 19.
+- **iShares Defense Industrials Active ETF** (IDEF) - Filer: BLACKROCK ETF TRUST; Theme: Factor / Quant / Active; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-28; Days to effective: 21.
+- **ProShares Ultra Accton** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-30; Days to effective: 23.
+- **ProShares Ultra BIWIN** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-30; Days to effective: 23.
+- **ProShares Ultra Dongshan Precision** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-30; Days to effective: 23.
+- **ProShares Ultra HGTECH** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-30; Days to effective: 23.
+- **ProShares Ultra IBIDEN** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-30; Days to effective: 23.
+- **ProShares Ultra Montage Technology** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-30; Days to effective: 23.
+- **ProShares Ultra Unimicron** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-30; Days to effective: 23.
+- **ProShares Ultra Victory Giant Technology** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-30; Days to effective: 23.
+- **ProShares MANGOS ETF** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-31; Days to effective: 24.
+- **ProShares Short MANGOS** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-31; Days to effective: 24.
+- **ProShares Ultra MANGOS** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-31; Days to effective: 24.
+- **ProShares UltraShort MANGOS** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-08-31; Days to effective: 24.
+- **T-REX 2X INVERSE ANDURIL DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **T-REX 2X INVERSE ANTHROPIC DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **T-REX 2X INVERSE DISCORD DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **T-REX 2X INVERSE FIGURE AI DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **T-REX 2X INVERSE OPENAI DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **T-REX 2X INVERSE QUANTINUUM DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **T-REX 2X LONG MANGOS DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **Franklin US Equity Bitcoin DRIP Index ETF** (Not Listed (ticker needed)) - Filer: FRANKLIN TEMPLETON ETF TRUST; Theme: Crypto / Digital Assets; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **Franklin US Innovation Bitcoin DRIP Index ETF** (Not Listed (ticker needed)) - Filer: FRANKLIN TEMPLETON ETF TRUST; Theme: Crypto / Digital Assets; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **ProShares FAB 10 ETF** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **ProShares Short FAB 10** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **ProShares Ultra FAB 10** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **ProShares UltraShort FAB 10** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-01; Days to effective: 25.
+- **Nuveen Impact Bond ETF** (WHEN) - Filer: NUSHARES ETF TRUST; Theme: Fixed Income / Credit; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-05; Days to effective: 29.
+- **SoFi Emerging Markets Efficient Growth ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: International / Emerging Markets; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-07; Days to effective: 31.
+- **SoFi International Efficient Growth ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: International / Emerging Markets; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-07; Days to effective: 31.
+- **SoFi Risk-Off Equity ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-07; Days to effective: 31.
+- **SoFi Risk-On Equity ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-07; Days to effective: 31.
+- **VanEck EM Focus Inflation Bond ETF** (Not Listed (ticker needed)) - Filer: VANECK ETF TRUST; Theme: Fixed Income / Credit; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-08; Days to effective: 32.
+- **T-REX 2X INVERSE MRVL DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-09; Days to effective: 33.
+- **T-REX 2X INVERSE SKHY DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-09; Days to effective: 33.
+- **T-REX 2X LONG AGLT DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-09; Days to effective: 33.
+- **T-REX 2X LONG SEDG DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-09; Days to effective: 33.
+- **`T-REX 2X LONG RUN DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-09; Days to effective: 33.
+- **AAM Ubiquitous ETF** (AAM) - Filer: ETF SERIES SOLUTIONS; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-09; Days to effective: 33.
+- **Global X MLCC & Electronic Components ETF** (Not Listed (ticker needed)) - Filer: GLOBAL X FUNDS; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-09; Days to effective: 33.
+- **Defiance Robotics Actuators ETF** (Not Listed (ticker needed)) - Filer: ETF SERIES SOLUTIONS; Theme: Thematic Equity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-12; Days to effective: 36.
+- **Direxion Daily BYD Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily BYD Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily CATL Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily CATL Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Hon Hai Precision Industry (Foxconn) Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Hon Hai Precision Industry (Foxconn) Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Hyundai Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Hyundai Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily JD.com Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily JD.com Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Kioxia Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Kioxia Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Lenovo Group Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Lenovo Group Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Meituan Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Meituan Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Mitsubishi Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Mitsubishi Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Nintendo Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Nintendo Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Samsung Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Samsung Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily SoftBank Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily SoftBank Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Tencent Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Tencent Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Tokyo Electron Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Tokyo Electron Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Toyota Motor Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Toyota Motor Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Xiaomi Bear 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Direxion Daily Xiaomi Bull 2X ETF** (Not Listed (ticker needed)) - Filer: DIREXION SHARES ETF TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **iShares Future AI Beneficiaries ETF** (Not Listed (ticker needed)) - Filer: ISHARES TRUST; Theme: Thematic Equity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **JPMorgan All Country Research Enhanced Equity Active ETF** (DATA) - Filer: J.P. MORGAN EXCHANGE-TRADED FUND TRUST; Theme: Factor / Quant / Active; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **Defiance Daily Target 2X Long Sivers Semiconductors ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-14; Days to effective: 38.
+- **T-REX 2X INVERSE MLCC DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-15; Days to effective: 39.
+- **T-REX 2X INVERSE MURATA DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-15; Days to effective: 39.
+- **T-REX 2X LONG MLCC DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-15; Days to effective: 39.
+- **T-REX 2X LONG MURATA DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-15; Days to effective: 39.
+- **T-REX 2X LONG VSH DAILY TARGET ETF** (Not Listed (ticker needed)) - Filer: ETF OPPORTUNITIES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-15; Days to effective: 39.
+- **Longnook Uncommon Compounder ETF** (Not Listed (ticker needed)) - Filer: EA SERIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-20; Days to effective: 44.
+- **YieldMax(R) ASTS Option Income Strategy ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-20; Days to effective: 44.
+- **YieldMax(R) MU Option Income Strategy ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-20; Days to effective: 44.
+- **YieldMax(R) RKLB Option Income Strategy ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-20; Days to effective: 44.
+- **YieldMax(R) SNDK Option Income Strategy ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-20; Days to effective: 44.
+- **Nasdaq-100 Ex-Elon Enterprises ETF** (QQNE) - Filer: TIDAL; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-21; Days to effective: 45.
+- **S&P 500 Ex-Elon Enterprises ETF** (SPNE) - Filer: TIDAL; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-21; Days to effective: 45.
+- **Subversive All Season Sports ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-22; Days to effective: 46.
+- **Subversive Prediction ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-22; Days to effective: 46.
+- **WisdomTree Efficient Long/Short U.S. SmallCap Equity Fund** (Not Listed (ticker needed)) - Filer: WISDOMTREE TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-22; Days to effective: 46.
+- **WisdomTree Global Alpha Fund** (Not Listed (ticker needed)) - Filer: WISDOMTREE TRUST; Theme: Factor / Quant / Active; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-22; Days to effective: 46.
+- **Global X LLM ETF** (Not Listed (ticker needed)) - Filer: GLOBAL X FUNDS; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-23; Days to effective: 47.
+- **VanEck U.S. Equity Buffer ETF - April** (Not Listed (ticker needed)) - Filer: VANECK ETF TRUST; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-23; Days to effective: 47.
+- **VanEck U.S. Equity Buffer ETF - January** (Not Listed (ticker needed)) - Filer: VANECK ETF TRUST; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-23; Days to effective: 47.
+- **VanEck U.S. Equity Buffer ETF - October** (Not Listed (ticker needed)) - Filer: VANECK ETF TRUST; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-23; Days to effective: 47.
+- **Global X Asia Semiconductor ETF** (Not Listed (ticker needed)) - Filer: GLOBAL X FUNDS; Theme: International / Emerging Markets; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-26; Days to effective: 50.
+- **State Street(R) S&P 500(R) Consumer Discretionary Market Sector SPDR ETF** (Not Listed (ticker needed)) - Filer: SELECT SECTOR SPDR TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-27; Days to effective: 51.
+- **State Street(R) S&P 500(R) Consumer Staples Market Sector SPDR ETF** (Not Listed (ticker needed)) - Filer: SELECT SECTOR SPDR TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-27; Days to effective: 51.
+- **State Street(R) S&P 500(R) Energy Market Sector SPDR ETF** (Not Listed (ticker needed)) - Filer: SELECT SECTOR SPDR TRUST; Theme: Commodities / Gold / Energy; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-27; Days to effective: 51.
+- **State Street(R) S&P 500(R) Technology Market Sector SPDR ETF** (Not Listed (ticker needed)) - Filer: SELECT SECTOR SPDR TRUST; Theme: Thematic Equity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-27; Days to effective: 51.
+- **YieldMax(R) SK Hynix Option Income Strategy ETF** (SKHY) - Filer: TIDAL; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-27; Days to effective: 51.
+- **Nasdaq-100 Dynamic Buffer ETF** (QB) - Filer: PROSHARES TRUST; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-28; Days to effective: 52.
+- **Russell 2000 Dynamic Buffer ETF** (RB) - Filer: PROSHARES TRUST; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-28; Days to effective: 52.
+- **S&P 500 Dynamic Buffer ETF** (FB) - Filer: PROSHARES TRUST; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-28; Days to effective: 52.
+- **ALPS Premium Income ETF** (ALPS) - Filer: FINANCIAL INVESTORS TRUST; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-30; Days to effective: 54.
+- **Goldman Sachs Securitized Income ETF** (Not Listed (ticker needed)) - Filer: GOLDMAN SACHS ETF TRUST; Theme: Fixed Income / Credit; Vehicle: ETF; Form: 485APOS; Effective date: 2026-09-30; Days to effective: 54.
+- **YieldMax(R) Quantum Portfolio Option Income ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Options Income / Covered Call; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-03; Days to effective: 57.
+- **Quantify Anduril Winners and Infrastructure ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Thematic Equity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-04; Days to effective: 58.
+- **Quantify Anthropic Winners and Infrastructure ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Thematic Equity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-04; Days to effective: 58.
+- **Quantify OpenAI Winners and Infrastructure ETF** (Not Listed (ticker needed)) - Filer: TIDAL; Theme: Thematic Equity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-04; Days to effective: 58.
+- **Hedgeye Democratic Party ETF** (HDEM) - Filer: ETF OPPORTUNITIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-06; Days to effective: 60.
+- **Hedgeye Republican Party ETF** (HREP) - Filer: ETF OPPORTUNITIES TRUST; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-06; Days to effective: 60.
+- **NORTHERN TRUST EQUITY INCOME ETF** (QDFI) - Filer: NORTHERN FUNDS; Theme: Dividend / Income; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-07; Days to effective: 61.
+- **ProShares Ultra DayOne** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-07; Days to effective: 61.
+- **ProShares Ultra SambaNova** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-07; Days to effective: 61.
+- **ProShares Ultra Switch** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-07; Days to effective: 61.
+- **ProShares UltraShort DayOne** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-07; Days to effective: 61.
+- **ProShares UltraShort SambaNova** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-07; Days to effective: 61.
+- **ProShares UltraShort Switch** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-07; Days to effective: 61.
+- **Global X Asia Defense Tech ETF** (Not Listed (ticker needed)) - Filer: GLOBAL X FUNDS; Theme: International / Emerging Markets; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-10; Days to effective: 64.
+- **Global X Small Modular Reactor ETF** (Not Listed (ticker needed)) - Filer: GLOBAL X FUNDS; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-10; Days to effective: 64.
+- **Defiance AI Powered ETF** (Not Listed (ticker needed)) - Filer: ETF SERIES SOLUTIONS; Theme: Thematic Equity; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-12; Days to effective: 66.
+- **Amplify S&P 500 Buffered Autocallable Yield Opportunity ETF** (Not Listed (ticker needed)) - Filer: AMPLIFY ETF TRUST; Theme: Dividend / Income; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-13; Days to effective: 67.
+- **iShares Macro AlphaBeta Active ETF** (Not Listed (ticker needed)) - Filer: BLACKROCK ETF TRUST; Theme: Factor / Quant / Active; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Anduril** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort ByteDance** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Crusoe** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Databricks** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Discord** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Kioxia** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Kraken** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Lambda** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Nscale** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Oura** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Revolut** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Roze** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort SB Energy** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort Stripe** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **ProShares UltraShort VAST Data** (Not Listed (ticker needed)) - Filer: PROSHARES TRUST; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-14; Days to effective: 68.
+- **Defiance Superconductor ETF** (Not Listed (ticker needed)) - Filer: ETF SERIES SOLUTIONS; Theme: Other; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long FCEL Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long FIX Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long FRVO Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long IQMX Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long NASA Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long NXT Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long QTUM Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long QXO Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long SANM Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long SATL Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long SECZ Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Long VISN Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Short ASTS Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Short IGV Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Short MRVL Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Short NASA Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Short NOW Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
+- **Tradr 2X Short QTUM Daily ETF** (Not Listed (ticker needed)) - Filer: INVESTMENT MANAGERS SERIES TRUST II; Theme: Leveraged / Inverse; Vehicle: ETF; Form: 485APOS; Effective date: 2026-10-19; Days to effective: 73.
