@@ -9,6 +9,15 @@ from sec_filings import FilingEventResults, finalize_event_rows
 from store import get_last_successful_ingest, get_series_registry, load_events, open_store
 
 
+def load_launch_brief(brief_path) -> str | None:
+    path = Path(brief_path)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return text if text.strip() else None
+
+
 def _store_is_available(store_path: Path) -> bool:
     try:
         return store_path.is_file() and store_path.stat().st_size > 0

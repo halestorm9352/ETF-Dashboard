@@ -42,6 +42,7 @@ fetch_filing_events = sec_filings_module.fetch_filing_events
 normalize_event_ticker = sec_filings_module.normalize_event_ticker
 fetch_series_registration_date = sec_filings_module.fetch_series_registration_date
 from app_data import (
+    load_launch_brief,
     load_store_first_filing_events,
     load_store_series_registry,
     resolve_series_registration_status,
@@ -64,6 +65,7 @@ from readiness import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 STORE_PATH = PROJECT_ROOT / "data" / "etf_dash.sqlite"
+BRIEF_PATH = PROJECT_ROOT / "data" / "launch_brief.md"
 
 
 st.set_page_config(page_title="ETF Dash", layout="wide")
@@ -350,6 +352,15 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+brief_text = load_launch_brief(BRIEF_PATH)
+if brief_text is not None:
+    with st.expander("Launch Pipeline Brief", expanded=False):
+        st.markdown(brief_text)
+        st.caption(
+            "Reflects the last scheduled ingest and may lag live search results "
+            "by a few hours."
+        )
 
 with st.container():
     center_col = st.container()

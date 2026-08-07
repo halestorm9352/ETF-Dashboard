@@ -54,9 +54,10 @@ jobs:
       - name: Commit updated store
         run: |
           if [ -n "$(git status --porcelain data/etf_dash.sqlite)" ]; then
+            python scripts/generate_launch_brief.py
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add data/etf_dash.sqlite
+            git add data/etf_dash.sqlite data/launch_brief.md data/launch_brief_state.json
             git commit -m "chore(ingest): incremental store update [skip ci]"
             git push
           else
