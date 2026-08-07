@@ -1,7 +1,7 @@
 {
   "as_of": "2026-08-07",
-  "total": 234,
-  "upcoming": 234,
+  "total": 237,
+  "upcoming": 237,
   "initial_review": 0,
   "top_filers": [
     {
@@ -34,7 +34,7 @@
     },
     {
       "name": "ETF SERIES SOLUTIONS",
-      "count": 6
+      "count": 7
     }
   ],
   "top_themes": [
@@ -44,7 +44,7 @@
     },
     {
       "name": "Other",
-      "count": 33
+      "count": 36
     },
     {
       "name": "Options Income / Covered Call",
