@@ -1,7 +1,7 @@
 {
-  "as_of": "2026-08-07",
-  "total": 237,
-  "upcoming": 237,
+  "as_of": "2026-08-08",
+  "total": 241,
+  "upcoming": 241,
   "initial_review": 0,
   "top_filers": [
     {
@@ -14,7 +14,7 @@
     },
     {
       "name": "ETF OPPORTUNITIES TRUST",
-      "count": 27
+      "count": 31
     },
     {
       "name": "TIDAL",
@@ -40,7 +40,7 @@
   "top_themes": [
     {
       "name": "Leveraged / Inverse",
-      "count": 146
+      "count": 150
     },
     {
       "name": "Other",
