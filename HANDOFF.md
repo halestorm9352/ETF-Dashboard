@@ -848,3 +848,25 @@ for Claude's independent review before push - unchanged workflow.
 - The committed launch brief is dated 2026-08-07 and contains 234 forward
   pipeline rows, all `Upcoming launch`, establishing the first saved brief
   baseline.
+
+## Increment 30
+
+### Published Back-End Data Downloads
+
+- Added the Streamlit-free `data_export.py` module. It provides guarded raw
+  SQLite reads, a complete filing-event CSV in `store.EVENT_FIELDS` order, and
+  a full current-calendar-year snapshot CSV built through the same store-first
+  finalization, identity, theme, series-age, and readiness pipeline as the app.
+- Added a collapsed `Data & Downloads` panel above the search workflow with
+  downloads for the committed SQLite store, all filing events as CSV, the full
+  current-year snapshot as CSV, the committed launch brief JSON, and
+  `PROJECT_CONTEXT.md` as the field and integration specification.
+- CSV generation is cached by `DATA_VERSION` and the committed store's
+  modification time. Missing or unreadable artifacts are skipped without
+  interrupting the app. Downloads reflect the last scheduled ingest rather
+  than the live SEC top-up.
+- Added focused tests for event field order and row coverage, one-row-per-
+  identity snapshot derivation, derived snapshot fields, raw store bytes, and
+  missing-store behavior.
+- No dependency or version changes: `MODULE_CONTRACT_VERSION` (12),
+  `PARSER_VERSION` (15), `SCHEMA_VERSION` (1), and `DATA_VERSION` are unchanged.

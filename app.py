@@ -47,6 +47,7 @@ from app_data import (
     load_store_series_registry,
     resolve_series_registration_status,
 )
+from data_export import export_events_csv, export_snapshot_csv, read_store_bytes
 from theme_classifier import THEME_ORDER, classify_primary_theme, summarize_themes
 from readiness import (
     DEFAULT_VISIBLE_STATUSES,
@@ -66,6 +67,7 @@ from readiness import (
 PROJECT_ROOT = Path(__file__).resolve().parent
 STORE_PATH = PROJECT_ROOT / "data" / "etf_dash.sqlite"
 BRIEF_PATH = PROJECT_ROOT / "data" / "launch_brief.json"
+DATA_SPEC_PATH = PROJECT_ROOT / "PROJECT_CONTEXT.md"
 
 
 st.set_page_config(page_title="ETF Dash", layout="wide")
@@ -286,6 +288,16 @@ def load_live_series_registration_status(data_version, refresh_token, series_id)
     return dict(fetch_series_registration_date(series_id))
 
 
+@st.cache_data
+def load_events_csv_export(data_version, store_mtime_ns):
+    return export_events_csv(STORE_PATH)
+
+
+@st.cache_data
+def load_snapshot_csv_export(data_version, store_mtime_ns, as_of_date):
+    return export_snapshot_csv(STORE_PATH, today=as_of_date)
+
+
 def load_series_registration_status(
     data_version,
     refresh_token,
@@ -337,6 +349,21 @@ def _brief_markdown(text, css_class=""):
         f'<div class="{classes}">{escape(str(text))}</div>',
         unsafe_allow_html=True,
     )
+
+
+def _file_mtime_ns(path):
+    try:
+        return Path(path).stat().st_mtime_ns
+    except OSError:
+        return None
+
+
+def _read_optional_bytes(path):
+    try:
+        target = Path(path)
+        return target.read_bytes() if target.is_file() else None
+    except OSError:
+        return None
 
 
 default_end = datetime.today().date()
@@ -406,6 +433,73 @@ if brief_data is not None:
         st.caption(
             "Reflects the last scheduled ingest and may lag live search results "
             "by a few hours."
+        )
+
+store_mtime_ns = _file_mtime_ns(STORE_PATH)
+store_bytes = read_store_bytes(STORE_PATH)
+events_csv = load_events_csv_export(DATA_VERSION, store_mtime_ns)
+snapshot_csv = load_snapshot_csv_export(
+    DATA_VERSION,
+    store_mtime_ns,
+    default_end,
+)
+brief_bytes = _read_optional_bytes(BRIEF_PATH)
+data_spec_bytes = _read_optional_bytes(DATA_SPEC_PATH)
+downloads = [
+    (
+        "Download filing database (SQLite)",
+        store_bytes,
+        "etf_dash.sqlite",
+        "application/octet-stream",
+        "download_filing_database",
+    ),
+    (
+        "Download all filing events (CSV)",
+        events_csv,
+        "etf_dash_filing_events.csv",
+        "text/csv",
+        "download_filing_events_csv",
+    ),
+    (
+        "Download current snapshot (CSV)",
+        snapshot_csv,
+        f"etf_dash_snapshot_{default_end.year}.csv",
+        "text/csv",
+        "download_current_snapshot_csv",
+    ),
+    (
+        "Download launch brief (JSON)",
+        brief_bytes,
+        "launch_brief.json",
+        "application/json",
+        "download_launch_brief_json",
+    ),
+    (
+        "Download data spec (PROJECT_CONTEXT.md)",
+        data_spec_bytes,
+        "PROJECT_CONTEXT.md",
+        "text/markdown",
+        "download_data_spec",
+    ),
+]
+if any(data is not None for _, data, _, _, _ in downloads):
+    with st.expander("Data & Downloads", expanded=False):
+        download_columns = st.columns(2)
+        for index, (label, data, file_name, mime, key) in enumerate(downloads):
+            if data is None:
+                continue
+            with download_columns[index % 2]:
+                st.download_button(
+                    label,
+                    data=data,
+                    file_name=file_name,
+                    mime=mime,
+                    key=key,
+                    use_container_width=True,
+                )
+        st.caption(
+            "Downloads reflect the last scheduled ingest. See PROJECT_CONTEXT.md "
+            "for field definitions and the data model."
         )
 
 with st.container():
