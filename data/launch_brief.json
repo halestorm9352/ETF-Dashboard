@@ -1,12 +1,12 @@
 {
-  "as_of": "2026-08-09",
-  "total": 239,
-  "upcoming": 239,
+  "as_of": "2026-08-10",
+  "total": 234,
+  "upcoming": 234,
   "initial_review": 0,
   "top_filers": [
     {
       "name": "PROSHARES TRUST",
-      "count": 73
+      "count": 70
     },
     {
       "name": "DIREXION SHARES ETF TRUST",
@@ -18,7 +18,7 @@
     },
     {
       "name": "TIDAL",
-      "count": 27
+      "count": 26
     },
     {
       "name": "INVESTMENT MANAGERS SERIES TRUST II",
@@ -34,17 +34,17 @@
     },
     {
       "name": "ETF SERIES SOLUTIONS",
-      "count": 7
+      "count": 6
     }
   ],
   "top_themes": [
     {
       "name": "Leveraged / Inverse",
-      "count": 148
+      "count": 145
     },
     {
       "name": "Other",
-      "count": 36
+      "count": 35
     },
     {
       "name": "Options Income / Covered Call",
@@ -67,8 +67,8 @@
       "count": 5
     },
     {
-      "name": "International / Emerging Markets",
-      "count": 5
+      "name": "Crypto / Digital Assets",
+      "count": 4
     }
   ]
 }
