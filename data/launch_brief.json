@@ -1,7 +1,7 @@
 {
-  "as_of": "2026-08-10",
-  "total": 236,
-  "upcoming": 236,
+  "as_of": "2026-08-11",
+  "total": 232,
+  "upcoming": 232,
   "initial_review": 0,
   "top_filers": [
     {
@@ -18,7 +18,7 @@
     },
     {
       "name": "TIDAL",
-      "count": 26
+      "count": 23
     },
     {
       "name": "INVESTMENT MANAGERS SERIES TRUST II",
@@ -44,7 +44,7 @@
     },
     {
       "name": "Other",
-      "count": 35
+      "count": 34
     },
     {
       "name": "Options Income / Covered Call",
@@ -52,7 +52,7 @@
     },
     {
       "name": "Thematic Equity",
-      "count": 10
+      "count": 9
     },
     {
       "name": "Target Maturity",
@@ -60,14 +60,14 @@
     },
     {
       "name": "Factor / Quant / Active",
-      "count": 6
+      "count": 5
     },
     {
       "name": "Fixed Income / Credit",
       "count": 5
     },
     {
-      "name": "Crypto / Digital Assets",
+      "name": "International / Emerging Markets",
       "count": 4
     }
   ]
