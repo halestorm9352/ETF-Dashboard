@@ -1,7 +1,7 @@
 {
   "as_of": "2026-08-12",
-  "total": 206,
-  "upcoming": 206,
+  "total": 210,
+  "upcoming": 210,
   "initial_review": 0,
   "top_filers": [
     {
@@ -44,7 +44,7 @@
     },
     {
       "name": "Other",
-      "count": 29
+      "count": 32
     },
     {
       "name": "Options Income / Covered Call",
@@ -59,15 +59,15 @@
       "count": 5
     },
     {
+      "name": "Fixed Income / Credit",
+      "count": 4
+    },
+    {
       "name": "International / Emerging Markets",
       "count": 4
     },
     {
       "name": "Crypto / Digital Assets",
-      "count": 3
-    },
-    {
-      "name": "Fixed Income / Credit",
       "count": 3
     }
   ]
