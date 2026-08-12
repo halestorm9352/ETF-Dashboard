@@ -1,12 +1,12 @@
 {
-  "as_of": "2026-08-11",
-  "total": 232,
-  "upcoming": 232,
+  "as_of": "2026-08-12",
+  "total": 206,
+  "upcoming": 206,
   "initial_review": 0,
   "top_filers": [
     {
       "name": "PROSHARES TRUST",
-      "count": 72
+      "count": 70
     },
     {
       "name": "DIREXION SHARES ETF TRUST",
@@ -14,7 +14,7 @@
     },
     {
       "name": "ETF OPPORTUNITIES TRUST",
-      "count": 31
+      "count": 24
     },
     {
       "name": "TIDAL",
@@ -25,26 +25,26 @@
       "count": 18
     },
     {
-      "name": "NORTHERN FUNDS",
-      "count": 11
+      "name": "GLOBAL X FUNDS",
+      "count": 6
     },
     {
-      "name": "EA SERIES TRUST",
-      "count": 9
+      "name": "VANECK ETF TRUST",
+      "count": 6
     },
     {
       "name": "ETF SERIES SOLUTIONS",
-      "count": 6
+      "count": 5
     }
   ],
   "top_themes": [
     {
       "name": "Leveraged / Inverse",
-      "count": 147
+      "count": 137
     },
     {
       "name": "Other",
-      "count": 34
+      "count": 29
     },
     {
       "name": "Options Income / Covered Call",
@@ -55,20 +55,20 @@
       "count": 9
     },
     {
-      "name": "Target Maturity",
-      "count": 8
-    },
-    {
       "name": "Factor / Quant / Active",
-      "count": 5
-    },
-    {
-      "name": "Fixed Income / Credit",
       "count": 5
     },
     {
       "name": "International / Emerging Markets",
       "count": 4
+    },
+    {
+      "name": "Crypto / Digital Assets",
+      "count": 3
+    },
+    {
+      "name": "Fixed Income / Credit",
+      "count": 3
     }
   ]
 }
