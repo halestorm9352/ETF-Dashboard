@@ -1,12 +1,12 @@
 {
-  "as_of": "2026-08-13",
-  "total": 213,
-  "upcoming": 213,
+  "as_of": "2026-08-14",
+  "total": 215,
+  "upcoming": 215,
   "initial_review": 0,
   "top_filers": [
     {
       "name": "PROSHARES TRUST",
-      "count": 72
+      "count": 73
     },
     {
       "name": "DIREXION SHARES ETF TRUST",
@@ -52,11 +52,11 @@
     },
     {
       "name": "Thematic Equity",
-      "count": 9
+      "count": 10
     },
     {
       "name": "Factor / Quant / Active",
-      "count": 5
+      "count": 6
     },
     {
       "name": "Fixed Income / Credit",
