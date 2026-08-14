@@ -1,7 +1,7 @@
 {
   "as_of": "2026-08-14",
-  "total": 215,
-  "upcoming": 215,
+  "total": 221,
+  "upcoming": 221,
   "initial_review": 0,
   "top_filers": [
     {
@@ -18,15 +18,15 @@
     },
     {
       "name": "TIDAL",
-      "count": 23
+      "count": 24
     },
     {
       "name": "INVESTMENT MANAGERS SERIES TRUST II",
-      "count": 18
+      "count": 21
     },
     {
       "name": "GLOBAL X FUNDS",
-      "count": 6
+      "count": 7
     },
     {
       "name": "VANECK ETF TRUST",
@@ -40,11 +40,11 @@
   "top_themes": [
     {
       "name": "Leveraged / Inverse",
-      "count": 139
+      "count": 142
     },
     {
       "name": "Other",
-      "count": 32
+      "count": 33
     },
     {
       "name": "Options Income / Covered Call",
@@ -52,18 +52,18 @@
     },
     {
       "name": "Thematic Equity",
-      "count": 10
+      "count": 11
     },
     {
       "name": "Factor / Quant / Active",
       "count": 6
     },
     {
-      "name": "Fixed Income / Credit",
-      "count": 4
+      "name": "International / Emerging Markets",
+      "count": 5
     },
     {
-      "name": "International / Emerging Markets",
+      "name": "Fixed Income / Credit",
       "count": 4
     },
     {
