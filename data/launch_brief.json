@@ -1,7 +1,7 @@
 {
   "as_of": "2026-08-17",
-  "total": 211,
-  "upcoming": 211,
+  "total": 215,
+  "upcoming": 215,
   "initial_review": 0,
   "top_filers": [
     {
@@ -33,7 +33,7 @@
       "count": 6
     },
     {
-      "name": "ETF SERIES SOLUTIONS",
+      "name": "AMPLIFY ETF TRUST",
       "count": 5
     }
   ],
@@ -44,7 +44,7 @@
     },
     {
       "name": "Other",
-      "count": 30
+      "count": 31
     },
     {
       "name": "Options Income / Covered Call",
@@ -52,7 +52,7 @@
     },
     {
       "name": "Thematic Equity",
-      "count": 11
+      "count": 13
     },
     {
       "name": "Factor / Quant / Active",
@@ -60,7 +60,7 @@
     },
     {
       "name": "International / Emerging Markets",
-      "count": 5
+      "count": 6
     },
     {
       "name": "Fixed Income / Credit",
