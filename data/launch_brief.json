@@ -1,12 +1,12 @@
 {
-  "as_of": "2026-08-17",
-  "total": 215,
-  "upcoming": 215,
+  "as_of": "2026-08-18",
+  "total": 207,
+  "upcoming": 207,
   "initial_review": 0,
   "top_filers": [
     {
       "name": "PROSHARES TRUST",
-      "count": 65
+      "count": 61
     },
     {
       "name": "DIREXION SHARES ETF TRUST",
@@ -33,18 +33,18 @@
       "count": 6
     },
     {
-      "name": "AMPLIFY ETF TRUST",
+      "name": "ETF SERIES SOLUTIONS",
       "count": 5
     }
   ],
   "top_themes": [
     {
       "name": "Leveraged / Inverse",
-      "count": 134
+      "count": 130
     },
     {
       "name": "Other",
-      "count": 31
+      "count": 30
     },
     {
       "name": "Options Income / Covered Call",
@@ -52,7 +52,7 @@
     },
     {
       "name": "Thematic Equity",
-      "count": 13
+      "count": 11
     },
     {
       "name": "Factor / Quant / Active",
@@ -60,7 +60,7 @@
     },
     {
       "name": "International / Emerging Markets",
-      "count": 6
+      "count": 5
     },
     {
       "name": "Fixed Income / Credit",
