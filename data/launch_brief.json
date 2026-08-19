@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-08-18",
+  "as_of": "2026-08-19",
   "total": 207,
   "upcoming": 207,
   "initial_review": 0,
@@ -18,7 +18,7 @@
     },
     {
       "name": "TIDAL",
-      "count": 24
+      "count": 23
     },
     {
       "name": "INVESTMENT MANAGERS SERIES TRUST II",
@@ -44,7 +44,7 @@
     },
     {
       "name": "Other",
-      "count": 30
+      "count": 31
     },
     {
       "name": "Options Income / Covered Call",
@@ -52,7 +52,7 @@
     },
     {
       "name": "Thematic Equity",
-      "count": 11
+      "count": 10
     },
     {
       "name": "Factor / Quant / Active",
