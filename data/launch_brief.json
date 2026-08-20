@@ -1,7 +1,7 @@
 {
-  "as_of": "2026-08-19",
-  "total": 207,
-  "upcoming": 207,
+  "as_of": "2026-08-20",
+  "total": 208,
+  "upcoming": 208,
   "initial_review": 0,
   "top_filers": [
     {
@@ -14,7 +14,7 @@
     },
     {
       "name": "ETF OPPORTUNITIES TRUST",
-      "count": 24
+      "count": 25
     },
     {
       "name": "TIDAL",
@@ -59,12 +59,12 @@
       "count": 7
     },
     {
-      "name": "International / Emerging Markets",
+      "name": "Fixed Income / Credit",
       "count": 5
     },
     {
-      "name": "Fixed Income / Credit",
-      "count": 4
+      "name": "International / Emerging Markets",
+      "count": 5
     },
     {
       "name": "Crypto / Digital Assets",
