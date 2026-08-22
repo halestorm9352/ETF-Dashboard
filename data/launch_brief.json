@@ -1,12 +1,12 @@
 {
-  "as_of": "2026-08-21",
-  "total": 209,
-  "upcoming": 209,
+  "as_of": "2026-08-22",
+  "total": 214,
+  "upcoming": 214,
   "initial_review": 0,
   "top_filers": [
     {
       "name": "PROSHARES TRUST",
-      "count": 61
+      "count": 63
     },
     {
       "name": "DIREXION SHARES ETF TRUST",
@@ -44,7 +44,7 @@
     },
     {
       "name": "Other",
-      "count": 31
+      "count": 32
     },
     {
       "name": "Options Income / Covered Call",
@@ -56,7 +56,7 @@
     },
     {
       "name": "Factor / Quant / Active",
-      "count": 7
+      "count": 8
     },
     {
       "name": "International / Emerging Markets",
@@ -67,8 +67,8 @@
       "count": 5
     },
     {
-      "name": "Crypto / Digital Assets",
-      "count": 3
+      "name": "Commodities / Gold / Energy",
+      "count": 4
     }
   ]
 }
