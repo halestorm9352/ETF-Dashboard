@@ -1,16 +1,16 @@
 {
-  "as_of": "2026-08-24",
-  "total": 204,
-  "upcoming": 204,
+  "as_of": "2026-08-25",
+  "total": 200,
+  "upcoming": 200,
   "initial_review": 0,
   "top_filers": [
     {
       "name": "PROSHARES TRUST",
-      "count": 59
+      "count": 52
     },
     {
       "name": "DIREXION SHARES ETF TRUST",
-      "count": 32
+      "count": 35
     },
     {
       "name": "ETF OPPORTUNITIES TRUST",
@@ -40,11 +40,11 @@
   "top_themes": [
     {
       "name": "Leveraged / Inverse",
-      "count": 126
+      "count": 119
     },
     {
       "name": "Other",
-      "count": 29
+      "count": 32
     },
     {
       "name": "Options Income / Covered Call",
