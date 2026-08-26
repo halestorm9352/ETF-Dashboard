@@ -1,12 +1,12 @@
 {
-  "as_of": "2026-08-25",
-  "total": 200,
-  "upcoming": 200,
+  "as_of": "2026-08-26",
+  "total": 199,
+  "upcoming": 199,
   "initial_review": 0,
   "top_filers": [
     {
       "name": "PROSHARES TRUST",
-      "count": 52
+      "count": 51
     },
     {
       "name": "DIREXION SHARES ETF TRUST",
@@ -40,7 +40,7 @@
   "top_themes": [
     {
       "name": "Leveraged / Inverse",
-      "count": 119
+      "count": 118
     },
     {
       "name": "Other",
