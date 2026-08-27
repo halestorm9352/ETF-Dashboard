@@ -1,7 +1,7 @@
 {
-  "as_of": "2026-08-26",
-  "total": 199,
-  "upcoming": 199,
+  "as_of": "2026-08-27",
+  "total": 204,
+  "upcoming": 204,
   "initial_review": 0,
   "top_filers": [
     {
@@ -22,19 +22,19 @@
     },
     {
       "name": "TIDAL",
-      "count": 19
+      "count": 21
     },
     {
       "name": "GLOBAL X FUNDS",
       "count": 7
     },
     {
-      "name": "VANECK ETF TRUST",
+      "name": "ETF SERIES SOLUTIONS",
       "count": 6
     },
     {
-      "name": "ETF SERIES SOLUTIONS",
-      "count": 5
+      "name": "VANECK ETF TRUST",
+      "count": 6
     }
   ],
   "top_themes": [
@@ -44,11 +44,11 @@
     },
     {
       "name": "Other",
-      "count": 32
+      "count": 34
     },
     {
       "name": "Options Income / Covered Call",
-      "count": 13
+      "count": 16
     },
     {
       "name": "Thematic Equity",
