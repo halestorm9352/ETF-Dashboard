@@ -1,74 +1,74 @@
 {
-  "as_of": "2026-10-12",
-  "total": 165,
-  "upcoming": 165,
+  "as_of": "2026-11-09",
+  "total": 193,
+  "upcoming": 193,
   "initial_review": 0,
   "top_filers": [
     {
-      "name": "PROSHARES TRUST",
-      "count": 28
+      "name": "ETF OPPORTUNITIES TRUST",
+      "count": 61
     },
     {
       "name": "INVESTMENT MANAGERS SERIES TRUST II",
-      "count": 21
+      "count": 22
     },
     {
       "name": "DIREXION SHARES ETF TRUST",
       "count": 17
     },
     {
-      "name": "TIDAL",
+      "name": "ETF SERIES SOLUTIONS",
       "count": 15
     },
     {
-      "name": "ETF SERIES SOLUTIONS",
-      "count": 10
+      "name": "ARK ETF TRUST",
+      "count": 14
+    },
+    {
+      "name": "TIDAL",
+      "count": 14
     },
     {
       "name": "EA SERIES TRUST",
-      "count": 8
+      "count": 9
     },
     {
-      "name": "SELECT SECTOR SPDR TRUST",
-      "count": 8
-    },
-    {
-      "name": "ETF OPPORTUNITIES TRUST",
-      "count": 7
+      "name": "FRANKLIN TEMPLETON ETF TRUST",
+      "count": 5
     }
   ],
   "top_themes": [
     {
       "name": "Leveraged / Inverse",
-      "count": 59
+      "count": 78
     },
     {
       "name": "Other",
-      "count": 55
-    },
-    {
-      "name": "Fixed Income / Credit",
-      "count": 11
+      "count": 54
     },
     {
       "name": "Thematic Equity",
+      "count": 20
+    },
+    {
+      "name": "Fixed Income / Credit",
+      "count": 9
+    },
+    {
+      "name": "Dividend / Income",
       "count": 7
     },
     {
-      "name": "Commodities / Gold / Energy",
-      "count": 6
-    },
-    {
-      "name": "Factor / Quant / Active",
-      "count": 6
+      "name": "International / Emerging Markets",
+      "count": 7
     },
     {
       "name": "Options Income / Covered Call",
       "count": 6
     },
     {
-      "name": "Dividend / Income",
-      "count": 5
+      "name": "Commodities / Gold / Energy",
+      "count": 4
     }
   ]
 }
